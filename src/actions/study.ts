@@ -20,7 +20,7 @@ import {
   type CardState,
 } from "@/lib/srs";
 
-export async function useDeck(deckDefinitionId: string): Promise<Result<{ id: string }>> {
+export async function addDeckToLibrary(deckDefinitionId: string): Promise<Result<{ id: string }>> {
   const session = await requireSession();
 
   const canUse = await canUseDeck(deckDefinitionId, session.user.id);

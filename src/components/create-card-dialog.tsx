@@ -80,11 +80,9 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Card
-        </Button>
+      <DialogTrigger render={<Button />}>
+        <Plus className="mr-2 h-4 w-4" />
+        Add Card
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <form onSubmit={handleSubmit}>

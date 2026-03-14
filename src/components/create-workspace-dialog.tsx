@@ -53,11 +53,9 @@ export function CreateWorkspaceDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          New Workspace
-        </Button>
+      <DialogTrigger render={<Button />}>
+        <Plus className="mr-2 h-4 w-4" />
+        New Workspace
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={handleSubmit}>

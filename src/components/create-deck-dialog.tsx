@@ -52,11 +52,9 @@ export function CreateDeckDialog({ workspaceId }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          New Deck
-        </Button>
+      <DialogTrigger render={<Button />}>
+        <Plus className="mr-2 h-4 w-4" />
+        New Deck
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={handleSubmit}>

@@ -8,6 +8,7 @@ import { CreateCardDialog } from "@/components/create-card-dialog";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
+import { ShareDeckButton } from "@/components/share-deck-button";
 
 interface Props {
   params: Promise<{ deckId: string }>;
@@ -41,6 +42,9 @@ export default async function DeckPage({ params }: Props) {
           </div>
         </div>
         <div className="flex gap-2">
+          {(deck.viewPolicy === "public" || deck.viewPolicy === "link") && (
+            <ShareDeckButton deckId={deckId} />
+          )}
           <DeckSettingsDialog
             deckId={deckId}
             title={deck.title}

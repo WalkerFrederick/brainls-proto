@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { UpdateProfileForm } from "@/components/update-profile-form";
 import { DangerZone } from "@/components/danger-zone";
 import { LayoutToggle } from "@/components/layout-toggle";
+import { ThemeSelector } from "@/components/theme-selector";
 
 export default async function SettingsPage() {
   const session = await getSession();
@@ -51,6 +52,7 @@ export default async function SettingsPage() {
           <h2 className="text-lg font-semibold">Appearance</h2>
           <p className="text-sm text-muted-foreground">Customize how the app looks.</p>
         </div>
+        <ThemeSelector />
         <LayoutToggle />
       </div>
 

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { useUploadThing } from "@/lib/uploadthing-client";
 import { removeAvatar } from "@/actions/avatar";
+import { UserAvatar } from "@/components/user-avatar";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -106,13 +107,7 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
         <Label>Avatar</Label>
         <div className="flex items-center gap-4">
           <div className="relative">
-            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border bg-muted text-xl font-semibold text-muted-foreground">
-              {image ? (
-                <img src={image} alt="Avatar" className="h-full w-full object-cover" />
-              ) : (
-                initialName.charAt(0).toUpperCase() || "?"
-              )}
-            </div>
+            <UserAvatar src={image} fallback={initialName} size="md" />
             {uploading && (
               <div className="absolute inset-0 flex items-center justify-center rounded-full bg-background/80">
                 <Loader2 className="h-5 w-5 animate-spin" />

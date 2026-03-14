@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   description: "A modern flashcard learning platform",
 };
 
-const VALID_THEMES = new Set<string>(["light", "dark", "parchment"]);
+const VALID_THEMES = new Set<string>(["light", "dark", "parchment", "midnight"]);
 const VALID_ACCENTS = new Set<string>(["zinc", "blue", "violet", "green", "orange", "rose"]);
 
 export default async function RootLayout({

@@ -2,10 +2,10 @@
 
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 
-export type Theme = "light" | "dark" | "parchment";
+export type Theme = "light" | "dark" | "parchment" | "midnight";
 export type AccentColor = "zinc" | "blue" | "violet" | "green" | "orange" | "rose";
 
-export const THEMES: Theme[] = ["light", "dark", "parchment"];
+export const THEMES: Theme[] = ["light", "dark", "parchment", "midnight"];
 export const ACCENT_COLORS: AccentColor[] = ["zinc", "blue", "violet", "green", "orange", "rose"];
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;

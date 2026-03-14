@@ -1,12 +1,13 @@
 "use client";
 
-import { Brain, Home, Library, GraduationCap, Settings, LogOut, LogIn } from "lucide-react";
+import { Brain, Home, Library, GraduationCap, Settings, LogIn } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { useSession, signOut } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
+import { UserAvatar } from "@/components/user-avatar";
 
 const navItems = [
   { href: "/", label: "Home", icon: Home },
@@ -17,14 +18,7 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { data: session, isPending } = useSession();
-
-  async function handleSignOut() {
-    await signOut();
-    router.push("/sign-in");
-    router.refresh();
-  }
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r bg-sidebar text-sidebar-foreground">
@@ -58,28 +52,15 @@ export function AppSidebar() {
         {isPending ? (
           <div className="h-9 animate-pulse rounded-md bg-muted" />
         ) : session ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5 px-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted text-xs font-semibold text-muted-foreground">
-                {session.user.image ? (
-                  <img src={session.user.image} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  (session.user.name?.charAt(0) ?? session.user.email.charAt(0)).toUpperCase()
-                )}
-              </div>
-              <p className="min-w-0 truncate text-sm font-medium">
-                {session.user.name ?? session.user.email}
-              </p>
-            </div>
-            <Button
-              variant="ghost"
+          <div className="flex items-center gap-2.5 px-2">
+            <UserAvatar
+              src={session.user.image}
+              fallback={session.user.name ?? session.user.email}
               size="sm"
-              className="w-full justify-start gap-2"
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </Button>
+            />
+            <p className="min-w-0 truncate text-sm font-medium">
+              {session.user.name ?? session.user.email}
+            </p>
           </div>
         ) : (
           <Link href="/sign-in">

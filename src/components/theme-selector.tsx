@@ -5,25 +5,11 @@ import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
-const THEME_META: Record<Theme, { label: string; bg: string; fg: string; sidebar: string }> = {
-  light: {
-    label: "Light",
-    bg: "#ffffff",
-    fg: "#1a1a1a",
-    sidebar: "#f5f5f5",
-  },
-  dark: {
-    label: "Dark",
-    bg: "#1a1a1a",
-    fg: "#f5f5f5",
-    sidebar: "#2a2a2a",
-  },
-  parchment: {
-    label: "Parchment",
-    bg: "#ede4d3",
-    fg: "#3d3225",
-    sidebar: "#d9cdb8",
-  },
+const THEME_META: Record<Theme, { label: string; swatch: string; ring: string }> = {
+  light: { label: "Light", swatch: "#ffffff", ring: "#e4e4e7" },
+  dark: { label: "Dark", swatch: "#1a1a1a", ring: "#3f3f46" },
+  parchment: { label: "Parchment", swatch: "#ede4d3", ring: "#c4b99a" },
+  midnight: { label: "Midnight", swatch: "#2a1f4e", ring: "#4a3f6e" },
 };
 
 const ACCENT_META: Record<AccentColor, { label: string; swatch: string }> = {
@@ -35,14 +21,77 @@ const ACCENT_META: Record<AccentColor, { label: string; swatch: string }> = {
   rose: { label: "Rose", swatch: "#f43f5e" },
 };
 
+const PREVIEW_COLORS: Record<Theme, { bg: string; sidebar: string; fg: string; muted: string }> = {
+  light: { bg: "#ffffff", sidebar: "#f5f5f5", fg: "#1a1a1a", muted: "#a1a1aa" },
+  dark: { bg: "#1a1a1a", sidebar: "#2a2a2a", fg: "#f5f5f5", muted: "#71717a" },
+  parchment: { bg: "#ede4d3", sidebar: "#d9cdb8", fg: "#3d3225", muted: "#8a7d6b" },
+  midnight: { bg: "#2a1f4e", sidebar: "#221a45", fg: "#e0daf0", muted: "#7a6fa0" },
+};
+
 export function ThemeSelector() {
   const { theme, setTheme, themes, accent, setAccent, accents } = useTheme();
+  const preview = PREVIEW_COLORS[theme];
+  const accentColor = ACCENT_META[accent].swatch;
 
   return (
     <div className="space-y-6">
+      {/* Live preview */}
+      <div className="overflow-hidden rounded-lg border" style={{ backgroundColor: preview.bg }}>
+        <div className="flex h-32">
+          <div
+            className="w-1/4 border-r p-3 flex flex-col gap-2"
+            style={{
+              backgroundColor: preview.sidebar,
+              borderColor: preview.muted + "30",
+            }}
+          >
+            <div className="h-2 w-10 rounded-full" style={{ backgroundColor: accentColor }} />
+            <div
+              className="h-1.5 w-12 rounded-full"
+              style={{ backgroundColor: preview.fg, opacity: 0.3 }}
+            />
+            <div
+              className="h-1.5 w-8 rounded-full"
+              style={{ backgroundColor: preview.fg, opacity: 0.2 }}
+            />
+            <div
+              className="h-1.5 w-10 rounded-full"
+              style={{ backgroundColor: preview.fg, opacity: 0.2 }}
+            />
+          </div>
+          <div className="flex-1 p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <div
+                className="h-2.5 w-24 rounded-full"
+                style={{ backgroundColor: preview.fg, opacity: 0.7 }}
+              />
+            </div>
+            <div
+              className="h-1.5 w-3/4 rounded-full"
+              style={{ backgroundColor: preview.fg, opacity: 0.3 }}
+            />
+            <div
+              className="h-1.5 w-1/2 rounded-full"
+              style={{ backgroundColor: preview.fg, opacity: 0.2 }}
+            />
+            <div className="mt-auto flex gap-2">
+              <div className="h-5 w-14 rounded" style={{ backgroundColor: accentColor }} />
+              <div
+                className="h-5 w-14 rounded border"
+                style={{
+                  borderColor: preview.muted + "50",
+                  backgroundColor: preview.bg,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Theme circles */}
       <div className="space-y-3">
         <Label className="text-sm font-medium">Theme</Label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="flex gap-3">
           {themes.map((t) => {
             const meta = THEME_META[t];
             const active = theme === t;
@@ -50,45 +99,41 @@ export function ThemeSelector() {
               <button
                 key={t}
                 onClick={() => setTheme(t)}
-                className={cn(
-                  "relative flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition-all hover:scale-[1.02]",
-                  active
-                    ? "border-primary ring-2 ring-primary/20"
-                    : "border-border hover:border-primary/50",
-                )}
+                title={meta.label}
+                className="group relative flex flex-col items-center gap-1.5"
               >
                 <div
-                  className="flex h-16 w-full overflow-hidden rounded-md border"
-                  style={{ backgroundColor: meta.bg }}
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all",
+                    active
+                      ? "border-foreground scale-110"
+                      : "border-transparent hover:scale-105 hover:border-border",
+                  )}
                 >
-                  <div className="w-1/4 border-r" style={{ backgroundColor: meta.sidebar }} />
-                  <div className="flex flex-1 flex-col gap-1.5 p-2">
-                    <div
-                      className="h-1.5 w-3/4 rounded-full"
-                      style={{ backgroundColor: meta.fg, opacity: 0.7 }}
+                  <div
+                    className="h-7 w-7 rounded-full border"
+                    style={{
+                      backgroundColor: meta.swatch,
+                      borderColor: meta.ring,
+                    }}
+                  />
+                  {active && (
+                    <Check
+                      className="absolute h-4 w-4"
+                      style={{
+                        color: t === "dark" || t === "midnight" ? "#fff" : "#000",
+                      }}
                     />
-                    <div
-                      className="h-1.5 w-1/2 rounded-full"
-                      style={{ backgroundColor: meta.fg, opacity: 0.4 }}
-                    />
-                    <div
-                      className="h-1.5 w-2/3 rounded-full"
-                      style={{ backgroundColor: meta.fg, opacity: 0.25 }}
-                    />
-                  </div>
+                  )}
                 </div>
-                <span className="text-xs font-medium">{meta.label}</span>
-                {active && (
-                  <div className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    <Check className="h-3 w-3" />
-                  </div>
-                )}
+                <span className="text-[10px] font-medium text-muted-foreground">{meta.label}</span>
               </button>
             );
           })}
         </div>
       </div>
 
+      {/* Accent color circles */}
       <div className="space-y-3">
         <Label className="text-sm font-medium">Accent Color</Label>
         <div className="flex gap-3">
@@ -100,7 +145,7 @@ export function ThemeSelector() {
                 key={a}
                 onClick={() => setAccent(a)}
                 title={meta.label}
-                className={cn("group relative flex flex-col items-center gap-1.5")}
+                className="group relative flex flex-col items-center gap-1.5"
               >
                 <div
                   className={cn(
@@ -111,12 +156,7 @@ export function ThemeSelector() {
                   )}
                 >
                   <div className="h-7 w-7 rounded-full" style={{ backgroundColor: meta.swatch }} />
-                  {active && (
-                    <Check
-                      className="absolute h-4 w-4"
-                      style={{ color: a === "zinc" ? "#fff" : "#fff" }}
-                    />
-                  )}
+                  {active && <Check className="absolute h-4 w-4 text-white" />}
                 </div>
                 <span className="text-[10px] font-medium text-muted-foreground">{meta.label}</span>
               </button>

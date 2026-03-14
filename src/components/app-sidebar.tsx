@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Home, Library, Settings, LogOut, LogIn } from "lucide-react";
+import { Brain, Home, Library, GraduationCap, Settings, LogOut, LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import { useSession, signOut } from "@/lib/auth-client";
 const navItems = [
   { href: "/", label: "Home", icon: Home },
   { href: "/library", label: "Library", icon: Library },
+  { href: "/study", label: "Study", icon: GraduationCap },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

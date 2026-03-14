@@ -1,10 +1,12 @@
 "use client";
 
-import { Brain, Home, Library, Settings } from "lucide-react";
+import { Brain, Home, Library, Settings, LogOut, LogIn } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { useSession, signOut } from "@/lib/auth-client";
 
 const navItems = [
   { href: "/", label: "Home", icon: Home },
@@ -14,6 +16,14 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: session, isPending } = useSession();
+
+  async function handleSignOut() {
+    await signOut();
+    router.push("/sign-in");
+    router.refresh();
+  }
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r bg-sidebar text-sidebar-foreground">
@@ -42,6 +52,32 @@ export function AppSidebar() {
           );
         })}
       </nav>
+      <Separator />
+      <div className="p-3">
+        {isPending ? (
+          <div className="h-9 animate-pulse rounded-md bg-muted" />
+        ) : session ? (
+          <div className="space-y-2">
+            <p className="truncate px-2 text-sm font-medium">{session.user.name ?? session.user.email}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
+        ) : (
+          <Link href="/sign-in">
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+              <LogIn className="h-4 w-4" />
+              Sign In
+            </Button>
+          </Link>
+        )}
+      </div>
     </aside>
   );
 }

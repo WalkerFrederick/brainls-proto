@@ -1,0 +1,53 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# next.js
+.next/
+out/
+
+# build
+dist/
+build/
+
+# env files (keep .env.template committed)
+.env
+.env.*
+!.env.template
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# testing
+coverage/
+
+# editors / OS
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# drizzle
+drizzle/meta/_journal.json.bak
+
+# uploadthing
+.uploadthing/
+
+# documentation (kept local)
+Documentation/

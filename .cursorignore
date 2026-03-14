@@ -1,0 +1,4 @@
+# Secrets - prevent Cursor from indexing sensitive files
+.env
+.env.*
+!.env.template

@@ -1,1 +1,4 @@
-// Schema barrel file - each layer will be added as tasks progress
+export * from "./users";
+export * from "./workspaces";
+export * from "./content";
+export * from "./study";

@@ -117,7 +117,7 @@ export async function getStudySession(
   if (!deck) return err("Deck definition not found");
 
   const limit = opts?.limit ?? 20;
-  const now = new Date();
+  const nowIso = new Date().toISOString();
 
   const dueCards = await db
     .select({
@@ -132,7 +132,7 @@ export async function getStudySession(
     .where(
       and(
         eq(userCardStates.userDeckId, userDeckId),
-        sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${now})`,
+        sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
         isNull(cardDefinitions.archivedAt),
       ),
     )
@@ -145,7 +145,7 @@ export async function getStudySession(
     .where(
       and(
         eq(userCardStates.userDeckId, userDeckId),
-        sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${now})`,
+        sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
       ),
     );
 
@@ -257,7 +257,7 @@ export async function listUserDecks(): Promise<
   >
 > {
   const session = await requireSession();
-  const now = new Date();
+  const nowIso = new Date().toISOString();
 
   const decks = await db
     .select({
@@ -283,7 +283,7 @@ export async function listUserDecks(): Promise<
         .where(
           and(
             eq(userCardStates.userDeckId, deck.id),
-            sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${now})`,
+            sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
           ),
         );
 

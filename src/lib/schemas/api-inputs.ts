@@ -1,16 +1,30 @@
 import { z } from "zod";
 import { cardTypeEnum } from "./card-content";
 
+const nameField = z
+  .string()
+  .trim()
+  .min(2, "Name must be at least 2 characters")
+  .max(255)
+  .regex(/[a-zA-Z0-9]/, "Name must contain at least one letter or number");
+
+const titleField = z
+  .string()
+  .trim()
+  .min(2, "Title must be at least 2 characters")
+  .max(500)
+  .regex(/[a-zA-Z0-9]/, "Title must contain at least one letter or number");
+
 export const CreateWorkspaceSchema = z.object({
-  name: z.string().min(1, "Name is required").max(255),
-  description: z.string().max(2048).optional(),
+  name: nameField,
+  description: z.string().trim().max(2048).optional(),
   kind: z.enum(["personal", "shared"]).default("shared"),
 });
 
 export const UpdateWorkspaceSchema = z.object({
   workspaceId: z.string().uuid(),
-  name: z.string().min(1).max(255).optional(),
-  description: z.string().max(2048).optional(),
+  name: nameField.optional(),
+  description: z.string().trim().max(2048).optional(),
 });
 
 export const InviteWorkspaceMemberSchema = z.object({
@@ -26,14 +40,27 @@ export const UpdateMemberRoleSchema = z.object({
 
 export const CreateDeckSchema = z.object({
   workspaceId: z.string().uuid(),
-  title: z.string().min(1, "Title is required").max(500),
-  description: z.string().max(5000).optional(),
+  title: titleField,
+  description: z.string().trim().max(5000).optional(),
 });
+
+const viewPolicyEnum = z.enum(["private", "workspace", "link", "public"]);
+const usePolicyEnum = z.enum(["none", "invite_only", "passcode", "open"]);
+const forkPolicyEnum = z.enum([
+  "none",
+  "owner_only",
+  "workspace_editors",
+  "workspace_members",
+  "any_user",
+]);
 
 export const UpdateDeckSchema = z.object({
   deckId: z.string().uuid(),
-  title: z.string().min(1).max(500).optional(),
-  description: z.string().max(5000).optional(),
+  title: titleField.optional(),
+  description: z.string().trim().max(5000).optional(),
+  viewPolicy: viewPolicyEnum.optional(),
+  usePolicy: usePolicyEnum.optional(),
+  forkPolicy: forkPolicyEnum.optional(),
 });
 
 export const CreateCardSchema = z.object({

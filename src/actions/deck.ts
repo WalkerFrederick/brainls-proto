@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { CreateDeckSchema, UpdateDeckSchema } from "@/lib/schemas";
 import { requireWorkspaceRole, canViewDeck, canEditDeck } from "@/lib/permissions";
+import { isValidUuid } from "@/lib/validate-uuid";
 
 export async function createDeck(input: unknown): Promise<Result<{ id: string }>> {
   const session = await requireSession();
@@ -59,6 +60,9 @@ export async function updateDeck(input: unknown): Promise<Result<{ id: string }>
   };
   if (updates.title !== undefined) updateData.title = updates.title;
   if (updates.description !== undefined) updateData.description = updates.description;
+  if (updates.viewPolicy !== undefined) updateData.viewPolicy = updates.viewPolicy;
+  if (updates.usePolicy !== undefined) updateData.usePolicy = updates.usePolicy;
+  if (updates.forkPolicy !== undefined) updateData.forkPolicy = updates.forkPolicy;
 
   await db.update(deckDefinitions).set(updateData).where(eq(deckDefinitions.id, deckId));
 
@@ -68,14 +72,12 @@ export async function updateDeck(input: unknown): Promise<Result<{ id: string }>
 export async function getDeck(
   deckId: string,
 ): Promise<Result<typeof deckDefinitions.$inferSelect>> {
+  if (!isValidUuid(deckId)) return err("Invalid deck ID");
   const session = await requireSession();
   const canView = await canViewDeck(deckId, session.user.id);
   if (!canView) return err("Permission denied");
 
-  const [deck] = await db
-    .select()
-    .from(deckDefinitions)
-    .where(eq(deckDefinitions.id, deckId));
+  const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
 
   if (!deck) return err("Deck not found");
   return ok(deck);
@@ -85,6 +87,7 @@ export async function listDecks(
   workspaceId: string,
   opts?: { limit?: number; offset?: number },
 ): Promise<Result<Array<typeof deckDefinitions.$inferSelect>>> {
+  if (!isValidUuid(workspaceId)) return err("Invalid workspace ID");
   const session = await requireSession();
   const perm = await requireWorkspaceRole(workspaceId, session.user.id, "viewer");
   if (!perm.allowed) return err(perm.error);
@@ -103,6 +106,7 @@ export async function listDecks(
 }
 
 export async function archiveDeck(deckId: string): Promise<Result<{ id: string }>> {
+  if (!isValidUuid(deckId)) return err("Invalid deck ID");
   const session = await requireSession();
   const canEdit = await canEditDeck(deckId, session.user.id);
   if (!canEdit) return err("Permission denied");

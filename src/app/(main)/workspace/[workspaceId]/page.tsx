@@ -1,15 +1,11 @@
-import { getWorkspace } from "@/actions/workspace";
+import { getWorkspace, getWorkspaceRole } from "@/actions/workspace";
 import { listDecks } from "@/actions/deck";
 import { Layers } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
+import { WorkspaceSettingsDialog } from "@/components/workspace-settings-dialog";
 
 interface Props {
   params: Promise<{ workspaceId: string }>;
@@ -23,8 +19,12 @@ export default async function WorkspacePage({ params }: Props) {
     return <div className="text-destructive">Error: {wsResult.error}</div>;
   }
 
-  const decksResult = await listDecks(workspaceId);
+  const [decksResult, roleResult] = await Promise.all([
+    listDecks(workspaceId),
+    getWorkspaceRole(workspaceId),
+  ]);
   const decks = decksResult.success ? decksResult.data : [];
+  const currentRole = roleResult.success ? roleResult.data.role : "viewer";
 
   return (
     <div className="space-y-6">
@@ -35,7 +35,16 @@ export default async function WorkspacePage({ params }: Props) {
             <p className="text-sm text-muted-foreground">{wsResult.data.description}</p>
           )}
         </div>
-        <CreateDeckDialog workspaceId={workspaceId} />
+        <div className="flex items-center gap-2">
+          <WorkspaceSettingsDialog
+            workspaceId={workspaceId}
+            workspaceName={wsResult.data.name}
+            workspaceDescription={wsResult.data.description}
+            workspaceKind={wsResult.data.kind}
+            currentUserRole={currentRole}
+          />
+          <CreateDeckDialog workspaceId={workspaceId} />
+        </div>
       </div>
 
       {decks.length === 0 ? (
@@ -43,9 +52,7 @@ export default async function WorkspacePage({ params }: Props) {
           <Layers className="h-12 w-12 text-muted-foreground" />
           <div className="text-center">
             <h3 className="text-lg font-semibold">No decks yet</h3>
-            <p className="text-sm text-muted-foreground">
-              Create a deck to start adding cards.
-            </p>
+            <p className="text-sm text-muted-foreground">Create a deck to start adding cards.</p>
           </div>
         </div>
       ) : (
@@ -59,9 +66,7 @@ export default async function WorkspacePage({ params }: Props) {
                     <Badge variant="outline">{deck.viewPolicy}</Badge>
                   </div>
                   {deck.description && (
-                    <CardDescription className="line-clamp-2">
-                      {deck.description}
-                    </CardDescription>
+                    <CardDescription className="line-clamp-2">{deck.description}</CardDescription>
                   )}
                 </CardHeader>
               </Card>

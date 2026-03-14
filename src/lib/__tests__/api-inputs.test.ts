@@ -18,6 +18,29 @@ describe("CreateWorkspaceSchema", () => {
     const result = CreateWorkspaceSchema.safeParse({ name: "" });
     expect(result.success).toBe(false);
   });
+
+  it("rejects whitespace-only name", () => {
+    const result = CreateWorkspaceSchema.safeParse({ name: "   " });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects single-character name", () => {
+    const result = CreateWorkspaceSchema.safeParse({ name: "A" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects name with no alphanumeric characters", () => {
+    const result = CreateWorkspaceSchema.safeParse({ name: "---" });
+    expect(result.success).toBe(false);
+  });
+
+  it("trims whitespace from valid name", () => {
+    const result = CreateWorkspaceSchema.safeParse({ name: "  My Workspace  " });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.name).toBe("My Workspace");
+    }
+  });
 });
 
 describe("CreateDeckSchema", () => {
@@ -33,6 +56,22 @@ describe("CreateDeckSchema", () => {
     const result = CreateDeckSchema.safeParse({
       workspaceId: "not-a-uuid",
       title: "Biology 101",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects whitespace-only title", () => {
+    const result = CreateDeckSchema.safeParse({
+      workspaceId: "550e8400-e29b-41d4-a716-446655440000",
+      title: " ",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects title with no alphanumeric characters", () => {
+    const result = CreateDeckSchema.safeParse({
+      workspaceId: "550e8400-e29b-41d4-a716-446655440000",
+      title: "!!??",
     });
     expect(result.success).toBe(false);
   });

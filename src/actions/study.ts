@@ -13,14 +13,11 @@ import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { SubmitReviewSchema } from "@/lib/schemas";
 import { canUseDeck } from "@/lib/permissions";
-import {
-  processReview,
-  getDefaultCardState,
-  type Rating,
-  type CardState,
-} from "@/lib/srs";
+import { processReview, getDefaultCardState, type Rating, type CardState } from "@/lib/srs";
+import { isValidUuid } from "@/lib/validate-uuid";
 
 export async function addDeckToLibrary(deckDefinitionId: string): Promise<Result<{ id: string }>> {
+  if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
   const session = await requireSession();
 
   const canUse = await canUseDeck(deckDefinitionId, session.user.id);
@@ -30,10 +27,7 @@ export async function addDeckToLibrary(deckDefinitionId: string): Promise<Result
     .select()
     .from(userDecks)
     .where(
-      and(
-        eq(userDecks.userId, session.user.id),
-        eq(userDecks.deckDefinitionId, deckDefinitionId),
-      ),
+      and(eq(userDecks.userId, session.user.id), eq(userDecks.deckDefinitionId, deckDefinitionId)),
     );
 
   if (existing.length > 0) {
@@ -100,6 +94,7 @@ export async function getStudySession(
     totalDue: number;
   }>
 > {
+  if (!isValidUuid(userDeckId)) return err("Invalid user deck ID");
   const session = await requireSession();
 
   const [userDeck] = await db
@@ -301,6 +296,68 @@ export async function listUserDecks(): Promise<
   );
 
   return ok(result);
+}
+
+export async function getDeckStudyStats(deckDefinitionId: string): Promise<
+  Result<{
+    inLibrary: boolean;
+    newCount: number;
+    learningCount: number;
+    dueCount: number;
+    totalStudied: number;
+  } | null>
+> {
+  if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
+  const session = await requireSession();
+
+  const [userDeck] = await db
+    .select({ id: userDecks.id })
+    .from(userDecks)
+    .where(
+      and(
+        eq(userDecks.userId, session.user.id),
+        eq(userDecks.deckDefinitionId, deckDefinitionId),
+        isNull(userDecks.archivedAt),
+      ),
+    );
+
+  if (!userDeck) {
+    return ok(null);
+  }
+
+  const nowIso = new Date().toISOString();
+
+  const rows = await db
+    .select({
+      srsState: userCardStates.srsState,
+      isDue: sql<boolean>`(${userCardStates.dueAt} IS NOT NULL AND ${userCardStates.dueAt} <= ${nowIso})`,
+    })
+    .from(userCardStates)
+    .where(eq(userCardStates.userDeckId, userDeck.id));
+
+  let newCount = 0;
+  let learningCount = 0;
+  let dueCount = 0;
+  let totalStudied = 0;
+
+  for (const row of rows) {
+    switch (row.srsState) {
+      case "new":
+        newCount++;
+        break;
+      case "learning":
+      case "relearning":
+        learningCount++;
+        totalStudied++;
+        break;
+      case "review":
+        totalStudied++;
+        if (row.isDue) dueCount++;
+        break;
+    }
+  }
+
+  return ok({ inLibrary: true, newCount, learningCount, dueCount, totalStudied });
 }
 
 async function syncNewCards(userDeckId: string, deckDefinitionId: string) {

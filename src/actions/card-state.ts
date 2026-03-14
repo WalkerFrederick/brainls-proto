@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { userCardStates, userDecks } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
+import { isValidUuid } from "@/lib/validate-uuid";
 
 interface UpdateCardStateInput {
   cardDefinitionId: string;
@@ -19,6 +20,7 @@ interface UpdateCardStateInput {
 export async function updateCardState(
   input: UpdateCardStateInput,
 ): Promise<Result<{ count: number }>> {
+  if (!isValidUuid(input.cardDefinitionId)) return err("Invalid card ID");
   const session = await requireSession();
 
   const states = await db
@@ -52,10 +54,7 @@ export async function updateCardState(
   }
 
   for (const state of toUpdate) {
-    await db
-      .update(userCardStates)
-      .set(updateData)
-      .where(eq(userCardStates.id, state.id));
+    await db.update(userCardStates).set(updateData).where(eq(userCardStates.id, state.id));
   }
 
   return ok({ count: toUpdate.length });
@@ -64,6 +63,7 @@ export async function updateCardState(
 export async function getCardState(
   cardDefinitionId: string,
 ): Promise<Result<typeof userCardStates.$inferSelect | null>> {
+  if (!isValidUuid(cardDefinitionId)) return err("Invalid card ID");
   const session = await requireSession();
 
   const [state] = await db

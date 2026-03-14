@@ -6,11 +6,14 @@ import { deckDefinitions, cardDefinitions } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { canForkDeck, requireWorkspaceRole } from "@/lib/permissions";
+import { isValidUuid } from "@/lib/validate-uuid";
 
 export async function forkDeck(
   sourceDeckId: string,
   targetWorkspaceId: string,
 ): Promise<Result<{ id: string }>> {
+  if (!isValidUuid(sourceDeckId)) return err("Invalid source deck ID");
+  if (!isValidUuid(targetWorkspaceId)) return err("Invalid target workspace ID");
   const session = await requireSession();
 
   const canFork = await canForkDeck(sourceDeckId, session.user.id);

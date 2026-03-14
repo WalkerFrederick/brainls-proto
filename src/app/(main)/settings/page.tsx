@@ -25,7 +25,11 @@ export default async function SettingsPage() {
           <h2 className="text-lg font-semibold">Profile</h2>
           <p className="text-sm text-muted-foreground">Manage your account details.</p>
         </div>
-        <UpdateProfileForm name={session.user.name ?? ""} email={session.user.email} />
+        <UpdateProfileForm
+          name={session.user.name ?? ""}
+          email={session.user.email}
+          image={session.user.image ?? null}
+        />
       </div>
 
       <Separator />

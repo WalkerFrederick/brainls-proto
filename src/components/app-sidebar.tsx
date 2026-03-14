@@ -59,7 +59,18 @@ export function AppSidebar() {
           <div className="h-9 animate-pulse rounded-md bg-muted" />
         ) : session ? (
           <div className="space-y-2">
-            <p className="truncate px-2 text-sm font-medium">{session.user.name ?? session.user.email}</p>
+            <div className="flex items-center gap-2.5 px-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted text-xs font-semibold text-muted-foreground">
+                {session.user.image ? (
+                  <img src={session.user.image} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  (session.user.name?.charAt(0) ?? session.user.email.charAt(0)).toUpperCase()
+                )}
+              </div>
+              <p className="min-w-0 truncate text-sm font-medium">
+                {session.user.name ?? session.user.email}
+              </p>
+            </div>
             <Button
               variant="ghost"
               size="sm"

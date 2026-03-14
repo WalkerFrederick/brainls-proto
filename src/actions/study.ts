@@ -116,6 +116,8 @@ export async function getStudySession(
 
   if (!deck) return err("Deck definition not found");
 
+  await syncNewCards(userDeckId, userDeck.deckDefinitionId);
+
   const limit = opts?.limit ?? 20;
   const nowIso = new Date().toISOString();
 
@@ -299,4 +301,37 @@ export async function listUserDecks(): Promise<
   );
 
   return ok(result);
+}
+
+async function syncNewCards(userDeckId: string, deckDefinitionId: string) {
+  const existingCardIds = db
+    .select({ cardDefinitionId: userCardStates.cardDefinitionId })
+    .from(userCardStates)
+    .where(eq(userCardStates.userDeckId, userDeckId));
+
+  const newCards = await db
+    .select({ id: cardDefinitions.id })
+    .from(cardDefinitions)
+    .where(
+      and(
+        eq(cardDefinitions.deckDefinitionId, deckDefinitionId),
+        isNull(cardDefinitions.archivedAt),
+        eq(cardDefinitions.status, "active"),
+        sql`${cardDefinitions.id} NOT IN (${existingCardIds})`,
+      ),
+    );
+
+  if (newCards.length === 0) return;
+
+  const defaultState = getDefaultCardState();
+  await db.insert(userCardStates).values(
+    newCards.map((card) => ({
+      userDeckId,
+      cardDefinitionId: card.id,
+      srsState: defaultState.srsState,
+      easeFactor: String(defaultState.easeFactor),
+      reps: 0,
+      lapses: 0,
+    })),
+  );
 }

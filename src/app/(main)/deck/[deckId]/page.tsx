@@ -8,6 +8,7 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { CreateCardDialog } from "@/components/create-card-dialog";
+import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
 
 interface Props {
@@ -64,7 +65,14 @@ export default async function DeckPage({ params }: Props) {
                     <Badge variant="outline" className="w-fit">
                       {card.cardType}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">v{card.version}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">v{card.version}</span>
+                      <EditCardDialog
+                        cardId={card.id}
+                        cardType={card.cardType}
+                        contentJson={content}
+                      />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>

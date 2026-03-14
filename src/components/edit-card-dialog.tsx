@@ -40,9 +40,7 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
   const [front, setFront] = useState(String(contentJson.front ?? ""));
   const [back, setBack] = useState(String(contentJson.back ?? ""));
   const [question, setQuestion] = useState(String(contentJson.question ?? ""));
-  const [choices, setChoices] = useState<string[]>(
-    (contentJson.choices as string[]) ?? ["", ""],
-  );
+  const [choices, setChoices] = useState<string[]>((contentJson.choices as string[]) ?? ["", ""]);
   const [correctIndex, setCorrectIndex] = useState(
     ((contentJson.correctChoiceIndexes as number[]) ?? [0])[0],
   );
@@ -218,14 +216,16 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
                       )}
                     </div>
                   ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setChoices([...choices, ""])}
-                  >
-                    Add Choice
-                  </Button>
+                  {choices.length < 10 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setChoices([...choices, ""])}
+                    >
+                      Add Choice ({choices.length}/10)
+                    </Button>
+                  )}
                 </div>
               </>
             )}

@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,46 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
     [currentCard, currentIndex, cards.length, startTime],
   );
 
+  const canRate = showAnswer && !loading && !finished;
+  const isMultipleChoice = currentCard?.cardType === "multiple_choice";
+  const choiceCount = isMultipleChoice
+    ? Math.min(((content?.choices as string[]) ?? []).length, 10)
+    : 0;
+  const canPickChoice = isMultipleChoice && !showAnswer && !finished;
+
+  const handleSelectChoice = useCallback(
+    (index: number) => {
+      if (index < choiceCount) {
+        setSelectedChoice(index);
+        setShowAnswer(true);
+      }
+    },
+    [choiceCount],
+  );
+
+  useHotkey("Space", () => setShowAnswer(true), {
+    enabled: !showAnswer && !finished,
+  });
+
+  useHotkey("1", () => (canPickChoice ? handleSelectChoice(0) : handleRate("again")), {
+    enabled: canPickChoice || canRate,
+  });
+  useHotkey("2", () => (canPickChoice ? handleSelectChoice(1) : handleRate("hard")), {
+    enabled: (canPickChoice && choiceCount >= 2) || canRate,
+  });
+  useHotkey("3", () => (canPickChoice ? handleSelectChoice(2) : handleRate("good")), {
+    enabled: (canPickChoice && choiceCount >= 3) || canRate,
+  });
+  useHotkey("4", () => (canPickChoice ? handleSelectChoice(3) : handleRate("easy")), {
+    enabled: (canPickChoice && choiceCount >= 4) || canRate,
+  });
+  useHotkey("5", () => handleSelectChoice(4), { enabled: canPickChoice && choiceCount >= 5 });
+  useHotkey("6", () => handleSelectChoice(5), { enabled: canPickChoice && choiceCount >= 6 });
+  useHotkey("7", () => handleSelectChoice(6), { enabled: canPickChoice && choiceCount >= 7 });
+  useHotkey("8", () => handleSelectChoice(7), { enabled: canPickChoice && choiceCount >= 8 });
+  useHotkey("9", () => handleSelectChoice(8), { enabled: canPickChoice && choiceCount >= 9 });
+  useHotkey("0", () => handleSelectChoice(9), { enabled: canPickChoice && choiceCount >= 10 });
+
   if (finished) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4">
@@ -129,8 +170,13 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
             disabled={loading}
             className="min-w-[100px]"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="mr-1 h-4 w-4" />}
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="mr-1 h-4 w-4" />
+            )}
             Again
+            <ShortcutHint keyChar="1" />
           </Button>
           <Button
             variant="outline"
@@ -139,6 +185,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
             className="min-w-[100px]"
           >
             Hard
+            <ShortcutHint keyChar="2" />
           </Button>
           <Button
             variant="default"
@@ -148,6 +195,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
           >
             <Check className="mr-1 h-4 w-4" />
             Good
+            <ShortcutHint keyChar="3" />
           </Button>
           <Button
             variant="secondary"
@@ -157,6 +205,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
           >
             <ChevronRight className="mr-1 h-4 w-4" />
             Easy
+            <ShortcutHint keyChar="4" />
           </Button>
         </div>
       )}
@@ -186,12 +235,15 @@ function FrontBackStudy({
         ) : (
           <Button variant="outline" onClick={onReveal} className="mt-4">
             Show Answer
+            <ShortcutHint keyChar="space" />
           </Button>
         )}
       </CardContent>
     </>
   );
 }
+
+const CHOICE_KEY_LABELS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"] as const;
 
 function MultipleChoiceStudy({
   content,
@@ -204,7 +256,8 @@ function MultipleChoiceStudy({
   showAnswer: boolean;
   onSelectChoice: (i: number) => void;
 }) {
-  const choices = (content.choices as string[]) ?? [];
+  const allChoices = (content.choices as string[]) ?? [];
+  const choices = allChoices.slice(0, 10);
   const correctIndexes = (content.correctChoiceIndexes as number[]) ?? [];
 
   return (
@@ -231,11 +284,25 @@ function MultipleChoiceStudy({
               disabled={showAnswer}
               onClick={() => onSelectChoice(i)}
             >
+              <ShortcutHint keyChar={CHOICE_KEY_LABELS[i]} />
               {choice}
             </Button>
           );
         })}
+        {!showAnswer && (
+          <p className="pt-2 text-center text-xs text-muted-foreground">
+            Press a number to pick or <ShortcutHint keyChar="space" /> to reveal
+          </p>
+        )}
       </CardContent>
     </>
+  );
+}
+
+function ShortcutHint({ keyChar }: { keyChar: string }) {
+  return (
+    <kbd className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded border border-current/20 px-1 font-mono text-[10px] font-medium opacity-60">
+      {keyChar}
+    </kbd>
   );
 }

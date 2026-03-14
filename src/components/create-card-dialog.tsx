@@ -187,14 +187,16 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
                       )}
                     </div>
                   ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setChoices([...choices, ""])}
-                  >
-                    Add Choice
-                  </Button>
+                  {choices.length < 10 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setChoices([...choices, ""])}
+                    >
+                      Add Choice ({choices.length}/10)
+                    </Button>
+                  )}
                 </div>
               </>
             )}

@@ -19,7 +19,10 @@ export const FrontBackCardSchema = z.object({
 
 export const MultipleChoiceCardSchema = z.object({
   question: z.string().min(1, "Question is required"),
-  choices: z.array(z.string().min(1)).min(2, "At least 2 choices required"),
+  choices: z
+    .array(z.string().min(1))
+    .min(2, "At least 2 choices required")
+    .max(10, "At most 10 choices allowed"),
   correctChoiceIndexes: z
     .array(z.number().int().nonnegative())
     .min(1, "At least 1 correct choice required"),

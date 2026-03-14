@@ -2,7 +2,7 @@
 
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { cardDefinitions, deckDefinitions } from "@/db/schema";
+import { cardDefinitions, deckDefinitions, userCardStates } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { CreateCardSchema, UpdateCardSchema } from "@/lib/schemas";
@@ -79,6 +79,11 @@ export async function updateCard(input: unknown): Promise<Result<{ id: string }>
       updatedAt: new Date(),
     })
     .where(eq(cardDefinitions.id, cardId));
+
+  await db
+    .update(userCardStates)
+    .set({ dueAt: new Date(), updatedAt: new Date() })
+    .where(eq(userCardStates.cardDefinitionId, cardId));
 
   return ok({ id: cardId });
 }

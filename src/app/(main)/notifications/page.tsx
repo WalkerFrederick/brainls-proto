@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { listPendingInvites } from "@/actions/workspace";
 import { Bell, BellOff } from "lucide-react";
 import { PendingInvites } from "@/components/pending-invites";
+
+export const metadata: Metadata = { title: "Notifications" };
 
 export default async function NotificationsPage() {
   const result = await listPendingInvites();

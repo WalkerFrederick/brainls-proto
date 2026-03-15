@@ -35,6 +35,7 @@ interface DeckSettingsDialogProps {
   canChangeVisibility?: boolean;
   workspaceKind?: string;
   initialTags?: string[];
+  isDefaultDeck?: boolean;
 }
 
 const VIEW_POLICY_OPTIONS = [
@@ -53,6 +54,7 @@ export function DeckSettingsDialog({
   canChangeVisibility = false,
   workspaceKind = "shared",
   initialTags = [],
+  isDefaultDeck = false,
 }: DeckSettingsDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -180,53 +182,65 @@ export function DeckSettingsDialog({
 
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
-              <div className="rounded-md border border-destructive/30 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">Archive this deck</p>
-                    <p className="text-xs text-muted-foreground">
-                      The deck will be hidden from your library. Linked copies will show an
-                      &ldquo;abandoned&rdquo; warning.
-                    </p>
-                  </div>
-                  {confirmArchive ? (
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setConfirmArchive(false)}
-                        disabled={archiving}
-                      >
-                        Cancel
-                      </Button>
+              {isDefaultDeck ? (
+                <div className="rounded-md border border-muted p-4">
+                  <p className="text-sm text-muted-foreground">
+                    This is your default Scratch Pad and cannot be archived.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-md border border-destructive/30 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Archive this deck</p>
+                      <p className="text-xs text-muted-foreground">
+                        The deck will be hidden from your library. Linked copies will show an
+                        &ldquo;abandoned&rdquo; warning.
+                      </p>
+                    </div>
+                    {confirmArchive ? (
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setConfirmArchive(false)}
+                          disabled={archiving}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={archiving}
+                          onClick={async () => {
+                            setArchiving(true);
+                            const result = await archiveDeck(deckId);
+                            if (result.success) {
+                              window.location.href = "/library";
+                            } else {
+                              setError(result.error);
+                              setArchiving(false);
+                              setConfirmArchive(false);
+                            }
+                          }}
+                        >
+                          {archiving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Confirm
+                        </Button>
+                      </div>
+                    ) : (
                       <Button
                         variant="destructive"
                         size="sm"
-                        disabled={archiving}
-                        onClick={async () => {
-                          setArchiving(true);
-                          const result = await archiveDeck(deckId);
-                          if (result.success) {
-                            window.location.href = "/library";
-                          } else {
-                            setError(result.error);
-                            setArchiving(false);
-                            setConfirmArchive(false);
-                          }
-                        }}
+                        onClick={() => setConfirmArchive(true)}
                       >
-                        {archiving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Confirm
+                        <Archive className="mr-2 h-4 w-4" />
+                        Archive
                       </Button>
-                    </div>
-                  ) : (
-                    <Button variant="destructive" size="sm" onClick={() => setConfirmArchive(true)}>
-                      <Archive className="mr-2 h-4 w-4" />
-                      Archive
-                    </Button>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </>
         )}

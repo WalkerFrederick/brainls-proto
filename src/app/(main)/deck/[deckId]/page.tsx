@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getDeck } from "@/actions/deck";
 import { getWorkspace } from "@/actions/workspace";
 import { listCards } from "@/actions/card";
@@ -22,6 +23,13 @@ interface Props {
   searchParams: Promise<{ tag?: string }>;
 }
 
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { deckId } = await params;
+  const result = await getDeck(deckId);
+  const title = result.success ? result.data.title : "Deck";
+  return { title };
+}
+
 export default async function DeckPage({ params, searchParams }: Props) {
   const { deckId } = await params;
   const { tag: tagFilter } = await searchParams;
@@ -37,6 +45,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
   const member = await getWorkspaceMember(deck.workspaceId, session.user.id);
   const canArchive = member !== null && ["owner", "admin"].includes(member.role);
   const canChangeVisibility = canArchive;
+  const isDefaultDeck = session.user.defaultDeckId === deckId;
   const resolved = await resolveSourceDeck(deckId);
   const wsResult = await getWorkspace(deck.workspaceId);
   const workspaceKind = wsResult.success ? wsResult.data.kind : "shared";
@@ -131,6 +140,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
               canChangeVisibility={canChangeVisibility}
               workspaceKind={workspaceKind}
               initialTags={deckTagNames}
+              isDefaultDeck={isDefaultDeck}
             />
           )}
           <AddToWorkspaceButtons

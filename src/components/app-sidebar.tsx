@@ -10,7 +10,7 @@ import { useSession } from "@/lib/auth-client";
 import { UserAvatar } from "@/components/user-avatar";
 
 const navItems = [
-  { href: "/", label: "Home", icon: Home },
+  { href: "/home", label: "Home", icon: Home },
   { href: "/library", label: "Library", icon: Library },
   { href: "/workspaces", label: "Workspaces", icon: Building2 },
   { href: "/browse", label: "Browse", icon: Globe },

@@ -10,7 +10,7 @@ export function DangerZone() {
 
   async function handleSignOut() {
     await signOut();
-    router.push("/sign-in");
+    router.push("/");
     router.refresh();
   }
 
@@ -24,9 +24,7 @@ export function DangerZone() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">Sign out of all devices</p>
-            <p className="text-xs text-muted-foreground">
-              This will end your current session.
-            </p>
+            <p className="text-xs text-muted-foreground">This will end your current session.</p>
           </div>
           <Button variant="destructive" size="sm" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />

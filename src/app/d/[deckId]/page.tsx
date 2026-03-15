@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getPublicDeck, listPublicCards } from "@/actions/public-deck";
 import { BookOpen, LogIn } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,29 @@ import Link from "next/link";
 
 interface Props {
   params: Promise<{ deckId: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { deckId } = await params;
+  const result = await getPublicDeck(deckId);
+
+  if (!result.success) {
+    return { title: "Deck Not Found" };
+  }
+
+  const deck = result.data;
+  const title = deck.title;
+  const description =
+    deck.description || `Study "${deck.title}" on BrainLS — free spaced repetition flashcards.`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title: `${title} | BrainLS`,
+      description,
+    },
+  };
 }
 
 export default async function PublicDeckPage({ params }: Props) {

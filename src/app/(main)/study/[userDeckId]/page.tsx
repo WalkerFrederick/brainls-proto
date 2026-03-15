@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { getStudySession } from "@/actions/study";
+
+export const metadata: Metadata = { title: "Study" };
 import { StudySessionClient } from "@/components/study-session";
 import { BookOpen } from "lucide-react";
 import Link from "next/link";

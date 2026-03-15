@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { getCustomStudySession } from "@/actions/study";
+
+export const metadata: Metadata = { title: "Custom Study" };
 import { StudySessionClient } from "@/components/study-session";
 import { BookOpen } from "lucide-react";
 import Link from "next/link";
@@ -23,7 +26,7 @@ export default async function CustomStudyPage({ searchParams }: Props) {
         <BookOpen className="h-16 w-16 text-muted-foreground" />
         <h2 className="text-2xl font-bold">No tags selected</h2>
         <p className="text-muted-foreground">Start a custom study session from the home page.</p>
-        <Link href="/">
+        <Link href="/home">
           <Button variant="outline">Back to Home</Button>
         </Link>
       </div>
@@ -44,7 +47,7 @@ export default async function CustomStudyPage({ searchParams }: Props) {
         <BookOpen className="h-16 w-16 text-muted-foreground" />
         <h2 className="text-2xl font-bold">All caught up!</h2>
         <p className="text-muted-foreground">No cards are due for the selected tags.</p>
-        <Link href="/">
+        <Link href="/home">
           <Button variant="outline">Back to Home</Button>
         </Link>
       </div>

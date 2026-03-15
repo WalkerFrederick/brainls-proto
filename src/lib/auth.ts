@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { createScratchPad } from "@/lib/scratch-pad";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -28,6 +29,7 @@ export const auth = betterAuth({
       username: { type: "string", required: false, input: true },
       status: { type: "string", required: false, defaultValue: "active" },
       personalWorkspaceId: { type: "string", required: false },
+      defaultDeckId: { type: "string", required: false },
     },
   },
   databaseHooks: {
@@ -60,6 +62,8 @@ export const auth = betterAuth({
             .update(schema.users)
             .set({ personalWorkspaceId: workspace.id })
             .where(eq(schema.users.id, user.id));
+
+          await createScratchPad(workspace.id, user.id);
 
           if (user.email) {
             await db

@@ -299,7 +299,7 @@ export function CreateCardDialog({
                   label="Front"
                   value={front}
                   onChange={setFront}
-                  placeholder="Question or prompt (supports **Markdown**)"
+                  placeholder="Front (supports **Markdown**)"
                   required
                   maxLength={MAX_FIELD_LENGTH}
                   maxAttachments={10}
@@ -308,7 +308,7 @@ export function CreateCardDialog({
                   label="Back"
                   value={back}
                   onChange={setBack}
-                  placeholder="Answer (supports **Markdown**)"
+                  placeholder="Back (supports **Markdown**)"
                   required
                   maxLength={MAX_FIELD_LENGTH}
                   maxAttachments={10}

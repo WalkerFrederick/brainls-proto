@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getWorkspace, getWorkspaceRole } from "@/actions/workspace";
 import { listDecks } from "@/actions/deck";
 import { Layers } from "lucide-react";
@@ -10,6 +11,13 @@ import { UserAvatar } from "@/components/user-avatar";
 
 interface Props {
   params: Promise<{ workspaceId: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { workspaceId } = await params;
+  const result = await getWorkspace(workspaceId);
+  const title = result.success ? result.data.name : "Workspace";
+  return { title };
 }
 
 export default async function WorkspacePage({ params }: Props) {

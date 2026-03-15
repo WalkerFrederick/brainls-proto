@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { listWorkspacesWithDecks } from "@/actions/workspace";
 import { Building2, FolderOpen } from "lucide-react";
 import { CreateWorkspaceDialog } from "@/components/create-workspace-dialog";
 import { WorkspaceList } from "@/components/workspace-list";
+
+export const metadata: Metadata = { title: "Workspaces" };
 
 export default async function WorkspacesPage() {
   const result = await listWorkspacesWithDecks();

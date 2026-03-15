@@ -242,6 +242,141 @@ async function seed() {
 
   console.log("\n  Personal workspaces created for all 5 users");
 
+  // ── Scratch Pad (default deck per user) ─────────────────────────
+  async function createScratchPad(wsId: string, userId: string) {
+    const [deck] = await db
+      .insert(schema.deckDefinitions)
+      .values({
+        workspaceId: wsId,
+        title: "Scratch Pad",
+        slug: `scratch-pad-${userId}`,
+        description: "Your default deck — experiment with different card types here.",
+        viewPolicy: "private",
+        createdByUserId: userId,
+        updatedByUserId: userId,
+      })
+      .returning();
+
+    const [fb] = await db
+      .insert(schema.cardDefinitions)
+      .values({
+        deckDefinitionId: deck.id,
+        cardType: "front_back",
+        contentJson: {
+          front: "What is **spaced repetition**?",
+          back: "A study technique where you review material at increasing intervals. Cards you know well appear less often; cards you struggle with come back sooner.",
+        },
+        createdByUserId: userId,
+        updatedByUserId: userId,
+      })
+      .returning({ id: schema.cardDefinitions.id });
+
+    const [mcq] = await db
+      .insert(schema.cardDefinitions)
+      .values({
+        deckDefinitionId: deck.id,
+        cardType: "multiple_choice",
+        contentJson: {
+          question: "Which of these is a benefit of spaced repetition?",
+          choices: [
+            "It lets you cram everything the night before",
+            "It reduces total study time while improving retention",
+            "It only works for language learning",
+            "It requires reviewing every card every day",
+          ],
+          correctChoiceIndexes: [1],
+        },
+        createdByUserId: userId,
+        updatedByUserId: userId,
+      })
+      .returning({ id: schema.cardDefinitions.id });
+
+    const clozeText =
+      "The {{c1::hippocampus}} is the brain region responsible for forming new {{c2::memories}}.";
+    const [clozeParent] = await db
+      .insert(schema.cardDefinitions)
+      .values({
+        deckDefinitionId: deck.id,
+        cardType: "cloze",
+        contentJson: { text: clozeText },
+        createdByUserId: userId,
+        updatedByUserId: userId,
+      })
+      .returning({ id: schema.cardDefinitions.id });
+
+    const [cc1] = await db
+      .insert(schema.cardDefinitions)
+      .values({
+        deckDefinitionId: deck.id,
+        cardType: "cloze",
+        contentJson: { text: clozeText, clozeIndex: 1 },
+        parentCardId: clozeParent.id,
+        createdByUserId: userId,
+        updatedByUserId: userId,
+      })
+      .returning({ id: schema.cardDefinitions.id });
+
+    const [cc2] = await db
+      .insert(schema.cardDefinitions)
+      .values({
+        deckDefinitionId: deck.id,
+        cardType: "cloze",
+        contentJson: { text: clozeText, clozeIndex: 2 },
+        parentCardId: clozeParent.id,
+        createdByUserId: userId,
+        updatedByUserId: userId,
+      })
+      .returning({ id: schema.cardDefinitions.id });
+
+    const [kb] = await db
+      .insert(schema.cardDefinitions)
+      .values({
+        deckDefinitionId: deck.id,
+        cardType: "keyboard_shortcut",
+        contentJson: {
+          prompt: "Copy to clipboard",
+          shortcut: { key: "c", ctrl: true, shift: false, alt: false, meta: false },
+          explanation: "Ctrl+C copies the current selection to the clipboard.",
+        },
+        createdByUserId: userId,
+        updatedByUserId: userId,
+      })
+      .returning({ id: schema.cardDefinitions.id });
+
+    const studyableIds = [fb.id, mcq.id, cc1.id, cc2.id, kb.id];
+
+    const [userDeck] = await db
+      .insert(schema.userDecks)
+      .values({ userId, deckDefinitionId: deck.id })
+      .returning({ id: schema.userDecks.id });
+
+    await db.insert(schema.userCardStates).values(
+      studyableIds.map((cardId) => ({
+        userDeckId: userDeck.id,
+        cardDefinitionId: cardId,
+        srsState: "new",
+        easeFactor: "2.500",
+        reps: 0,
+        lapses: 0,
+      })),
+    );
+
+    await db
+      .update(schema.users)
+      .set({ defaultDeckId: deck.id })
+      .where(eq(schema.users.id, userId));
+
+    return deck;
+  }
+
+  await createScratchPad(allisonPersonal.id, users.allison.id);
+  await createScratchPad(bobPersonal.id, users.bob.id);
+  await createScratchPad(carolPersonal.id, users.carol.id);
+  await createScratchPad(davePersonal.id, users.dave.id);
+  await createScratchPad(evePersonal.id, users.eve.id);
+
+  console.log("  Scratch Pad (default deck) created for all 5 users");
+
   // ── Allison's Personal Workspace — 2 decks ────────────────────
   const bioDeck = await createDeck(
     allisonPersonal.id,
@@ -839,7 +974,7 @@ Seed complete!
     eve.martinez@example.com      — Eve Martinez
 
   Allison's workspace membership:
-    ✦ Allison's Personal              → owner   (2 decks + 2 linked)
+    ✦ Allison's Personal              → owner   (2 decks + 2 linked + Scratch Pad)
     ✦ Allison's Team — Owner Role     → owner   (2 decks + 1 linked)
     ✦ Bob's Lab — Allison Viewer      → viewer  (2 decks)
     ✦ Carol's Studio — Allison Editor → editor  (2 decks)

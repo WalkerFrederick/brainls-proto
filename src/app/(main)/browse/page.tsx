@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { listPublicDecks } from "@/actions/public-deck";
 import { Globe } from "lucide-react";
 import { TagFilter } from "@/components/tag-filter";
@@ -7,6 +8,8 @@ import Link from "next/link";
 interface Props {
   searchParams: Promise<{ tag?: string }>;
 }
+
+export const metadata: Metadata = { title: "Browse Decks" };
 
 export default async function BrowsePage({ searchParams }: Props) {
   const { tag: tagFilter } = await searchParams;

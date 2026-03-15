@@ -213,7 +213,11 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
             }}
           />
         ) : currentCard.cardType === "cloze" ? (
-          <ClozeStudy content={content} showAnswer={showAnswer} />
+          <ClozeStudy
+            content={content}
+            showAnswer={showAnswer}
+            onReveal={() => setShowAnswer(true)}
+          />
         ) : currentCard.cardType === "keyboard_shortcut" ? (
           <KeyboardShortcutStudy
             content={content}
@@ -496,12 +500,28 @@ function KeyboardShortcutStudy({
 function ClozeStudy({
   content,
   showAnswer,
+  onReveal,
 }: {
   content: Record<string, unknown>;
   showAnswer: boolean;
+  onReveal: () => void;
 }) {
   const text = String(content.text ?? "");
   const clozeIndex = Number(content.clozeIndex ?? 1);
+
+  useEffect(() => {
+    if (showAnswer) return;
+
+    function handleClick(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains("cloze-blank")) {
+        onReveal();
+      }
+    }
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [showAnswer, onReveal]);
 
   return (
     <>

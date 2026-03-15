@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-server";
+
+export const metadata: Metadata = { title: "Account" };
 import { UserCog } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { UpdateProfileForm } from "@/components/update-profile-form";

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Brain, BookOpen } from "lucide-react";
 import { getSession } from "@/lib/auth-server";
 import { getReviewHeatmapData, listUserDecks } from "@/actions/study";
@@ -6,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomStudyDialog } from "@/components/custom-study-dialog";
 import Link from "next/link";
+
+export const metadata: Metadata = { title: "Home" };
 
 export default async function Home() {
   const session = await getSession();

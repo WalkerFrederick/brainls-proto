@@ -16,8 +16,43 @@ const baskerville = Libre_Baskerville({
 });
 
 export const metadata: Metadata = {
-  title: "BrainLS",
-  description: "A modern flashcard learning platform",
+  title: {
+    default: "BrainLS",
+    template: "%s | BrainLS",
+  },
+  description:
+    "Remember everything you learn. BrainLS uses spaced repetition to help you master any subject with rich flashcards, collaborative workspaces, and smart scheduling.",
+  metadataBase: new URL("https://brainls.app"),
+  openGraph: {
+    type: "website",
+    siteName: "BrainLS",
+    title: "BrainLS — Remember Everything You Learn",
+    description:
+      "Spaced repetition flashcards with markdown, images, cloze deletions, and collaborative workspaces. Study smarter, not harder.",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BrainLS — Remember Everything You Learn",
+    description:
+      "Spaced repetition flashcards with markdown, images, cloze deletions, and collaborative workspaces.",
+  },
+  applicationName: "BrainLS",
+  keywords: [
+    "flashcards",
+    "spaced repetition",
+    "SRS",
+    "study",
+    "learning",
+    "anki alternative",
+    "markdown flashcards",
+  ],
+  authors: [{ name: "BrainLS" }],
+  creator: "BrainLS",
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 const VALID_THEMES = new Set<string>([
@@ -51,7 +86,7 @@ export default async function RootLayout({
   const cookieStore = await cookies();
 
   const rawTheme = cookieStore.get("theme")?.value;
-  const theme: Theme = VALID_THEMES.has(rawTheme as Theme) ? (rawTheme as Theme) : "light";
+  const theme: Theme = VALID_THEMES.has(rawTheme as Theme) ? (rawTheme as Theme) : "parchment";
 
   const rawAccent = cookieStore.get("accent")?.value;
   const accent: AccentColor = VALID_ACCENTS.has(rawAccent as AccentColor)

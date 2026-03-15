@@ -10,13 +10,12 @@ import { getStorageInfo } from "@/actions/storage";
 import { formatBytes } from "@/lib/storage";
 
 export default async function AccountSettingsPage() {
-  const session = await getSession();
+  const [session, storageResult] = await Promise.all([getSession(), getStorageInfo()]);
 
   if (!session) {
     return <div className="text-destructive">Not authenticated</div>;
   }
 
-  const storageResult = await getStorageInfo();
   const storage = storageResult.success ? storageResult.data : null;
 
   return (

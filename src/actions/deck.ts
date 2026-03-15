@@ -54,6 +54,15 @@ export async function updateDeck(input: unknown): Promise<Result<{ id: string }>
   const canEdit = await canEditDeck(deckId, session.user.id);
   if (!canEdit) return err("Permission denied");
 
+  if (updates.viewPolicy !== undefined) {
+    const [deck] = await db
+      .select({ workspaceId: deckDefinitions.workspaceId })
+      .from(deckDefinitions)
+      .where(eq(deckDefinitions.id, deckId));
+    const perm = await requireWorkspaceRole(deck.workspaceId, session.user.id, "admin");
+    if (!perm.allowed) return err("Only admins and owners can change deck visibility");
+  }
+
   const updateData: Record<string, unknown> = {
     updatedAt: new Date(),
     updatedByUserId: session.user.id,

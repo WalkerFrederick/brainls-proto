@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
 import { WorkspaceSettingsDialog } from "@/components/workspace-settings-dialog";
+import { UserAvatar } from "@/components/user-avatar";
 
 interface Props {
   params: Promise<{ workspaceId: string }>;
@@ -29,17 +30,21 @@ export default async function WorkspacePage({ params }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{wsResult.data.name}</h1>
-          {wsResult.data.description && (
-            <p className="text-sm text-muted-foreground">{wsResult.data.description}</p>
-          )}
+        <div className="flex items-center gap-3">
+          <UserAvatar src={wsResult.data.avatarUrl} fallback={wsResult.data.name} size="md" />
+          <div>
+            <h1 className="text-2xl font-bold">{wsResult.data.name}</h1>
+            {wsResult.data.description && (
+              <p className="text-sm text-muted-foreground">{wsResult.data.description}</p>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <WorkspaceSettingsDialog
             workspaceId={workspaceId}
             workspaceName={wsResult.data.name}
             workspaceDescription={wsResult.data.description}
+            workspaceAvatarUrl={wsResult.data.avatarUrl}
             workspaceKind={wsResult.data.kind}
             currentUserRole={currentRole}
           />

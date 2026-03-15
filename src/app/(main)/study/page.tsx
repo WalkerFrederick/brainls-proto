@@ -3,12 +3,8 @@ import { BookOpen, GraduationCap } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CustomStudyDialog } from "@/components/custom-study-dialog";
 
 export default async function StudyListPage() {
   const result = await listUserDecks();
@@ -21,9 +17,12 @@ export default async function StudyListPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <GraduationCap className="h-6 w-6" />
-        <h1 className="text-2xl font-bold">Study</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <GraduationCap className="h-6 w-6" />
+          <h1 className="text-2xl font-bold">Study</h1>
+        </div>
+        <CustomStudyDialog />
       </div>
 
       {decks.length === 0 ? (
@@ -46,9 +45,7 @@ export default async function StudyListPage() {
               <Card className="transition-colors hover:bg-accent/50">
                 <CardHeader>
                   <CardTitle className="text-lg">{deck.deckTitle}</CardTitle>
-                  <CardDescription>
-                    {deck.totalCards} cards total
-                  </CardDescription>
+                  <CardDescription>{deck.totalCards} cards total</CardDescription>
                   <div className="flex gap-2 pt-1">
                     <Badge variant={deck.dueCards > 0 ? "default" : "secondary"}>
                       {deck.dueCards} due

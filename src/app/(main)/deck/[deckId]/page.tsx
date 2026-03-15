@@ -39,6 +39,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
   const isEditor = await canEditDeck(deckId, session.user.id);
   const member = await getWorkspaceMember(deck.workspaceId, session.user.id);
   const canArchive = member !== null && ["owner", "admin"].includes(member.role);
+  const canChangeVisibility = canArchive;
   const resolved = await resolveSourceDeck(deckId);
 
   const [cardsResult, statsResult, deckTagNames] = await Promise.all([
@@ -124,6 +125,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
               description={deck.description}
               viewPolicy={deck.viewPolicy}
               canArchive={canArchive}
+              canChangeVisibility={canChangeVisibility}
               initialTags={deckTagNames}
             />
           )}

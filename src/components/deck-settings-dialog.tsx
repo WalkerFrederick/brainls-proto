@@ -32,6 +32,7 @@ interface DeckSettingsDialogProps {
   description?: string | null;
   viewPolicy: string;
   canArchive?: boolean;
+  canChangeVisibility?: boolean;
   initialTags?: string[];
 }
 
@@ -48,6 +49,7 @@ export function DeckSettingsDialog({
   description: initialDescription,
   viewPolicy: initialViewPolicy,
   canArchive = false,
+  canChangeVisibility = false,
   initialTags = [],
 }: DeckSettingsDialogProps) {
   const router = useRouter();
@@ -156,6 +158,7 @@ export function DeckSettingsDialog({
               value={viewPolicy}
               onChange={setViewPolicy}
               options={VIEW_POLICY_OPTIONS}
+              disabled={!canChangeVisibility}
             />
           </div>
 
@@ -233,6 +236,7 @@ function PolicySelect({
   value,
   onChange,
   options,
+  disabled,
 }: {
   id: string;
   label: string;
@@ -240,6 +244,7 @@ function PolicySelect({
   value: string;
   onChange: (v: string) => void;
   options: ReadonlyArray<{ value: string; label: string; hint: string }>;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -247,7 +252,7 @@ function PolicySelect({
         {label}
       </Label>
       <p className="text-xs text-muted-foreground">{hint}</p>
-      <Select value={value} onValueChange={(v) => onChange(v ?? "")}>
+      <Select value={value} onValueChange={(v) => onChange(v ?? "")} disabled={disabled}>
         <SelectTrigger id={id} className="w-full">
           <SelectValue />
         </SelectTrigger>

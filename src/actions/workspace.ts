@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, sql, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
   workspaces,
@@ -113,6 +113,7 @@ export async function listWorkspacesWithDecks(): Promise<
       name: string;
       kind: string;
       role: string;
+      avatarUrl: string | null;
       decks: Array<{
         id: string;
         title: string;
@@ -134,6 +135,7 @@ export async function listWorkspacesWithDecks(): Promise<
       name: workspaces.name,
       kind: workspaces.kind,
       role: workspaceMembers.role,
+      avatarUrl: workspaces.avatarUrl,
     })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
@@ -229,28 +231,56 @@ export async function inviteWorkspaceMember(input: unknown): Promise<Result<{ id
   const perm = await canManageMembers(workspaceId, session.user.id);
   if (!perm.allowed) return err(perm.error);
 
+  const normalizedEmail = email.toLowerCase().trim();
+
   const { users } = await import("@/db/schema");
-  const [targetUser] = await db.select().from(users).where(eq(users.email, email));
+  const [targetUser] = await db.select().from(users).where(eq(users.email, normalizedEmail));
 
-  if (!targetUser) return err("User not found with that email");
+  if (targetUser) {
+    const existing = await db
+      .select()
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.workspaceId, workspaceId),
+          eq(workspaceMembers.userId, targetUser.id),
+        ),
+      );
 
-  const existing = await db
+    if (existing.length > 0) return err("This email already has a pending invite or membership");
+
+    const [member] = await db
+      .insert(workspaceMembers)
+      .values({
+        workspaceId,
+        userId: targetUser.id,
+        invitedEmail: normalizedEmail,
+        role,
+        status: "invited",
+      })
+      .returning({ id: workspaceMembers.id });
+
+    return ok({ id: member.id });
+  }
+
+  const existingByEmail = await db
     .select()
     .from(workspaceMembers)
     .where(
       and(
         eq(workspaceMembers.workspaceId, workspaceId),
-        eq(workspaceMembers.userId, targetUser.id),
+        eq(workspaceMembers.invitedEmail, normalizedEmail),
       ),
     );
 
-  if (existing.length > 0) return err("User is already a member or has a pending invite");
+  if (existingByEmail.length > 0)
+    return err("This email already has a pending invite or membership");
 
   const [member] = await db
     .insert(workspaceMembers)
     .values({
       workspaceId,
-      userId: targetUser.id,
+      invitedEmail: normalizedEmail,
       role,
       status: "invited",
     })
@@ -309,7 +339,7 @@ export async function listWorkspaceMembers(workspaceId: string): Promise<
   Result<
     Array<{
       memberId: string;
-      userId: string;
+      userId: string | null;
       email: string;
       name: string | null;
       role: string;
@@ -330,17 +360,28 @@ export async function listWorkspaceMembers(workspaceId: string): Promise<
     .select({
       memberId: workspaceMembers.id,
       userId: workspaceMembers.userId,
-      email: users.email,
+      invitedEmail: workspaceMembers.invitedEmail,
+      userEmail: users.email,
       name: users.name,
       role: workspaceMembers.role,
       status: workspaceMembers.status,
       joinedAt: workspaceMembers.joinedAt,
     })
     .from(workspaceMembers)
-    .innerJoin(users, eq(workspaceMembers.userId, users.id))
+    .leftJoin(users, eq(workspaceMembers.userId, users.id))
     .where(eq(workspaceMembers.workspaceId, workspaceId));
 
-  return ok(rows);
+  return ok(
+    rows.map((r) => ({
+      memberId: r.memberId,
+      userId: r.userId,
+      email: r.userEmail ?? r.invitedEmail ?? "",
+      name: r.name,
+      role: r.role,
+      status: r.status,
+      joinedAt: r.joinedAt,
+    })),
+  );
 }
 
 export async function removeMember(memberId: string): Promise<Result<{ id: string }>> {
@@ -392,7 +433,13 @@ export async function listPendingInvites(): Promise<
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
     .where(
-      and(eq(workspaceMembers.userId, session.user.id), eq(workspaceMembers.status, "invited")),
+      and(
+        eq(workspaceMembers.status, "invited"),
+        or(
+          eq(workspaceMembers.userId, session.user.id),
+          eq(workspaceMembers.invitedEmail, session.user.email),
+        ),
+      ),
     );
 
   return ok(rows);
@@ -408,12 +455,21 @@ export async function acceptInvite(memberId: string): Promise<Result<{ id: strin
     .where(eq(workspaceMembers.id, memberId));
 
   if (!member) return err("Invite not found");
-  if (member.userId !== session.user.id) return err("Not your invite");
+
+  const isOwner =
+    member.userId === session.user.id ||
+    (member.userId === null && member.invitedEmail === session.user.email);
+  if (!isOwner) return err("Not your invite");
   if (member.status !== "invited") return err("Invite already handled");
 
   await db
     .update(workspaceMembers)
-    .set({ status: "active", joinedAt: new Date(), updatedAt: new Date() })
+    .set({
+      status: "active",
+      userId: session.user.id,
+      joinedAt: new Date(),
+      updatedAt: new Date(),
+    })
     .where(eq(workspaceMembers.id, memberId));
 
   return ok({ id: memberId });
@@ -429,7 +485,11 @@ export async function declineInvite(memberId: string): Promise<Result<{ id: stri
     .where(eq(workspaceMembers.id, memberId));
 
   if (!member) return err("Invite not found");
-  if (member.userId !== session.user.id) return err("Not your invite");
+
+  const isOwner =
+    member.userId === session.user.id ||
+    (member.userId === null && member.invitedEmail === session.user.email);
+  if (!isOwner) return err("Not your invite");
   if (member.status !== "invited") return err("Invite already handled");
 
   await db

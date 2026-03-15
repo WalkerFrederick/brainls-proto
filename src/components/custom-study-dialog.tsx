@@ -21,7 +21,7 @@ export function CustomStudyDialog() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
-  const [updateSrs, setUpdateSrs] = useState(true);
+  const [updateSrs, setUpdateSrs] = useState(false);
   const [preview, setPreview] = useState<{ cardCount: number; deckCount: number } | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
@@ -56,7 +56,7 @@ export function CustomStudyDialog() {
     setOpen(next);
     if (!next) {
       setTags([]);
-      setUpdateSrs(true);
+      setUpdateSrs(false);
       setPreview(null);
     }
   }

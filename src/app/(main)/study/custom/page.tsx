@@ -22,9 +22,9 @@ export default async function CustomStudyPage({ searchParams }: Props) {
       <div className="flex flex-1 flex-col items-center justify-center gap-4">
         <BookOpen className="h-16 w-16 text-muted-foreground" />
         <h2 className="text-2xl font-bold">No tags selected</h2>
-        <p className="text-muted-foreground">Start a custom study session from the library page.</p>
-        <Link href="/library">
-          <Button variant="outline">Back to Library</Button>
+        <p className="text-muted-foreground">Start a custom study session from the study page.</p>
+        <Link href="/study">
+          <Button variant="outline">Back to Study</Button>
         </Link>
       </div>
     );
@@ -44,8 +44,8 @@ export default async function CustomStudyPage({ searchParams }: Props) {
         <BookOpen className="h-16 w-16 text-muted-foreground" />
         <h2 className="text-2xl font-bold">All caught up!</h2>
         <p className="text-muted-foreground">No cards are due for the selected tags.</p>
-        <Link href="/library">
-          <Button variant="outline">Back to Library</Button>
+        <Link href="/study">
+          <Button variant="outline">Back to Study</Button>
         </Link>
       </div>
     );

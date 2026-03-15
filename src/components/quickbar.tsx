@@ -3,12 +3,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, Bell, Menu, X } from "lucide-react";
+import { Plus, Bell, Menu, X, FilePlus } from "lucide-react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { UserAvatar } from "@/components/user-avatar";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
+import { CreateCardDialog } from "@/components/create-card-dialog";
 import { useSession } from "@/lib/auth-client";
 import { Brain } from "lucide-react";
 import { SidebarNav } from "@/components/app-sidebar";
@@ -22,6 +24,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   const [isSticky, setIsSticky] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [deckDialogOpen, setDeckDialogOpen] = useState(false);
+  const [cardDialogOpen, setCardDialogOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const prevPathname = useRef(pathname);
@@ -30,6 +33,8 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
     ? pathname.split("/")[2]
     : undefined;
 
+  const contextDeckId = pathname.startsWith("/deck/") ? pathname.split("/")[2] : undefined;
+
   useEffect(() => {
     if (prevPathname.current !== pathname) {
       prevPathname.current = pathname;
@@ -37,19 +42,13 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
     }
   }, [pathname]);
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable)
-        return;
-      if (e.key === "N" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.defaultPrevented) {
-        e.preventDefault();
-        setDeckDialogOpen(true);
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  useHotkey("Shift+D", () => {
+    setDeckDialogOpen(true);
+  });
+
+  useHotkey("Shift+N", () => {
+    setCardDialogOpen(true);
+  });
 
   useEffect(() => {
     const el = wrapperRef.current;
@@ -86,7 +85,10 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
             onMenuClick={() => setDrawerOpen(true)}
             deckDialogOpen={deckDialogOpen}
             onDeckDialogOpenChange={setDeckDialogOpen}
+            cardDialogOpen={cardDialogOpen}
+            onCardDialogOpenChange={setCardDialogOpen}
             contextWorkspaceId={contextWorkspaceId}
+            contextDeckId={contextDeckId}
           />
         </div>
       </div>
@@ -124,7 +126,10 @@ interface QuickbarContentProps {
   onMenuClick: () => void;
   deckDialogOpen: boolean;
   onDeckDialogOpenChange: (open: boolean) => void;
+  cardDialogOpen: boolean;
+  onCardDialogOpenChange: (open: boolean) => void;
   contextWorkspaceId?: string;
+  contextDeckId?: string;
 }
 
 function QuickbarContent({
@@ -133,7 +138,10 @@ function QuickbarContent({
   onMenuClick,
   deckDialogOpen,
   onDeckDialogOpenChange,
+  cardDialogOpen,
+  onCardDialogOpenChange,
   contextWorkspaceId,
+  contextDeckId,
 }: QuickbarContentProps) {
   return (
     <div className="flex items-center justify-between px-4 py-2 md:px-5 md:py-2.5">
@@ -146,16 +154,30 @@ function QuickbarContent({
         >
           <Menu className="h-5 w-5" />
         </button>
+        <CreateCardDialog
+          deckDefinitionId={contextDeckId}
+          open={cardDialogOpen}
+          onOpenChange={onCardDialogOpenChange}
+          trigger={
+            <Button size="sm" title="Add Card (Shift+N)">
+              <FilePlus className="mr-2 h-4 w-4" />
+              Add Card
+              <kbd className="ml-1.5 hidden sm:inline-flex h-5 items-center justify-center gap-0.5 rounded border border-current/20 px-1.5 font-mono text-[10px] font-medium opacity-60">
+                Shift + N
+              </kbd>
+            </Button>
+          }
+        />
         <CreateDeckDialog
           workspaceId={contextWorkspaceId}
           open={deckDialogOpen}
           onOpenChange={onDeckDialogOpenChange}
           trigger={
-            <Button size="sm" title="New Deck (Shift+N)">
+            <Button size="sm" title="New Deck (Shift+D)">
               <Plus className="mr-2 h-4 w-4" />
               New Deck
-              <kbd className="ml-1.5 hidden sm:inline-flex h-5 min-w-5 items-center justify-center rounded border border-current/20 px-1 font-mono text-[10px] font-medium opacity-60">
-                ⇧N
+              <kbd className="ml-1.5 hidden sm:inline-flex h-5 items-center justify-center gap-0.5 rounded border border-current/20 px-1.5 font-mono text-[10px] font-medium opacity-60">
+                Shift + D
               </kbd>
             </Button>
           }
@@ -177,16 +199,16 @@ function QuickbarContent({
         {session ? (
           <Link
             href="/settings/account"
-            className="flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-accent"
+            className="flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium transition-colors hover:bg-accent"
           >
+            <span className="hidden text-sm font-medium sm:inline">
+              {session.user.name ?? session.user.email}
+            </span>
             <UserAvatar
               src={session.user.image}
               fallback={session.user.name ?? session.user.email}
               size="sm"
             />
-            <span className="hidden text-sm font-medium sm:inline">
-              {session.user.name ?? session.user.email}
-            </span>
           </Link>
         ) : (
           <Link href="/sign-in">

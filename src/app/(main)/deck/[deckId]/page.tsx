@@ -5,7 +5,6 @@ import { getDeckStudyStats } from "@/actions/study";
 import { getDeckTags } from "@/actions/tag";
 import { BookOpen, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { CreateCardDialog } from "@/components/create-card-dialog";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
@@ -139,7 +138,6 @@ export default async function DeckPage({ params, searchParams }: Props) {
             sourceArchived={resolved.isAbandoned || !!deck.archivedAt}
           />
           <UseDeckButton deckDefinitionId={deckId} />
-          {isEditor && !resolved.isLinked && <CreateCardDialog deckDefinitionId={deckId} />}
         </div>
       </div>
 

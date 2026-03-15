@@ -29,10 +29,13 @@ interface Workspace {
 
 interface Props {
   workspaces: Workspace[];
+  defaultCollapsed?: boolean;
 }
 
-export function WorkspaceList({ workspaces }: Props) {
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+export function WorkspaceList({ workspaces, defaultCollapsed = false }: Props) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
+    defaultCollapsed ? Object.fromEntries(workspaces.map((ws) => [ws.id, true])) : {},
+  );
 
   function toggleCollapse(wsId: string, e: React.MouseEvent) {
     e.preventDefault();

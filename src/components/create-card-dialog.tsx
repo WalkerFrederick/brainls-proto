@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,18 +30,42 @@ import {
 } from "@/components/ui/select";
 import { createCard } from "@/actions/card";
 import { setCardTags } from "@/actions/tag";
+import { listEditableDecks } from "@/actions/deck";
 import { TagInput } from "@/components/tag-input";
 
 type SupportedCardType = "front_back" | "multiple_choice" | "keyboard_shortcut" | "cloze";
 
-interface Props {
-  deckDefinitionId: string;
+interface EditableDeck {
+  workspaceId: string;
+  workspaceName: string;
+  workspaceKind: string;
+  deckId: string;
+  deckTitle: string;
 }
 
-export function CreateCardDialog({ deckDefinitionId }: Props) {
+interface Props {
+  deckDefinitionId?: string;
+  trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function CreateCardDialog({
+  deckDefinitionId: initialDeckId,
+  trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = controlledOnOpenChange ?? setUncontrolledOpen;
+
   const [cardType, setCardType] = useState<SupportedCardType>("front_back");
+  const [selectedDeckId, setSelectedDeckId] = useState(initialDeckId ?? "");
+
+  const [editableDecks, setEditableDecks] = useState<EditableDeck[]>([]);
+  const [loadingDecks, setLoadingDecks] = useState(false);
 
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
@@ -56,25 +80,40 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
   const [explanation, setExplanation] = useState("");
 
   const [clozeText, setClozeText] = useState("");
-
   const [cardTagsList, setCardTagsList] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [permissionNotice, setPermissionNotice] = useState(false);
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable)
-        return;
-      if (e.key === "N" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        setOpen(true);
+  const prevOpenRef = useRef(false);
+
+  const fetchDecks = useCallback(async () => {
+    setLoadingDecks(true);
+    setPermissionNotice(false);
+    const result = await listEditableDecks();
+    if (result.success) {
+      setEditableDecks(result.data);
+      if (initialDeckId && result.data.find((d) => d.deckId === initialDeckId)) {
+        setSelectedDeckId(initialDeckId);
+      } else {
+        if (initialDeckId) {
+          setPermissionNotice(true);
+        }
+        if (!result.data.find((d) => d.deckId === selectedDeckId)) {
+          setSelectedDeckId(result.data[0]?.deckId ?? "");
+        }
       }
     }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
+    setLoadingDecks(false);
+  }, [initialDeckId, selectedDeckId]);
+
+  useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      setTimeout(() => fetchDecks(), 0);
+    }
+    prevOpenRef.current = open;
+  }, [open, fetchDecks]);
 
   function resetForm() {
     setFront("");
@@ -91,8 +130,23 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
     setError("");
   }
 
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) {
+      fetchDecks();
+    } else {
+      resetForm();
+      setPermissionNotice(false);
+      setSelectedDeckId(initialDeckId ?? "");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!selectedDeckId) {
+      setError("Please select a deck.");
+      return;
+    }
     setError("");
     setLoading(true);
 
@@ -121,7 +175,7 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
     }
 
     const result = await createCard({
-      deckDefinitionId,
+      deckDefinitionId: selectedDeckId,
       cardType,
       contentJson,
       createReverse: cardType === "front_back" && createReverse,
@@ -143,27 +197,87 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
     router.refresh();
   }
 
+  const groupedDecks = editableDecks.reduce<
+    Record<string, { name: string; kind: string; decks: EditableDeck[] }>
+  >((acc, d) => {
+    if (!acc[d.workspaceId]) {
+      acc[d.workspaceId] = { name: d.workspaceName, kind: d.workspaceKind, decks: [] };
+    }
+    acc[d.workspaceId].decks.push(d);
+    return acc;
+  }, {});
+
+  const selectedDeckLabel = editableDecks.find((d) => d.deckId === selectedDeckId);
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" />} title="Add Card (Shift+N)">
-        <Plus className="mr-2 h-4 w-4" />
-        Add Card
-        <kbd className="ml-1.5 hidden sm:inline-flex h-5 min-w-5 items-center justify-center rounded border border-current/20 px-1 font-mono text-[10px] font-medium opacity-60">
-          ⇧N
-        </kbd>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger
+        render={
+          trigger ?? (
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Card
+            </Button>
+          )
+        }
+      />
       <DialogContent className="max-w-5xl w-[90vw] max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Add Card</DialogTitle>
-            <DialogDescription>Create a new flashcard for this deck.</DialogDescription>
+            <DialogDescription>Create a new flashcard.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {permissionNotice && (
+              <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                You don&apos;t have edit access to the current deck. Select a different deck below.
+              </div>
+            )}
             {error && (
               <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label>Deck</Label>
+              {loadingDecks ? (
+                <div className="flex h-8 items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading decks...
+                </div>
+              ) : editableDecks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No editable decks found. Create a deck first.
+                </p>
+              ) : (
+                <Select value={selectedDeckId} onValueChange={(v) => setSelectedDeckId(v ?? "")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {selectedDeckLabel
+                        ? `${selectedDeckLabel.deckTitle} — ${selectedDeckLabel.workspaceName}${selectedDeckLabel.workspaceKind === "personal" ? " (Personal)" : ""}`
+                        : "Select a deck"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(groupedDecks).map(([wsId, ws]) => (
+                      <div key={wsId}>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                          {ws.name}
+                          {ws.kind === "personal" ? " (Personal)" : ""}
+                        </div>
+                        {ws.decks.map((d) => (
+                          <SelectItem key={d.deckId} value={d.deckId}>
+                            {d.deckTitle}
+                          </SelectItem>
+                        ))}
+                      </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label>Card Type</Label>
               <Select value={cardType} onValueChange={(v) => setCardType(v as SupportedCardType)}>
@@ -339,7 +453,7 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || loadingDecks || !selectedDeckId}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Card
             </Button>

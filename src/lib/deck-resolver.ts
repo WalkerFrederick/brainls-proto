@@ -9,6 +9,30 @@ export type ResolvedDeck = {
 };
 
 /**
+ * Like resolveSourceDeck but accepts the already-fetched deck fields
+ * to avoid a redundant deckDefinitions lookup.
+ */
+export async function resolveSourceDeckFromData(
+  deckId: string,
+  linkedDeckDefinitionId: string | null,
+): Promise<ResolvedDeck> {
+  if (!linkedDeckDefinitionId) {
+    return { sourceDeckId: deckId, isLinked: false, isAbandoned: false };
+  }
+
+  const [source] = await db
+    .select({ archivedAt: deckDefinitions.archivedAt })
+    .from(deckDefinitions)
+    .where(eq(deckDefinitions.id, linkedDeckDefinitionId));
+
+  return {
+    sourceDeckId: linkedDeckDefinitionId,
+    isLinked: true,
+    isAbandoned: source?.archivedAt !== null && source?.archivedAt !== undefined,
+  };
+}
+
+/**
  * Resolves a deck to its card source. If the deck is a linked copy,
  * returns the original deck's ID and checks whether that source is archived.
  */

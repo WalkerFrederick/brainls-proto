@@ -14,8 +14,8 @@ import { AddToWorkspaceButtons } from "@/components/add-to-workspace-dialog";
 import { DeckCardItem } from "@/components/deck-card-item";
 import { PlatformBadge } from "@/components/platform-badge";
 import { TagFilter } from "@/components/tag-filter";
-import { canEditDeck, getWorkspaceMember } from "@/lib/permissions";
-import { resolveSourceDeck } from "@/lib/deck-resolver";
+import { canEditDeckInWorkspace, getWorkspaceMember } from "@/lib/permissions";
+import { resolveSourceDeckFromData } from "@/lib/deck-resolver";
 import { requireSession } from "@/lib/auth-server";
 
 interface Props {
@@ -41,20 +41,22 @@ export default async function DeckPage({ params, searchParams }: Props) {
   }
 
   const deck = deckResult.data;
-  const isEditor = await canEditDeck(deckId, session.user.id);
-  const member = await getWorkspaceMember(deck.workspaceId, session.user.id);
+  const isDefaultDeck = session.user.defaultDeckId === deckId;
+
+  const [isEditor, member, resolved, wsResult, cardsResult, statsResult, deckTagNames] =
+    await Promise.all([
+      canEditDeckInWorkspace(deck.workspaceId, session.user.id),
+      getWorkspaceMember(deck.workspaceId, session.user.id),
+      resolveSourceDeckFromData(deckId, deck.linkedDeckDefinitionId),
+      getWorkspace(deck.workspaceId),
+      listCards(deckId, { tag: tagFilter }),
+      getDeckStudyStats(deckId),
+      getDeckTags(deckId),
+    ]);
+
   const canArchive = member !== null && ["owner", "admin"].includes(member.role);
   const canChangeVisibility = canArchive;
-  const isDefaultDeck = session.user.defaultDeckId === deckId;
-  const resolved = await resolveSourceDeck(deckId);
-  const wsResult = await getWorkspace(deck.workspaceId);
   const workspaceKind = wsResult.success ? wsResult.data.kind : "shared";
-
-  const [cardsResult, statsResult, deckTagNames] = await Promise.all([
-    listCards(deckId, { tag: tagFilter }),
-    getDeckStudyStats(deckId),
-    getDeckTags(deckId),
-  ]);
   const cards = cardsResult.success ? cardsResult.data : [];
   const stats = statsResult.success ? statsResult.data : null;
 

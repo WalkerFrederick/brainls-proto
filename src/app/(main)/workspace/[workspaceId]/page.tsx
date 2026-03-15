@@ -22,16 +22,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function WorkspacePage({ params }: Props) {
   const { workspaceId } = await params;
-  const wsResult = await getWorkspace(workspaceId);
+
+  const [wsResult, decksResult, roleResult] = await Promise.all([
+    getWorkspace(workspaceId),
+    listDecks(workspaceId),
+    getWorkspaceRole(workspaceId),
+  ]);
 
   if (!wsResult.success) {
     return <div className="text-destructive">Error: {wsResult.error}</div>;
   }
 
-  const [decksResult, roleResult] = await Promise.all([
-    listDecks(workspaceId),
-    getWorkspaceRole(workspaceId),
-  ]);
   const decks = decksResult.success ? decksResult.data : [];
   const currentRole = roleResult.success ? roleResult.data.role : "viewer";
 

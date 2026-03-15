@@ -2,7 +2,19 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Brain, BookOpen, Users, Globe, Sparkles, ArrowLeftRight, Check } from "lucide-react";
+import {
+  Brain,
+  BookOpen,
+  Users,
+  Globe,
+  Sparkles,
+  ArrowLeftRight,
+  Check,
+  Shuffle,
+  ShieldCheck,
+  Zap,
+  MessageCircleQuestion,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -105,6 +117,82 @@ export default async function LandingPage() {
         </section>
 
         <section className="border-t px-6 py-20 md:px-12">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-12 text-center">
+              <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+                AI That Teaches
+              </span>
+              <h2 className="mt-4 font-serif text-2xl font-bold md:text-3xl">
+                Skill up, not deskill
+              </h2>
+              <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+                Most AI tools give you the answer. BrainLS AI makes sure you actually{" "}
+                <em>understand</em> it. Every feature is designed to deepen your knowledge, not
+                replace it.
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="flex flex-col gap-4 rounded-lg border bg-background p-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <Shuffle className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-semibold">Dynamic AI Questions</h3>
+                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Stop drilling the same question until you memorize the shape of the answer instead
+                  of the concept. AI generates fresh variations and real-world problems so you learn
+                  to <em>apply</em> what you know — not just recognize it.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-4 rounded-lg border bg-background p-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-semibold">Suggested Cards</h3>
+                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Studying a topic and realize there are gaps? AI suggests cards you&apos;re missing
+                  and can spin up one-off topic decks on the fly — so you never have to leave your
+                  flow to fill in the blanks.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-4 rounded-lg border bg-background p-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-semibold">Fact Checking</h3>
+                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Studying outdated or incorrect cards does more harm than good. AI flags
+                  questionable content and verifies facts so you can trust what you&apos;re
+                  committing to memory.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-4 rounded-lg border bg-background p-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <MessageCircleQuestion className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-semibold">AI Explainers</h3>
+                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Hit a card you don&apos;t understand? Get an instant, plain-language explanation
+                  without leaving your study session. Learn the &ldquo;why&rdquo; behind the answer,
+                  not just the &ldquo;what.&rdquo;
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t bg-muted/30 px-6 py-20 md:px-12">
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
               Coming Soon
@@ -119,7 +207,7 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        <section className="border-t bg-muted/30 px-6 py-20 md:px-12">
+        <section className="border-t px-6 py-20 md:px-12">
           <div className="mx-auto max-w-4xl">
             <h2 className="mb-4 text-center font-serif text-2xl font-bold md:text-3xl">
               How Does Spaced Repetition Work?

@@ -76,6 +76,14 @@ export async function canEditDeck(deckId: string, userId: string) {
   return member !== null && hasMinRole(member.role as WorkspaceRole, "editor");
 }
 
+/**
+ * Like canEditDeck but skips the deckDefinitions lookup when you already have the workspaceId.
+ */
+export async function canEditDeckInWorkspace(workspaceId: string, userId: string) {
+  const member = await getWorkspaceMember(workspaceId, userId);
+  return member !== null && hasMinRole(member.role as WorkspaceRole, "editor");
+}
+
 export async function canManageMembers(workspaceId: string, userId: string) {
   return requireWorkspaceRole(workspaceId, userId, "admin");
 }

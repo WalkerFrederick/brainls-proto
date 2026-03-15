@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { useUploadThing } from "@/lib/uploadthing-client";
+import { checkStorageAvailable } from "@/actions/storage";
 import { cn } from "@/lib/utils";
 
 interface MarkdownEditorProps {
@@ -34,12 +35,13 @@ export function MarkdownEditor({
 }: MarkdownEditorProps) {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { startUpload } = useUploadThing("cardImage", {
-    onUploadError: (err) => {
-      console.error("Image upload failed:", err.message);
+    onUploadError: () => {
+      setUploadError("Upload failed. Please try again.");
       setUploading(false);
     },
   });
@@ -72,6 +74,16 @@ export function MarkdownEditor({
       if (files.length === 0) return;
 
       setUploading(true);
+      setUploadError("");
+
+      const storageCheck = await checkStorageAvailable();
+      if (!storageCheck.success) {
+        setUploadError(storageCheck.error);
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
       const result = await startUpload(files);
 
       if (result) {
@@ -146,6 +158,8 @@ export function MarkdownEditor({
           <MarkdownRenderer content={value} />
         </div>
       )}
+
+      {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
 
       {(maxLength || maxAttachments) &&
         (() => {

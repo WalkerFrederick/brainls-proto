@@ -3,6 +3,8 @@ import { ArrowLeft, UserCog } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { UpdateProfileForm } from "@/components/update-profile-form";
 import { DangerZone } from "@/components/danger-zone";
+import { getStorageInfo } from "@/actions/storage";
+import { formatBytes } from "@/lib/storage";
 import Link from "next/link";
 
 export default async function AccountSettingsPage() {
@@ -11,6 +13,9 @@ export default async function AccountSettingsPage() {
   if (!session) {
     return <div className="text-destructive">Not authenticated</div>;
   }
+
+  const storageResult = await getStorageInfo();
+  const storage = storageResult.success ? storageResult.data : null;
 
   return (
     <div className="space-y-8">
@@ -55,6 +60,40 @@ export default async function AccountSettingsPage() {
       </div>
 
       <Separator />
+
+      {storage && (
+        <>
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold">Storage</h2>
+              <p className="text-sm text-muted-foreground">
+                File uploads including images, audio, and avatars.
+              </p>
+            </div>
+            <div className="rounded-md border p-4 space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Used</span>
+                <span className="font-medium">
+                  {formatBytes(storage.usedBytes)} / {formatBytes(storage.limitBytes)}
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{
+                    width: `${Math.min((storage.usedBytes / storage.limitBytes) * 100, 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {Math.round((storage.usedBytes / storage.limitBytes) * 100)}% of your storage used
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+        </>
+      )}
 
       <DangerZone />
     </div>

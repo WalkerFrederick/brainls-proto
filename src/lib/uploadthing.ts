@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { assets, users } from "@/db/schema";
+import { getUserStorageBytes, getStorageLimitBytes, formatBytes } from "@/lib/storage";
 
 const utapi = new UTApi();
 
@@ -14,6 +15,14 @@ async function requireSession() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Unauthorized");
   return session;
+}
+
+async function enforceStorageLimit(userId: string) {
+  const used = await getUserStorageBytes(userId);
+  const limit = getStorageLimitBytes(userId);
+  if (used >= limit) {
+    throw new Error("Storage limit reached");
+  }
 }
 
 export const uploadRouter = {
@@ -28,6 +37,7 @@ export const uploadRouter = {
         throw new Error("User has no personal workspace");
       }
 
+      await enforceStorageLimit(user.id);
       return { userId: user.id, workspaceId: user.personalWorkspaceId };
     })
     .onUploadComplete(async ({ metadata, file }) => {
@@ -70,6 +80,7 @@ export const uploadRouter = {
       if (!user.personalWorkspaceId) {
         throw new Error("User has no personal workspace");
       }
+      await enforceStorageLimit(user.id);
       return { userId: user.id, workspaceId: user.personalWorkspaceId };
     })
     .onUploadComplete(async ({ metadata, file }) => {
@@ -97,6 +108,7 @@ export const uploadRouter = {
       if (!user.personalWorkspaceId) {
         throw new Error("User has no personal workspace");
       }
+      await enforceStorageLimit(user.id);
       return { userId: user.id, workspaceId: user.personalWorkspaceId };
     })
     .onUploadComplete(async ({ metadata, file }) => {

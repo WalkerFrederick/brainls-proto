@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { useUploadThing } from "@/lib/uploadthing-client";
 import { removeAvatar } from "@/actions/avatar";
+import { checkStorageAvailable } from "@/actions/storage";
 import { UserAvatar } from "@/components/user-avatar";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -30,8 +31,8 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { startUpload } = useUploadThing("avatar", {
-    onUploadError: (err) => {
-      setMessage(err.message ?? "Avatar upload failed");
+    onUploadError: () => {
+      setMessage("Avatar upload failed. Please try again.");
       setUploading(false);
     },
   });
@@ -52,6 +53,14 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
 
       setMessage("");
       setUploading(true);
+
+      const storageCheck = await checkStorageAvailable();
+      if (!storageCheck.success) {
+        setMessage(storageCheck.error);
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
 
       const result = await startUpload([file]);
 

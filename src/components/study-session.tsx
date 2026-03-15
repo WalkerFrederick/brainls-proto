@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { submitReview } from "@/actions/study";
 import { Loader2, RotateCcw, Check, ChevronRight, Trophy } from "lucide-react";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 interface StudyCard {
   userCardStateId: string;
@@ -225,12 +226,14 @@ function FrontBackStudy({
   return (
     <>
       <CardHeader>
-        <CardTitle className="text-center text-xl">{String(content.front ?? "")}</CardTitle>
+        <div className="text-center">
+          <MarkdownRenderer content={String(content.front ?? "")} />
+        </div>
       </CardHeader>
       <CardContent className="text-center">
         {showAnswer ? (
           <div className="rounded-lg bg-muted p-4">
-            <p className="text-lg">{String(content.back ?? "")}</p>
+            <MarkdownRenderer content={String(content.back ?? "")} />
           </div>
         ) : (
           <Button variant="outline" onClick={onReveal} className="mt-4">

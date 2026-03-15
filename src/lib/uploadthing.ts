@@ -62,17 +62,21 @@ export const uploadRouter = {
     }),
 
   cardImage: f({
-    image: { maxFileSize: "4MB", maxFileCount: 4 },
+    image: { maxFileSize: "4MB", maxFileCount: 10 },
   })
     .middleware(async () => {
       const session = await requireSession();
-      return { userId: session.user.id };
+      const user = session.user;
+      if (!user.personalWorkspaceId) {
+        throw new Error("User has no personal workspace");
+      }
+      return { userId: user.id, workspaceId: user.personalWorkspaceId };
     })
-    .onUploadComplete(async ({ file }) => {
+    .onUploadComplete(async ({ metadata, file }) => {
       const [asset] = await db
         .insert(assets)
         .values({
-          workspaceId: "00000000-0000-0000-0000-000000000000",
+          workspaceId: metadata.workspaceId,
           kind: "card_image",
           storageKey: file.key,
           mimeType: file.type,
@@ -89,13 +93,17 @@ export const uploadRouter = {
   })
     .middleware(async () => {
       const session = await requireSession();
-      return { userId: session.user.id };
+      const user = session.user;
+      if (!user.personalWorkspaceId) {
+        throw new Error("User has no personal workspace");
+      }
+      return { userId: user.id, workspaceId: user.personalWorkspaceId };
     })
-    .onUploadComplete(async ({ file }) => {
+    .onUploadComplete(async ({ metadata, file }) => {
       const [asset] = await db
         .insert(assets)
         .values({
-          workspaceId: "00000000-0000-0000-0000-000000000000",
+          workspaceId: metadata.workspaceId,
           kind: "card_audio",
           storageKey: file.key,
           mimeType: file.type,

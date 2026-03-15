@@ -16,6 +16,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/markdown-editor";
+import { MAX_FIELD_LENGTH } from "@/lib/schemas/card-content";
 import {
   Select,
   SelectContent,
@@ -131,7 +133,7 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
       <DialogTrigger render={<Button variant="ghost" size="sm" />}>
         <Pencil className="h-3.5 w-3.5" />
       </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl w-[90vw] max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Edit Card</DialogTitle>
@@ -146,26 +148,22 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
 
             {cardType === "front_back" ? (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-front">Front</Label>
-                  <Textarea
-                    id="edit-front"
-                    value={front}
-                    onChange={(e) => setFront(e.target.value)}
-                    required
-                    rows={2}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-back">Back</Label>
-                  <Textarea
-                    id="edit-back"
-                    value={back}
-                    onChange={(e) => setBack(e.target.value)}
-                    required
-                    rows={2}
-                  />
-                </div>
+                <MarkdownEditor
+                  label="Front"
+                  value={front}
+                  onChange={setFront}
+                  required
+                  maxLength={MAX_FIELD_LENGTH}
+                  maxAttachments={10}
+                />
+                <MarkdownEditor
+                  label="Back"
+                  value={back}
+                  onChange={setBack}
+                  required
+                  maxLength={MAX_FIELD_LENGTH}
+                  maxAttachments={10}
+                />
               </>
             ) : (
               <>

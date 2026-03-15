@@ -2,6 +2,7 @@ import { getPublicDeck, listPublicCards } from "@/actions/public-deck";
 import { BookOpen, LogIn } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import Link from "next/link";
 
 interface Props {
@@ -82,11 +83,11 @@ export default async function PublicDeckPage({ params }: Props) {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-xs font-medium text-muted-foreground">Front</p>
-                        <p className="mt-1">{String(content.front ?? "")}</p>
+                        <MarkdownRenderer content={String(content.front ?? "")} className="mt-1" />
                       </div>
                       <div>
                         <p className="text-xs font-medium text-muted-foreground">Back</p>
-                        <p className="mt-1">{String(content.back ?? "")}</p>
+                        <MarkdownRenderer content={String(content.back ?? "")} className="mt-1" />
                       </div>
                     </div>
                   ) : card.cardType === "multiple_choice" ? (

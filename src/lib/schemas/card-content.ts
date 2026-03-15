@@ -12,15 +12,44 @@ export type CardType = (typeof CARD_TYPES)[number];
 
 export const cardTypeEnum = z.enum(CARD_TYPES);
 
+export const MAX_FIELD_LENGTH = 10_000;
+export const MAX_CHOICE_LENGTH = 1_000;
+
 export const FrontBackCardSchema = z.object({
-  front: z.string().min(1, "Front side is required"),
-  back: z.string().min(1, "Back side is required"),
+  front: z
+    .string()
+    .min(1, "Front side is required")
+    .max(
+      MAX_FIELD_LENGTH,
+      `Front side must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
+    ),
+  back: z
+    .string()
+    .min(1, "Back side is required")
+    .max(
+      MAX_FIELD_LENGTH,
+      `Back side must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
+    ),
 });
 
 export const MultipleChoiceCardSchema = z.object({
-  question: z.string().min(1, "Question is required"),
+  question: z
+    .string()
+    .min(1, "Question is required")
+    .max(
+      MAX_FIELD_LENGTH,
+      `Question must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
+    ),
   choices: z
-    .array(z.string().min(1))
+    .array(
+      z
+        .string()
+        .min(1)
+        .max(
+          MAX_CHOICE_LENGTH,
+          `Each choice must be under ${MAX_CHOICE_LENGTH.toLocaleString()} characters`,
+        ),
+    )
     .min(2, "At least 2 choices required")
     .max(10, "At most 10 choices allowed"),
   correctChoiceIndexes: z

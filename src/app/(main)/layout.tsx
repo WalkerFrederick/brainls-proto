@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebar, MobileHeader } from "@/components/app-sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LayoutProvider } from "@/components/layout-provider";
 import { AppShell } from "@/components/main-content";
@@ -14,7 +14,10 @@ export default async function MainLayout({ children }: { children: React.ReactNo
       <LayoutProvider initialConstrained={initialConstrained}>
         <AppShell>
           <AppSidebar />
-          <main className="flex-1 overflow-auto p-6">{children}</main>
+          <div className="flex flex-1 flex-col overflow-auto">
+            <MobileHeader />
+            <main className="flex-1 p-6">{children}</main>
+          </div>
         </AppShell>
       </LayoutProvider>
     </TooltipProvider>

@@ -1,4 +1,5 @@
 import { getDeck } from "@/actions/deck";
+import { getWorkspace } from "@/actions/workspace";
 import { listCards } from "@/actions/card";
 import { getDeckStudyStats } from "@/actions/study";
 import { getDeckTags } from "@/actions/tag";
@@ -41,6 +42,8 @@ export default async function DeckPage({ params, searchParams }: Props) {
   const canArchive = member !== null && ["owner", "admin"].includes(member.role);
   const canChangeVisibility = canArchive;
   const resolved = await resolveSourceDeck(deckId);
+  const wsResult = await getWorkspace(deck.workspaceId);
+  const workspaceKind = wsResult.success ? wsResult.data.kind : "shared";
 
   const [cardsResult, statsResult, deckTagNames] = await Promise.all([
     listCards(deckId, { tag: tagFilter }),
@@ -69,7 +72,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">{deck.title}</h1>
           {deck.description && <p className="text-sm text-muted-foreground">{deck.description}</p>}
@@ -114,7 +117,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
             </div>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {(deck.viewPolicy === "public" || deck.viewPolicy === "link") && (
             <ShareDeckButton deckId={deckId} />
           )}
@@ -126,6 +129,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
               viewPolicy={deck.viewPolicy}
               canArchive={canArchive}
               canChangeVisibility={canChangeVisibility}
+              workspaceKind={workspaceKind}
               initialTags={deckTagNames}
             />
           )}

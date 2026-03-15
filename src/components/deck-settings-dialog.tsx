@@ -33,12 +33,13 @@ interface DeckSettingsDialogProps {
   viewPolicy: string;
   canArchive?: boolean;
   canChangeVisibility?: boolean;
+  workspaceKind?: string;
   initialTags?: string[];
 }
 
 const VIEW_POLICY_OPTIONS = [
-  { value: "private", label: "Private", hint: "Only workspace members" },
-  { value: "workspace", label: "Workspace", hint: "All workspace members" },
+  { value: "private", label: "Private", hint: "Only editors, admins, and owners" },
+  { value: "workspace", label: "Workspace", hint: "All workspace members, including viewers" },
   { value: "link", label: "Link", hint: "Anyone with the link" },
   { value: "public", label: "Public", hint: "Discoverable by everyone" },
 ] as const;
@@ -50,6 +51,7 @@ export function DeckSettingsDialog({
   viewPolicy: initialViewPolicy,
   canArchive = false,
   canChangeVisibility = false,
+  workspaceKind = "shared",
   initialTags = [],
 }: DeckSettingsDialogProps) {
   const router = useRouter();
@@ -157,7 +159,11 @@ export function DeckSettingsDialog({
               hint="Who can see this deck"
               value={viewPolicy}
               onChange={setViewPolicy}
-              options={VIEW_POLICY_OPTIONS}
+              options={
+                workspaceKind === "personal"
+                  ? VIEW_POLICY_OPTIONS.filter((o) => o.value !== "workspace")
+                  : VIEW_POLICY_OPTIONS
+              }
               disabled={!canChangeVisibility}
             />
           </div>

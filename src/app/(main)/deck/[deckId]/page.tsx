@@ -5,18 +5,15 @@ import { getDeckStudyStats } from "@/actions/study";
 import { getDeckTags } from "@/actions/tag";
 import { BookOpen, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CreateCardDialog } from "@/components/create-card-dialog";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import { ShareDeckButton } from "@/components/share-deck-button";
 import { AddToWorkspaceButtons } from "@/components/add-to-workspace-dialog";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { ShortcutDisplay } from "@/components/shortcut-display";
-import { CardAnswerReveal } from "@/components/card-answer-reveal";
+import { DeckCardItem } from "@/components/deck-card-item";
+import { PlatformBadge } from "@/components/platform-badge";
 import { TagFilter } from "@/components/tag-filter";
-import { renderClozePreview, getUniqueClozeIndices } from "@/lib/cloze";
 import { canEditDeck, getWorkspaceMember } from "@/lib/permissions";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
 import { requireSession } from "@/lib/auth-server";
@@ -74,7 +71,11 @@ export default async function DeckPage({ params, searchParams }: Props) {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{deck.title}</h1>
+          <PlatformBadge createdByUserId={deck.createdByUserId} showPill />
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">{deck.title}</h1>
+            <PlatformBadge createdByUserId={deck.createdByUserId} showCheck />
+          </div>
           {deck.description && <p className="text-sm text-muted-foreground">{deck.description}</p>}
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge variant="outline">{cards.length} cards</Badge>
@@ -188,122 +189,25 @@ export default async function DeckPage({ params, searchParams }: Props) {
           {cards.map((card) => {
             const content = card.contentJson as Record<string, unknown>;
             return (
-              <Card key={card.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="w-fit">
-                        {card.cardType}
-                      </Badge>
-                      {card.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">v{card.version}</span>
-                      {isEditor && !resolved.isLinked && (
-                        <EditCardDialog
-                          cardId={card.id}
-                          cardType={card.cardType}
-                          contentJson={content}
-                          deckDefinitionId={deckId}
-                          initialTags={card.tags}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {card.cardType === "front_back" ? (
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground">Front</p>
-                        <MarkdownRenderer content={String(content.front ?? "")} className="mt-1" />
-                      </div>
-                      <CardAnswerReveal>
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground">Back</p>
-                          <MarkdownRenderer content={String(content.back ?? "")} className="mt-1" />
-                        </div>
-                      </CardAnswerReveal>
-                    </div>
-                  ) : card.cardType === "multiple_choice" ? (
-                    <div>
-                      <MarkdownRenderer content={String(content.question ?? "")} />
-                      <CardAnswerReveal>
-                        <ul className="mt-2 space-y-1">
-                          {(content.choices as string[] | undefined)?.map((choice, i) => {
-                            const correct = (content.correctChoiceIndexes as number[])?.includes(i);
-                            return (
-                              <li
-                                key={i}
-                                className={
-                                  correct ? "font-semibold text-green-600" : "text-muted-foreground"
-                                }
-                              >
-                                {correct ? "✓" : "○"} {choice}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </CardAnswerReveal>
-                    </div>
-                  ) : card.cardType === "cloze" ? (
-                    <div className="space-y-2">
-                      <MarkdownRenderer content={renderClozePreview(String(content.text ?? ""))} />
-                      <p className="text-xs text-muted-foreground">
-                        {(() => {
-                          const indices = getUniqueClozeIndices(String(content.text ?? ""));
-                          return `${indices.length} cloze card${indices.length !== 1 ? "s" : ""} (${indices.map((i) => `c${i}`).join(", ")})`;
-                        })()}
-                      </p>
-                    </div>
-                  ) : card.cardType === "keyboard_shortcut" ? (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">Prompt</p>
-                      <MarkdownRenderer content={String(content.prompt ?? "")} />
-                      <CardAnswerReveal>
-                        <div className="space-y-2">
-                          <p className="text-xs font-medium text-muted-foreground">Shortcut</p>
-                          {content.shortcut ? (
-                            <ShortcutDisplay
-                              shortcut={
-                                content.shortcut as {
-                                  key: string;
-                                  ctrl: boolean;
-                                  shift: boolean;
-                                  alt: boolean;
-                                  meta: boolean;
-                                }
-                              }
-                            />
-                          ) : null}
-                          {content.explanation ? (
-                            <>
-                              <p className="text-xs font-medium text-muted-foreground mt-2">
-                                Explanation
-                              </p>
-                              <MarkdownRenderer
-                                content={String(content.explanation)}
-                                className="text-sm"
-                              />
-                            </>
-                          ) : null}
-                        </div>
-                      </CardAnswerReveal>
-                    </div>
-                  ) : (
-                    <p className="text-sm italic text-muted-foreground">
-                      Unsupported card type: {card.cardType.replace(/_/g, " ")}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              <DeckCardItem
+                key={card.id}
+                cardId={card.id}
+                cardType={card.cardType}
+                contentJson={content}
+                tags={card.tags}
+                version={card.version}
+                editSlot={
+                  isEditor && !resolved.isLinked ? (
+                    <EditCardDialog
+                      cardId={card.id}
+                      cardType={card.cardType}
+                      contentJson={content}
+                      deckDefinitionId={deckId}
+                      initialTags={card.tags}
+                    />
+                  ) : undefined
+                }
+              />
             );
           })}
         </div>

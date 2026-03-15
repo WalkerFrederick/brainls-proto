@@ -201,11 +201,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
 
       <Card className="min-h-[300px]">
         {currentCard.cardType === "front_back" ? (
-          <FrontBackStudy
-            content={content}
-            showAnswer={showAnswer}
-            onReveal={() => setShowAnswer(true)}
-          />
+          <FrontBackStudy content={content} showAnswer={showAnswer} />
         ) : currentCard.cardType === "multiple_choice" ? (
           <MultipleChoiceStudy
             content={content}
@@ -217,11 +213,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
             }}
           />
         ) : currentCard.cardType === "cloze" ? (
-          <ClozeStudy
-            content={content}
-            showAnswer={showAnswer}
-            onReveal={() => setShowAnswer(true)}
-          />
+          <ClozeStudy content={content} showAnswer={showAnswer} />
         ) : currentCard.cardType === "keyboard_shortcut" ? (
           <KeyboardShortcutStudy
             content={content}
@@ -247,8 +239,15 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
         )}
       </Card>
 
-      {showAnswer && (
+      {showAnswer ? (
         <RatingPanel intervalPreviews={intervalPreviews} loading={loading} onRate={handleRate} />
+      ) : (
+        <div className="rounded-xl border bg-card p-4">
+          <Button variant="outline" className="w-full" onClick={() => setShowAnswer(true)}>
+            Show Answer
+            <ShortcutHint keyChar="space" />
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -333,11 +332,9 @@ function RatingPanel({
 function FrontBackStudy({
   content,
   showAnswer,
-  onReveal,
 }: {
   content: Record<string, unknown>;
   showAnswer: boolean;
-  onReveal: () => void;
 }) {
   return (
     <>
@@ -347,15 +344,10 @@ function FrontBackStudy({
         </div>
       </CardHeader>
       <CardContent className="text-center">
-        {showAnswer ? (
+        {showAnswer && (
           <div className="rounded-lg bg-muted p-4">
             <MarkdownRenderer content={String(content.back ?? "")} />
           </div>
-        ) : (
-          <Button variant="outline" onClick={onReveal} className="mt-4">
-            Show Answer
-            <ShortcutHint keyChar="space" />
-          </Button>
         )}
       </CardContent>
     </>
@@ -410,11 +402,6 @@ function MultipleChoiceStudy({
             </Button>
           );
         })}
-        {!showAnswer && (
-          <p className="pt-2 text-center text-xs text-muted-foreground">
-            Press a number to pick or <ShortcutHint keyChar="space" /> to reveal
-          </p>
-        )}
       </CardContent>
     </>
   );
@@ -425,7 +412,6 @@ function KeyboardShortcutStudy({
   showAnswer,
   shortcutCorrect,
   shakeKey,
-  onReveal,
   onCorrect,
   onWrong,
 }: {
@@ -433,7 +419,6 @@ function KeyboardShortcutStudy({
   showAnswer: boolean;
   shortcutCorrect: boolean | null;
   shakeKey: number;
-  onReveal: () => void;
   onCorrect: () => void;
   onWrong: () => void;
 }) {
@@ -499,15 +484,9 @@ function KeyboardShortcutStudy({
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Press the keyboard shortcut, or reveal the answer
-            </p>
-            <Button variant="outline" onClick={onReveal}>
-              Show Answer
-              <ShortcutHint keyChar="space" />
-            </Button>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Press the keyboard shortcut, or reveal the answer below
+          </p>
         )}
       </CardContent>
     </>
@@ -517,30 +496,17 @@ function KeyboardShortcutStudy({
 function ClozeStudy({
   content,
   showAnswer,
-  onReveal,
 }: {
   content: Record<string, unknown>;
   showAnswer: boolean;
-  onReveal: () => void;
 }) {
   const text = String(content.text ?? "");
   const clozeIndex = Number(content.clozeIndex ?? 1);
 
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (showAnswer) return;
-      const target = e.target as HTMLElement;
-      if (target.classList.contains("cloze-blank")) {
-        onReveal();
-      }
-    },
-    [showAnswer, onReveal],
-  );
-
   return (
     <>
       <CardHeader>
-        <div className="text-center" onClick={handleClick}>
+        <div className="text-center">
           <MarkdownRenderer
             content={
               showAnswer
@@ -550,14 +516,6 @@ function ClozeStudy({
           />
         </div>
       </CardHeader>
-      <CardContent className="text-center">
-        {!showAnswer && (
-          <Button variant="outline" onClick={onReveal} className="mt-4">
-            Show Answer
-            <ShortcutHint keyChar="space" />
-          </Button>
-        )}
-      </CardContent>
     </>
   );
 }

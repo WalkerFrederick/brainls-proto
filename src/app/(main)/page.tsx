@@ -1,36 +1,98 @@
-import { Brain } from "lucide-react";
+import { Brain, BookOpen } from "lucide-react";
 import { getSession } from "@/lib/auth-server";
-import { getReviewHeatmapData } from "@/actions/study";
+import { getReviewHeatmapData, listUserDecks } from "@/actions/study";
 import { ReviewHeatmap } from "@/components/review-heatmap";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CustomStudyDialog } from "@/components/custom-study-dialog";
+import Link from "next/link";
 
 export default async function Home() {
   const session = await getSession();
 
-  const heatmapResult = session ? await getReviewHeatmapData() : null;
+  const [heatmapResult, decksResult] = session
+    ? await Promise.all([getReviewHeatmapData(), listUserDecks()])
+    : [null, null];
+
+  const decks = decksResult?.success ? decksResult.data : [];
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6">
-      <div className="flex flex-col items-center gap-4">
-        <Brain className="h-16 w-16 text-primary" />
-        <h1 className="text-3xl font-bold">Welcome to BrainLS</h1>
-        {session ? (
-          <p className="text-muted-foreground">
-            Hello, {session.user.name ?? session.user.email}! Head to your{" "}
-            <a href="/library" className="text-primary hover:underline">
-              Library
-            </a>{" "}
-            to start studying.
-          </p>
-        ) : (
-          <p className="text-muted-foreground">Sign in to start learning.</p>
-        )}
+    <div className="space-y-8">
+      <div className="flex items-center gap-3">
+        <Brain className="h-6 w-6 text-primary" />
+        <h1 className="text-2xl font-bold">Home</h1>
       </div>
 
-      {heatmapResult?.success && (
-        <div className="w-full max-w-3xl">
-          <ReviewHeatmap data={heatmapResult.data} />
+      {session ? (
+        <p className="text-muted-foreground">
+          Hello, {session.user.name ?? session.user.email}! Head to your{" "}
+          <a href="/library" className="text-primary hover:underline">
+            Library
+          </a>{" "}
+          to start studying.
+        </p>
+      ) : (
+        <p className="text-muted-foreground">Sign in to start learning.</p>
+      )}
+
+      {heatmapResult?.success && <ReviewHeatmap data={heatmapResult.data} />}
+
+      {session && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Study</h2>
+
+          {decks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
+              <BookOpen className="h-12 w-12 text-muted-foreground" />
+              <div className="text-center">
+                <h3 className="text-lg font-semibold">No decks in your library</h3>
+                <p className="text-sm text-muted-foreground">
+                  Add a deck from a workspace to start studying.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {decks.map((deck) => (
+                <Link key={deck.id} href={`/study/${deck.id}`}>
+                  <Card className="h-full transition-colors hover:bg-accent/50">
+                    <CardHeader>
+                      <CardTitle className="text-lg">{deck.deckTitle}</CardTitle>
+                      <CardDescription>{deck.totalCards} cards total</CardDescription>
+                      <div className="flex gap-2 pt-1">
+                        <Badge variant={deck.dueCards > 0 ? "default" : "secondary"}>
+                          {deck.dueCards} due
+                        </Badge>
+                        {deck.lastStudiedAt && (
+                          <Badge variant="outline">
+                            Last: {new Date(deck.lastStudiedAt).toLocaleDateString()}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              ))}
+
+              <CustomStudyCard />
+            </div>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+function CustomStudyCard() {
+  return (
+    <Card className="h-full border-dashed transition-colors hover:bg-accent/50">
+      <CardHeader>
+        <CardTitle className="text-lg">Custom Study</CardTitle>
+        <CardDescription>Study cards by tag across all your decks</CardDescription>
+        <div className="pt-1">
+          <CustomStudyDialog />
+        </div>
+      </CardHeader>
+    </Card>
   );
 }

@@ -1,21 +1,16 @@
-import { listWorkspacesWithDecks, listPendingInvites } from "@/actions/workspace";
+import { listWorkspacesWithDecks } from "@/actions/workspace";
 import { Library, FolderOpen } from "lucide-react";
 import { CreateWorkspaceDialog } from "@/components/create-workspace-dialog";
-import { PendingInvites } from "@/components/pending-invites";
 import { WorkspaceList } from "@/components/workspace-list";
 
 export default async function LibraryPage() {
-  const [result, invitesResult] = await Promise.all([
-    listWorkspacesWithDecks(),
-    listPendingInvites(),
-  ]);
+  const result = await listWorkspacesWithDecks();
 
   if (!result.success) {
     return <div className="text-destructive">Error: {result.error}</div>;
   }
 
   const workspaces = result.data;
-  const invites = invitesResult.success ? invitesResult.data : [];
 
   return (
     <div className="space-y-6">
@@ -27,9 +22,7 @@ export default async function LibraryPage() {
         <CreateWorkspaceDialog />
       </div>
 
-      <PendingInvites invites={invites} />
-
-      {workspaces.length === 0 && invites.length === 0 ? (
+      {workspaces.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
           <FolderOpen className="h-12 w-12 text-muted-foreground" />
           <div className="text-center">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user-avatar";
+import { DeckSummaryCard } from "@/components/deck-summary-card";
 
 interface Deck {
   id: string;
@@ -84,64 +85,18 @@ export function WorkspaceList({ workspaces }: Props) {
             )}
 
             {!isCollapsed && ws.decks.length > 0 && (
-              <div className="border-t">
-                {ws.decks.map((deck, i) => (
-                  <Link
-                    key={deck.id}
-                    href={`/deck/${deck.id}`}
-                    className={`flex items-center justify-between px-4 py-3 pl-12 transition-colors hover:bg-accent/50 ${
-                      i < ws.decks.length - 1 ? "border-b" : ""
-                    }`}
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{deck.title}</p>
-                      {deck.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {deck.description}
-                        </p>
-                      )}
-                      {deck.tags.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {deck.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {deck.linkedDeckDefinitionId && !deck.isAbandoned && (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                        >
-                          linked
-                        </Badge>
-                      )}
-                      {deck.linkedDeckDefinitionId && deck.isAbandoned && (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                        >
-                          abandoned
-                        </Badge>
-                      )}
-                      {deck.forkedFromDeckDefinitionId && (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400"
-                        >
-                          forked
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="text-xs">
-                        {deck.viewPolicy}
-                      </Badge>
-                    </div>
+              <div className="border-t p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {ws.decks.map((deck) => (
+                  <Link key={deck.id} href={`/deck/${deck.id}`}>
+                    <DeckSummaryCard
+                      title={deck.title}
+                      description={deck.description}
+                      tags={deck.tags}
+                      viewPolicy={deck.viewPolicy}
+                      linkedDeckDefinitionId={deck.linkedDeckDefinitionId}
+                      forkedFromDeckDefinitionId={deck.forkedFromDeckDefinitionId}
+                      isAbandoned={deck.isAbandoned}
+                    />
                   </Link>
                 ))}
               </div>

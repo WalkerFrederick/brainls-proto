@@ -1,13 +1,18 @@
 import { cookies } from "next/headers";
-import { AppSidebar, MobileHeader } from "@/components/app-sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
+import { Quickbar } from "@/components/quickbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LayoutProvider } from "@/components/layout-provider";
 import { AppShell } from "@/components/main-content";
+import { listPendingInvites } from "@/actions/workspace";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
   const constrainedCookie = cookieStore.get("layout_constrained")?.value;
   const initialConstrained = constrainedCookie !== "0";
+
+  const invitesResult = await listPendingInvites().catch(() => null);
+  const pendingInviteCount = invitesResult && invitesResult.success ? invitesResult.data.length : 0;
 
   return (
     <TooltipProvider>
@@ -15,7 +20,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         <AppShell>
           <AppSidebar />
           <div className="flex flex-1 flex-col overflow-auto">
-            <MobileHeader />
+            <Quickbar pendingInviteCount={pendingInviteCount} />
             <main className="flex-1 p-6">{children}</main>
           </div>
         </AppShell>

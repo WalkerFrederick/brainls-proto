@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Libre_Baskerville } from "next/font/google";
 import { ThemeProvider, type Theme, type AccentColor } from "@/components/theme-provider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const baskerville = Libre_Baskerville({
+  variable: "--font-baskerville",
+  weight: ["400", "700"],
   subsets: ["latin"],
 });
 
@@ -19,8 +20,28 @@ export const metadata: Metadata = {
   description: "A modern flashcard learning platform",
 };
 
-const VALID_THEMES = new Set<string>(["light", "dark", "parchment", "midnight"]);
-const VALID_ACCENTS = new Set<string>(["zinc", "blue", "violet", "green", "orange", "rose"]);
+const VALID_THEMES = new Set<string>([
+  "light",
+  "dark",
+  "parchment",
+  "dark-parchment",
+  "dark-purple",
+  "light-purple",
+]);
+const VALID_ACCENTS = new Set<string>([
+  "zinc",
+  "blue",
+  "violet",
+  "green",
+  "orange",
+  "rose",
+  "teal",
+  "cyan",
+  "amber",
+  "pink",
+  "indigo",
+  "red",
+]);
 
 export default async function RootLayout({
   children,
@@ -41,8 +62,13 @@ export default async function RootLayout({
   const dataAccent = accent === "zinc" ? undefined : accent;
 
   return (
-    <html lang="en" className={htmlClass} data-accent={dataAccent} suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${baskerville.variable} ${htmlClass}`}
+      data-accent={dataAccent}
+      suppressHydrationWarning
+    >
+      <body className="antialiased">
         <ThemeProvider initialTheme={theme} initialAccent={accent}>
           {children}
         </ThemeProvider>

@@ -64,6 +64,7 @@ export async function listPublicDecks(opts?: { tag?: string }): Promise<
       description: string | null;
       cardCount: number;
       createdByName: string;
+      createdByUserId: string;
       createdAt: Date;
       tags: string[];
     }>
@@ -80,6 +81,7 @@ export async function listPublicDecks(opts?: { tag?: string }): Promise<
         title: deckDefinitions.title,
         description: deckDefinitions.description,
         createdByName: users.name,
+        createdByUserId: deckDefinitions.createdByUserId,
         createdAt: deckDefinitions.createdAt,
       })
       .from(deckDefinitions)
@@ -101,6 +103,7 @@ export async function listPublicDecks(opts?: { tag?: string }): Promise<
         title: deckDefinitions.title,
         description: deckDefinitions.description,
         createdByName: users.name,
+        createdByUserId: deckDefinitions.createdByUserId,
         createdAt: deckDefinitions.createdAt,
       })
       .from(deckDefinitions)
@@ -153,6 +156,7 @@ export async function listPublicDecks(opts?: { tag?: string }): Promise<
         description: deck.description,
         cardCount: Number(countResult.count),
         createdByName: deck.createdByName ?? "Unknown",
+        createdByUserId: deck.createdByUserId,
         createdAt: deck.createdAt,
         tags: (deckTagMap.get(deck.id) ?? []).sort(),
       };

@@ -1,11 +1,8 @@
 import { getPublicDeck, listPublicCards } from "@/actions/public-deck";
 import { BookOpen, LogIn } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { ShortcutDisplay } from "@/components/shortcut-display";
-import { CardAnswerReveal } from "@/components/card-answer-reveal";
-import { renderClozePreview, getUniqueClozeIndices } from "@/lib/cloze";
+import { DeckCardItem } from "@/components/deck-card-item";
+import { PlatformBadge } from "@/components/platform-badge";
 import Link from "next/link";
 
 interface Props {
@@ -40,7 +37,11 @@ export default async function PublicDeckPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 space-y-8">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">{deck.title}</h1>
+        <PlatformBadge createdByUserId={deck.createdByUserId} showPill />
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-bold tracking-tight">{deck.title}</h1>
+          <PlatformBadge createdByUserId={deck.createdByUserId} showCheck />
+        </div>
         {deck.description && <p className="text-muted-foreground">{deck.description}</p>}
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">{cards.length} cards</Badge>
@@ -75,98 +76,12 @@ export default async function PublicDeckPage({ params }: Props) {
           {cards.map((card) => {
             const content = card.contentJson as Record<string, unknown>;
             return (
-              <Card key={card.id}>
-                <CardHeader className="pb-2">
-                  <Badge variant="outline" className="w-fit">
-                    {card.cardType}
-                  </Badge>
-                </CardHeader>
-                <CardContent>
-                  {card.cardType === "front_back" ? (
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground">Front</p>
-                        <MarkdownRenderer content={String(content.front ?? "")} className="mt-1" />
-                      </div>
-                      <CardAnswerReveal>
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground">Back</p>
-                          <MarkdownRenderer content={String(content.back ?? "")} className="mt-1" />
-                        </div>
-                      </CardAnswerReveal>
-                    </div>
-                  ) : card.cardType === "multiple_choice" ? (
-                    <div>
-                      <MarkdownRenderer content={String(content.question ?? "")} />
-                      <CardAnswerReveal>
-                        <ul className="mt-2 space-y-1">
-                          {(content.choices as string[] | undefined)?.map((choice, i) => {
-                            const correct = (content.correctChoiceIndexes as number[])?.includes(i);
-                            return (
-                              <li
-                                key={i}
-                                className={
-                                  correct ? "font-semibold text-green-600" : "text-muted-foreground"
-                                }
-                              >
-                                {correct ? "✓" : "○"} {choice}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </CardAnswerReveal>
-                    </div>
-                  ) : card.cardType === "cloze" ? (
-                    <div className="space-y-2">
-                      <MarkdownRenderer content={renderClozePreview(String(content.text ?? ""))} />
-                      <p className="text-xs text-muted-foreground">
-                        {(() => {
-                          const indices = getUniqueClozeIndices(String(content.text ?? ""));
-                          return `${indices.length} cloze card${indices.length !== 1 ? "s" : ""} (${indices.map((i) => `c${i}`).join(", ")})`;
-                        })()}
-                      </p>
-                    </div>
-                  ) : card.cardType === "keyboard_shortcut" ? (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">Prompt</p>
-                      <MarkdownRenderer content={String(content.prompt ?? "")} />
-                      <CardAnswerReveal>
-                        <div className="space-y-2">
-                          <p className="text-xs font-medium text-muted-foreground">Shortcut</p>
-                          {content.shortcut ? (
-                            <ShortcutDisplay
-                              shortcut={
-                                content.shortcut as {
-                                  key: string;
-                                  ctrl: boolean;
-                                  shift: boolean;
-                                  alt: boolean;
-                                  meta: boolean;
-                                }
-                              }
-                            />
-                          ) : null}
-                          {content.explanation ? (
-                            <>
-                              <p className="text-xs font-medium text-muted-foreground mt-2">
-                                Explanation
-                              </p>
-                              <MarkdownRenderer
-                                content={String(content.explanation)}
-                                className="text-sm"
-                              />
-                            </>
-                          ) : null}
-                        </div>
-                      </CardAnswerReveal>
-                    </div>
-                  ) : (
-                    <p className="text-sm italic text-muted-foreground">
-                      Unsupported card type: {card.cardType.replace(/_/g, " ")}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              <DeckCardItem
+                key={card.id}
+                cardId={card.id}
+                cardType={card.cardType}
+                contentJson={content}
+              />
             );
           })}
         </div>

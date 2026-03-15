@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Brain, Home, Library, GraduationCap, Settings, LogIn, Globe, Menu, X } from "lucide-react";
+import { Brain, Home, Library, Settings, LogIn, Globe } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -13,12 +12,11 @@ import { UserAvatar } from "@/components/user-avatar";
 const navItems = [
   { href: "/", label: "Home", icon: Home },
   { href: "/library", label: "Library", icon: Library },
-  { href: "/study", label: "Study", icon: GraduationCap },
   { href: "/browse", label: "Browse", icon: Globe },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-function SidebarNav() {
+export function SidebarNav() {
   const pathname = usePathname();
   const { data: session, isPending } = useSession();
 
@@ -85,62 +83,5 @@ export function AppSidebar() {
       <Separator />
       <SidebarNav />
     </aside>
-  );
-}
-
-export function MobileHeader() {
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-  const prevPathname = useRef(pathname);
-
-  useEffect(() => {
-    if (prevPathname.current !== pathname) {
-      prevPathname.current = pathname;
-      setTimeout(() => setOpen(false), 0);
-    }
-  }, [pathname]);
-
-  return (
-    <>
-      <header className="flex items-center gap-3 border-b bg-sidebar px-4 py-3 md:hidden">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="text-sidebar-foreground"
-          aria-label="Open menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        <Brain className="h-5 w-5 text-primary" />
-        <span className="text-sm font-semibold">BrainLS</span>
-      </header>
-
-      {open && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/50 md:hidden"
-            onClick={() => setOpen(false)}
-          />
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-60 flex-col bg-sidebar text-sidebar-foreground shadow-lg md:hidden">
-            <div className="flex items-center justify-between px-4 py-4">
-              <div className="flex items-center gap-2">
-                <Brain className="h-6 w-6 text-primary" />
-                <span className="text-lg font-semibold">BrainLS</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="text-sidebar-foreground"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <Separator />
-            <SidebarNav />
-          </aside>
-        </>
-      )}
-    </>
   );
 }

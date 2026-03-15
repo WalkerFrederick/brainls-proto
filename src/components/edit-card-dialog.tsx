@@ -17,7 +17,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownEditor } from "@/components/markdown-editor";
+import { ShortcutRecorder } from "@/components/shortcut-recorder";
 import { MAX_FIELD_LENGTH } from "@/lib/schemas/card-content";
+import type { ShortcutCombo } from "@/lib/shortcut-blocklist";
 import {
   Select,
   SelectContent,
@@ -47,6 +49,12 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
     ((contentJson.correctChoiceIndexes as number[]) ?? [0])[0],
   );
 
+  const [prompt, setPrompt] = useState(String(contentJson.prompt ?? ""));
+  const [shortcut, setShortcut] = useState<ShortcutCombo | null>(
+    (contentJson.shortcut as ShortcutCombo) ?? null,
+  );
+  const [explanation, setExplanation] = useState(String(contentJson.explanation ?? ""));
+
   const [srsState, setSrsState] = useState("new");
   const [intervalDays, setIntervalDays] = useState(0);
   const [easeFactor, setEaseFactor] = useState(2.5);
@@ -69,7 +77,13 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
       setEaseFactor(Number(result.data.easeFactor) || 2.5);
       setReps(result.data.reps);
       setLapses(result.data.lapses);
-      setDueAt(result.data.dueAt ? new Date(result.data.dueAt).toISOString().slice(0, 16) : "");
+      if (result.data.dueAt) {
+        const d = new Date(result.data.dueAt);
+        const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+        setDueAt(local.toISOString().slice(0, 16));
+      } else {
+        setDueAt("");
+      }
       setHasStudyState(true);
     }
     setSrsLoading(false);
@@ -82,6 +96,9 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
       setQuestion(String(contentJson.question ?? ""));
       setChoices((contentJson.choices as string[]) ?? ["", ""]);
       setCorrectIndex(((contentJson.correctChoiceIndexes as number[]) ?? [0])[0]);
+      setPrompt(String(contentJson.prompt ?? ""));
+      setShortcut((contentJson.shortcut as ShortcutCombo) ?? null);
+      setExplanation(String(contentJson.explanation ?? ""));
       setError("");
       setShowAdvanced(false);
       setHasStudyState(false);
@@ -94,14 +111,31 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
     setError("");
     setLoading(true);
 
-    const newContent =
-      cardType === "front_back"
-        ? { front, back }
-        : {
-            question,
-            choices: choices.filter((c) => c.trim()),
-            correctChoiceIndexes: [correctIndex],
-          };
+    let newContent: Record<string, unknown>;
+    if (cardType === "front_back") {
+      newContent = { front, back };
+    } else if (cardType === "multiple_choice") {
+      newContent = {
+        question,
+        choices: choices.filter((c) => c.trim()),
+        correctChoiceIndexes: [correctIndex],
+      };
+    } else if (cardType === "keyboard_shortcut") {
+      if (!shortcut) {
+        setError("Please record a keyboard shortcut.");
+        setLoading(false);
+        return;
+      }
+      newContent = {
+        prompt,
+        shortcut,
+        ...(explanation.trim() ? { explanation } : {}),
+      };
+    } else {
+      setError("This card type can't be edited yet.");
+      setLoading(false);
+      return;
+    }
 
     const result = await updateCard({ cardId, contentJson: newContent });
 
@@ -165,18 +199,16 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
                   maxAttachments={10}
                 />
               </>
-            ) : (
+            ) : cardType === "multiple_choice" ? (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-question">Question</Label>
-                  <Textarea
-                    id="edit-question"
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    required
-                    rows={2}
-                  />
-                </div>
+                <MarkdownEditor
+                  label="Question"
+                  value={question}
+                  onChange={setQuestion}
+                  required
+                  maxLength={MAX_FIELD_LENGTH}
+                  maxAttachments={10}
+                />
                 <div className="space-y-2">
                   <Label>Choices (select the correct answer)</Label>
                   {choices.map((choice, i) => (
@@ -226,6 +258,35 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
                   )}
                 </div>
               </>
+            ) : cardType === "keyboard_shortcut" ? (
+              <>
+                <MarkdownEditor
+                  label="Prompt"
+                  value={prompt}
+                  onChange={setPrompt}
+                  required
+                  maxLength={MAX_FIELD_LENGTH}
+                  maxAttachments={10}
+                />
+                <ShortcutRecorder value={shortcut} onChange={setShortcut} />
+                <div className="space-y-2">
+                  <Label htmlFor="edit-explanation">Explanation (optional)</Label>
+                  <Textarea
+                    id="edit-explanation"
+                    value={explanation}
+                    onChange={(e) => setExplanation(e.target.value)}
+                    placeholder="Extra context shown after reveal..."
+                    rows={2}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                <p className="font-medium">
+                  &ldquo;{cardType.replace(/_/g, " ")}&rdquo; cards can&apos;t be edited yet.
+                </p>
+                <p className="mt-1">This card type is coming soon.</p>
+              </div>
             )}
 
             <div className="border-t pt-3">

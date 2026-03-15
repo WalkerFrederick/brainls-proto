@@ -9,6 +9,7 @@ import { CreateCardSchema, UpdateCardSchema } from "@/lib/schemas";
 import { validateCardContent, type CardType } from "@/lib/schemas/card-content";
 import { canEditDeck, canViewDeck } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
+import { cleanupRemovedAssets } from "@/lib/asset-cleanup";
 
 export async function createCard(input: unknown): Promise<Result<{ id: string }>> {
   const session = await requireSession();
@@ -68,6 +69,8 @@ export async function updateCard(input: unknown): Promise<Result<{ id: string }>
   const contentResult = validateCardContent(card.cardType as CardType, contentJson);
   if (!contentResult.success) return err(contentResult.error);
 
+  const oldContentJson = card.contentJson;
+
   await db
     .update(cardDefinitions)
     .set({
@@ -77,6 +80,8 @@ export async function updateCard(input: unknown): Promise<Result<{ id: string }>
       updatedAt: new Date(),
     })
     .where(eq(cardDefinitions.id, cardId));
+
+  await cleanupRemovedAssets(oldContentJson, contentResult.data, cardId);
 
   return ok({ id: cardId });
 }
@@ -144,6 +149,8 @@ export async function archiveCard(cardId: string): Promise<Result<{ id: string }
       updatedByUserId: session.user.id,
     })
     .where(eq(cardDefinitions.id, cardId));
+
+  await cleanupRemovedAssets(card.contentJson, {}, cardId);
 
   return ok({ id: cardId });
 }

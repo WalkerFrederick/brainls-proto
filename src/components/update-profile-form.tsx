@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Camera, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
-import { useUploadThing } from "@/lib/uploadthing-client";
 import { removeAvatar } from "@/actions/avatar";
-import { checkStorageAvailable } from "@/actions/storage";
+import { useFileUpload } from "@/hooks/use-file-upload";
 import { UserAvatar } from "@/components/user-avatar";
 
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 interface Props {
@@ -26,55 +25,26 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
   const [name, setName] = useState(initialName);
   const [image, setImage] = useState(initialImage);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { startUpload } = useUploadThing("avatar", {
-    onUploadError: () => {
-      setMessage("Avatar upload failed. Please try again.");
-      setUploading(false);
-    },
-  });
-
-  const handleAvatarSelect = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      if (!ACCEPTED_TYPES.includes(file.type)) {
-        setMessage("Please upload a JPEG, PNG, WebP, or GIF image.");
-        return;
-      }
-      if (file.size > MAX_AVATAR_BYTES) {
-        setMessage("Image must be under 2 MB.");
-        return;
-      }
-
-      setMessage("");
-      setUploading(true);
-
-      const storageCheck = await checkStorageAvailable();
-      if (!storageCheck.success) {
-        setMessage(storageCheck.error);
-        setUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-
-      const result = await startUpload([file]);
-
-      if (result?.[0]) {
-        setImage(result[0].ufsUrl);
+  const {
+    uploading,
+    error: uploadError,
+    inputRef,
+    openPicker,
+    handleInputChange,
+  } = useFileUpload({
+    route: "avatar",
+    maxFileBytes: MAX_AVATAR_BYTES,
+    acceptedTypes: ACCEPTED_TYPES,
+    onSuccess: (files) => {
+      if (files[0]) {
+        setImage(files[0].url);
         setMessage("Avatar updated.");
         router.refresh();
       }
-
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     },
-    [startUpload, router],
-  );
+  });
 
   const handleRemoveAvatar = useCallback(async () => {
     setLoading(true);
@@ -110,6 +80,8 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
     setLoading(false);
   }
 
+  const displayError = uploadError || message;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
@@ -130,7 +102,7 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
                 variant="outline"
                 size="sm"
                 disabled={uploading || loading}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={openPicker}
               >
                 <Camera className="mr-1.5 h-3.5 w-3.5" />
                 {image ? "Change" : "Upload"}
@@ -148,14 +120,14 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
                 </Button>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, or GIF. Max 2 MB.</p>
+            <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, or GIF. Max 5 MB.</p>
           </div>
           <input
-            ref={fileInputRef}
+            ref={inputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             className="hidden"
-            onChange={handleAvatarSelect}
+            onChange={handleInputChange}
           />
         </div>
       </div>
@@ -168,7 +140,7 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
         <Input id="settings-email" value={email} disabled className="opacity-60" />
         <p className="text-xs text-muted-foreground">Email cannot be changed from here.</p>
       </div>
-      {message && <p className="text-sm text-muted-foreground">{message}</p>}
+      {displayError && <p className="text-sm text-muted-foreground">{displayError}</p>}
       <Button type="submit" disabled={loading || uploading}>
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Save Changes

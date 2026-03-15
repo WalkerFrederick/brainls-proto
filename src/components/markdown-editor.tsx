@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { useUploadThing } from "@/lib/uploadthing-client";
-import { checkStorageAvailable } from "@/actions/storage";
+import { useFileUpload } from "@/hooks/use-file-upload";
 import { cn } from "@/lib/utils";
 
 interface MarkdownEditorProps {
@@ -34,17 +33,7 @@ export function MarkdownEditor({
   maxAttachments,
 }: MarkdownEditorProps) {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const { startUpload } = useUploadThing("cardImage", {
-    onUploadError: () => {
-      setUploadError("Upload failed. Please try again.");
-      setUploading(false);
-    },
-  });
 
   const insertAtCursor = useCallback(
     (text: string) => {
@@ -55,9 +44,7 @@ export function MarkdownEditor({
       }
       const start = ta.selectionStart;
       const end = ta.selectionEnd;
-      const before = value.slice(0, start);
-      const after = value.slice(end);
-      const newValue = before + text + after;
+      const newValue = value.slice(0, start) + text + value.slice(end);
       onChange(newValue);
       requestAnimationFrame(() => {
         const pos = start + text.length;
@@ -68,34 +55,14 @@ export function MarkdownEditor({
     [value, onChange],
   );
 
-  const handleImageSelect = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files ?? []);
-      if (files.length === 0) return;
-
-      setUploading(true);
-      setUploadError("");
-
-      const storageCheck = await checkStorageAvailable();
-      if (!storageCheck.success) {
-        setUploadError(storageCheck.error);
-        setUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-
-      const result = await startUpload(files);
-
-      if (result) {
-        const mdImages = result.map((f) => `![${f.name}](${f.ufsUrl})`).join("\n");
-        insertAtCursor(mdImages);
-      }
-
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+  const { uploading, error, inputRef, openPicker, handleInputChange } = useFileUpload({
+    route: "cardImage",
+    maxFileBytes: 5 * 1024 * 1024,
+    onSuccess: (files) => {
+      const md = files.map((f) => `![${f.name}](${f.url})`).join("\n");
+      insertAtCursor(md);
     },
-    [startUpload, insertAtCursor],
-  );
+  });
 
   return (
     <div className="space-y-2">
@@ -107,7 +74,7 @@ export function MarkdownEditor({
             variant="ghost"
             size="sm"
             disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={openPicker}
             title="Attach file"
           >
             {uploading ? (
@@ -146,9 +113,7 @@ export function MarkdownEditor({
           ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={
-            placeholder ?? "Supports **Markdown**. Click the image button to insert images."
-          }
+          placeholder={placeholder ?? "Supports **Markdown**. Click the paperclip to attach files."}
           required={required}
           rows={minRows}
           className={cn("font-mono text-sm", uploading && "opacity-50")}
@@ -159,7 +124,7 @@ export function MarkdownEditor({
         </div>
       )}
 
-      {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       {(maxLength || maxAttachments) &&
         (() => {
@@ -197,12 +162,12 @@ export function MarkdownEditor({
         })()}
 
       <input
-        ref={fileInputRef}
+        ref={inputRef}
         type="file"
         accept="image/*"
         multiple
         className="hidden"
-        onChange={handleImageSelect}
+        onChange={handleInputChange}
       />
     </div>
   );

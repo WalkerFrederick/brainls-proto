@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { submitReview } from "@/actions/study";
 import { Loader2, RotateCcw, Check, ChevronRight, Trophy } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { ShortcutDisplay } from "@/components/shortcut-display";
+import {
+  type ShortcutCombo,
+  shortcutMatches,
+  normalizeKey,
+  isModifierOnly,
+} from "@/lib/shortcut-blocklist";
 
 interface StudyCard {
   userCardStateId: string;
@@ -37,6 +44,8 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
   const [reviewed, setReviewed] = useState(0);
   const [finished, setFinished] = useState(false);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
+  const [shortcutCorrect, setShortcutCorrect] = useState<boolean | null>(null);
+  const [shakeKey, setShakeKey] = useState(0);
 
   const currentCard = cards[currentIndex];
   const content = currentCard?.contentJson as Record<string, unknown>;
@@ -60,6 +69,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
         setCurrentIndex((i) => i + 1);
         setShowAnswer(false);
         setSelectedChoice(null);
+        setShortcutCorrect(null);
       } else {
         setFinished(true);
       }
@@ -156,9 +166,27 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
               setShowAnswer(true);
             }}
           />
+        ) : currentCard.cardType === "keyboard_shortcut" ? (
+          <KeyboardShortcutStudy
+            content={content}
+            showAnswer={showAnswer}
+            shortcutCorrect={shortcutCorrect}
+            shakeKey={shakeKey}
+            onReveal={() => setShowAnswer(true)}
+            onCorrect={() => {
+              setShortcutCorrect(true);
+              setShowAnswer(true);
+            }}
+            onWrong={() => {
+              setShakeKey((k) => k + 1);
+            }}
+          />
         ) : (
-          <CardContent className="p-6">
-            <pre className="text-sm">{JSON.stringify(content, null, 2)}</pre>
+          <CardContent className="p-6 text-center text-sm text-muted-foreground">
+            <p className="font-medium">
+              Unsupported card type: {currentCard.cardType.replace(/_/g, " ")}
+            </p>
+            <p className="mt-1">This card type isn&apos;t available for study yet.</p>
           </CardContent>
         )}
       </Card>
@@ -266,7 +294,9 @@ function MultipleChoiceStudy({
   return (
     <>
       <CardHeader>
-        <CardTitle className="text-center text-xl">{String(content.question ?? "")}</CardTitle>
+        <div className="text-center">
+          <MarkdownRenderer content={String(content.question ?? "")} />
+        </div>
       </CardHeader>
       <CardContent className="space-y-2">
         {choices.map((choice, i) => {
@@ -296,6 +326,100 @@ function MultipleChoiceStudy({
           <p className="pt-2 text-center text-xs text-muted-foreground">
             Press a number to pick or <ShortcutHint keyChar="space" /> to reveal
           </p>
+        )}
+      </CardContent>
+    </>
+  );
+}
+
+function KeyboardShortcutStudy({
+  content,
+  showAnswer,
+  shortcutCorrect,
+  shakeKey,
+  onReveal,
+  onCorrect,
+  onWrong,
+}: {
+  content: Record<string, unknown>;
+  showAnswer: boolean;
+  shortcutCorrect: boolean | null;
+  shakeKey: number;
+  onReveal: () => void;
+  onCorrect: () => void;
+  onWrong: () => void;
+}) {
+  const storedShortcut = content.shortcut as ShortcutCombo | undefined;
+  const explanationText = String(content.explanation ?? "");
+
+  useEffect(() => {
+    if (showAnswer || !storedShortcut) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (isModifierOnly(e.key)) return;
+
+      const normalized = normalizeKey(e.key);
+
+      if (normalized === "escape") return;
+      if (normalized === "space") return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const pressed: ShortcutCombo = {
+        key: normalized,
+        ctrl: e.ctrlKey,
+        shift: e.shiftKey,
+        alt: e.altKey,
+        meta: e.metaKey,
+      };
+
+      if (shortcutMatches(pressed, storedShortcut)) {
+        onCorrect();
+      } else {
+        onWrong();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
+  }, [showAnswer, storedShortcut, onCorrect, onWrong]);
+
+  return (
+    <>
+      <CardHeader>
+        <div key={shakeKey} className={`text-center ${shakeKey > 0 ? "animate-shake" : ""}`}>
+          <MarkdownRenderer content={String(content.prompt ?? "")} />
+        </div>
+      </CardHeader>
+      <CardContent className="text-center">
+        {showAnswer ? (
+          <div className="space-y-3">
+            <div className="flex justify-center">
+              {storedShortcut && (
+                <ShortcutDisplay
+                  shortcut={storedShortcut}
+                  highlight={shortcutCorrect ? "correct" : null}
+                />
+              )}
+            </div>
+            {shortcutCorrect && <p className="text-sm font-medium text-green-600">Correct!</p>}
+            {explanationText.trim() && (
+              <div className="mx-auto max-w-md rounded-lg bg-muted p-3 text-left">
+                <MarkdownRenderer content={explanationText} />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Press the keyboard shortcut, or reveal the answer
+            </p>
+            <Button variant="outline" onClick={onReveal}>
+              Show Answer
+              <ShortcutHint keyChar="space" />
+            </Button>
+          </div>
         )}
       </CardContent>
     </>

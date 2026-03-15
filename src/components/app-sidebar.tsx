@@ -27,28 +27,7 @@ export function AppSidebar() {
         <span className="text-lg font-semibold">BrainLS</span>
       </div>
       <Separator />
-      <nav className="flex-1 space-y-1 px-2 py-3">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-      <Separator />
-      <div className="p-3">
+      <div className="px-3 py-3">
         {isPending ? (
           <div className="h-9 animate-pulse rounded-md bg-muted" />
         ) : session ? (
@@ -74,6 +53,27 @@ export function AppSidebar() {
           </Link>
         )}
       </div>
+      <Separator />
+      <nav className="flex-1 space-y-1 px-2 py-3">
+        {navItems.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
     </aside>
   );
 }

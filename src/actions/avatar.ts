@@ -1,13 +1,11 @@
 "use server";
 
 import { eq, and } from "drizzle-orm";
-import { UTApi } from "uploadthing/server";
 import { db } from "@/db";
 import { assets, users } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
-
-const utapi = new UTApi();
+import { utapi } from "@/lib/uploadthing";
 
 export async function removeAvatar(): Promise<Result<null>> {
   const session = await requireSession();

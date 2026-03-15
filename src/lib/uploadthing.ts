@@ -5,41 +5,57 @@ import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { assets, users } from "@/db/schema";
-import { getUserStorageBytes, getStorageLimitBytes, formatBytes } from "@/lib/storage";
+import { getUserStorageBytes, getStorageLimitBytes } from "@/lib/storage";
 
-const utapi = new UTApi();
+export const utapi = new UTApi();
 
 const f = createUploadthing();
 
-async function requireSession() {
+type UploadMeta = { userId: string; workspaceId: string };
+
+async function baseMiddleware(): Promise<UploadMeta> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Unauthorized");
-  return session;
+
+  const { user } = session;
+  if (!user.personalWorkspaceId) {
+    throw new Error("User has no personal workspace");
+  }
+
+  const used = await getUserStorageBytes(user.id);
+  const limit = getStorageLimitBytes(user.id);
+  if (used >= limit) throw new Error("Storage limit reached");
+
+  return { userId: user.id, workspaceId: user.personalWorkspaceId };
 }
 
-async function enforceStorageLimit(userId: string) {
-  const used = await getUserStorageBytes(userId);
-  const limit = getStorageLimitBytes(userId);
-  if (used >= limit) {
-    throw new Error("Storage limit reached");
-  }
+function trackAsset(kind: string) {
+  return async ({
+    metadata,
+    file,
+  }: {
+    metadata: UploadMeta;
+    file: { key: string; type: string; name: string; size: number; ufsUrl: string };
+  }) => {
+    const [asset] = await db
+      .insert(assets)
+      .values({
+        workspaceId: metadata.workspaceId,
+        kind,
+        storageKey: file.key,
+        mimeType: file.type,
+        originalFilename: file.name,
+        fileSizeBytes: file.size,
+      })
+      .returning({ id: assets.id });
+
+    return { assetId: asset.id, url: file.ufsUrl };
+  };
 }
 
 export const uploadRouter = {
-  avatar: f({
-    image: { maxFileSize: "2MB", maxFileCount: 1 },
-  })
-    .middleware(async () => {
-      const session = await requireSession();
-      const user = session.user;
-
-      if (!user.personalWorkspaceId) {
-        throw new Error("User has no personal workspace");
-      }
-
-      await enforceStorageLimit(user.id);
-      return { userId: user.id, workspaceId: user.personalWorkspaceId };
-    })
+  avatar: f({ image: { maxFileSize: "5MB", maxFileCount: 1 } })
+    .middleware(baseMiddleware)
     .onUploadComplete(async ({ metadata, file }) => {
       const oldAvatars = await db
         .select({ storageKey: assets.storageKey })
@@ -54,78 +70,20 @@ export const uploadRouter = {
         .delete(assets)
         .where(and(eq(assets.workspaceId, metadata.workspaceId), eq(assets.kind, "avatar")));
 
-      const [asset] = await db
-        .insert(assets)
-        .values({
-          workspaceId: metadata.workspaceId,
-          kind: "avatar",
-          storageKey: file.key,
-          mimeType: file.type,
-          originalFilename: file.name,
-          fileSizeBytes: file.size,
-        })
-        .returning({ id: assets.id });
+      const result = await trackAsset("avatar")({ metadata, file });
 
       await db.update(users).set({ image: file.ufsUrl }).where(eq(users.id, metadata.userId));
 
-      return { assetId: asset.id, url: file.ufsUrl };
+      return result;
     }),
 
-  cardImage: f({
-    image: { maxFileSize: "4MB", maxFileCount: 10 },
-  })
-    .middleware(async () => {
-      const session = await requireSession();
-      const user = session.user;
-      if (!user.personalWorkspaceId) {
-        throw new Error("User has no personal workspace");
-      }
-      await enforceStorageLimit(user.id);
-      return { userId: user.id, workspaceId: user.personalWorkspaceId };
-    })
-    .onUploadComplete(async ({ metadata, file }) => {
-      const [asset] = await db
-        .insert(assets)
-        .values({
-          workspaceId: metadata.workspaceId,
-          kind: "card_image",
-          storageKey: file.key,
-          mimeType: file.type,
-          originalFilename: file.name,
-          fileSizeBytes: file.size,
-        })
-        .returning({ id: assets.id });
+  cardImage: f({ image: { maxFileSize: "5MB", maxFileCount: 10 } })
+    .middleware(baseMiddleware)
+    .onUploadComplete(trackAsset("card_image")),
 
-      return { assetId: asset.id, url: file.ufsUrl };
-    }),
-
-  cardAudio: f({
-    audio: { maxFileSize: "8MB", maxFileCount: 1 },
-  })
-    .middleware(async () => {
-      const session = await requireSession();
-      const user = session.user;
-      if (!user.personalWorkspaceId) {
-        throw new Error("User has no personal workspace");
-      }
-      await enforceStorageLimit(user.id);
-      return { userId: user.id, workspaceId: user.personalWorkspaceId };
-    })
-    .onUploadComplete(async ({ metadata, file }) => {
-      const [asset] = await db
-        .insert(assets)
-        .values({
-          workspaceId: metadata.workspaceId,
-          kind: "card_audio",
-          storageKey: file.key,
-          mimeType: file.type,
-          originalFilename: file.name,
-          fileSizeBytes: file.size,
-        })
-        .returning({ id: assets.id });
-
-      return { assetId: asset.id, url: file.ufsUrl };
-    }),
+  cardAudio: f({ audio: { maxFileSize: "8MB", maxFileCount: 1 } })
+    .middleware(baseMiddleware)
+    .onUploadComplete(trackAsset("card_audio")),
 } satisfies FileRouter;
 
 export type AppFileRouter = typeof uploadRouter;

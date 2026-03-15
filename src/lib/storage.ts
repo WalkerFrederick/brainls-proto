@@ -1,4 +1,4 @@
-import { eq, sql, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { assets } from "@/db/schema";
 import { workspaces } from "@/db/schema";
@@ -7,7 +7,7 @@ import { workspaces } from "@/db/schema";
  * Default storage cap per user in bytes.
  * Override per-user via a plan/tier system in the future.
  */
-export const DEFAULT_STORAGE_LIMIT_BYTES = 10 * 1024 * 1024; // 10 MB
+export const DEFAULT_STORAGE_LIMIT_BYTES = 25 * 1024 * 1024; // 25 MB
 
 export async function getUserStorageBytes(userId: string): Promise<number> {
   try {
@@ -32,7 +32,7 @@ export async function getUserStorageBytes(userId: string): Promise<number> {
   }
 }
 
-export function getStorageLimitBytes(_userId: string): number {
+export function getStorageLimitBytes(_userId?: string): number {
   // Future: look up user's plan/tier and return the corresponding limit
   return DEFAULT_STORAGE_LIMIT_BYTES;
 }

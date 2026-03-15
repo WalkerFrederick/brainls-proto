@@ -3,6 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
+import { isAllowedImageUrl } from "@/lib/allowed-hosts";
 
 interface MarkdownRendererProps {
   content: string;
@@ -19,16 +20,24 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          img: ({ src, alt, ...props }) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={src}
-              alt={alt ?? ""}
-              className="max-h-64 rounded-md object-contain"
-              loading="lazy"
-              {...props}
-            />
-          ),
+          img: ({ src, alt }) => {
+            if (!src || !isAllowedImageUrl(src)) {
+              return (
+                <span className="inline-block rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
+                  Image not available
+                </span>
+              );
+            }
+            return (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={src}
+                alt={alt ?? ""}
+                className="max-h-64 rounded-md object-contain"
+                loading="lazy"
+              />
+            );
+          },
           a: ({ href, children, ...props }) => (
             <a
               href={href}

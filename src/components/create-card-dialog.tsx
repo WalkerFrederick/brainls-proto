@@ -17,7 +17,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownEditor } from "@/components/markdown-editor";
+import { ShortcutRecorder } from "@/components/shortcut-recorder";
 import { MAX_FIELD_LENGTH } from "@/lib/schemas/card-content";
+import type { ShortcutCombo } from "@/lib/shortcut-blocklist";
 import {
   Select,
   SelectContent,
@@ -27,6 +29,8 @@ import {
 } from "@/components/ui/select";
 import { createCard } from "@/actions/card";
 
+type SupportedCardType = "front_back" | "multiple_choice" | "keyboard_shortcut";
+
 interface Props {
   deckDefinitionId: string;
 }
@@ -34,12 +38,19 @@ interface Props {
 export function CreateCardDialog({ deckDefinitionId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [cardType, setCardType] = useState<"front_back" | "multiple_choice">("front_back");
+  const [cardType, setCardType] = useState<SupportedCardType>("front_back");
+
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
+
   const [question, setQuestion] = useState("");
   const [choices, setChoices] = useState(["", ""]);
   const [correctIndex, setCorrectIndex] = useState(0);
+
+  const [prompt, setPrompt] = useState("");
+  const [shortcut, setShortcut] = useState<ShortcutCombo | null>(null);
+  const [explanation, setExplanation] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -49,6 +60,9 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
     setQuestion("");
     setChoices(["", ""]);
     setCorrectIndex(0);
+    setPrompt("");
+    setShortcut(null);
+    setExplanation("");
     setError("");
   }
 
@@ -57,14 +71,27 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
     setError("");
     setLoading(true);
 
-    const contentJson =
-      cardType === "front_back"
-        ? { front, back }
-        : {
-            question,
-            choices: choices.filter((c) => c.trim()),
-            correctChoiceIndexes: [correctIndex],
-          };
+    let contentJson: Record<string, unknown>;
+    if (cardType === "front_back") {
+      contentJson = { front, back };
+    } else if (cardType === "multiple_choice") {
+      contentJson = {
+        question,
+        choices: choices.filter((c) => c.trim()),
+        correctChoiceIndexes: [correctIndex],
+      };
+    } else {
+      if (!shortcut) {
+        setError("Please record a keyboard shortcut.");
+        setLoading(false);
+        return;
+      }
+      contentJson = {
+        prompt,
+        shortcut,
+        ...(explanation.trim() ? { explanation } : {}),
+      };
+    }
 
     const result = await createCard({ deckDefinitionId, cardType, contentJson });
 
@@ -100,16 +127,14 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
             )}
             <div className="space-y-2">
               <Label>Card Type</Label>
-              <Select
-                value={cardType}
-                onValueChange={(v) => setCardType(v as "front_back" | "multiple_choice")}
-              >
+              <Select value={cardType} onValueChange={(v) => setCardType(v as SupportedCardType)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="front_back">Front / Back</SelectItem>
                   <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                  <SelectItem value="keyboard_shortcut">Keyboard Shortcut</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -135,19 +160,17 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
                   maxAttachments={10}
                 />
               </>
-            ) : (
+            ) : cardType === "multiple_choice" ? (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="card-question">Question</Label>
-                  <Textarea
-                    id="card-question"
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="What is...?"
-                    required
-                    rows={2}
-                  />
-                </div>
+                <MarkdownEditor
+                  label="Question"
+                  value={question}
+                  onChange={setQuestion}
+                  placeholder="What is...? (supports **Markdown**)"
+                  required
+                  maxLength={MAX_FIELD_LENGTH}
+                  maxAttachments={10}
+                />
                 <div className="space-y-2">
                   <Label>Choices</Label>
                   {choices.map((choice, i) => (
@@ -195,6 +218,29 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
                       Add Choice ({choices.length}/10)
                     </Button>
                   )}
+                </div>
+              </>
+            ) : (
+              <>
+                <MarkdownEditor
+                  label="Prompt"
+                  value={prompt}
+                  onChange={setPrompt}
+                  placeholder="e.g. Undo the last action (supports **Markdown**)"
+                  required
+                  maxLength={MAX_FIELD_LENGTH}
+                  maxAttachments={10}
+                />
+                <ShortcutRecorder value={shortcut} onChange={setShortcut} />
+                <div className="space-y-2">
+                  <Label htmlFor="explanation">Explanation (optional)</Label>
+                  <Textarea
+                    id="explanation"
+                    value={explanation}
+                    onChange={(e) => setExplanation(e.target.value)}
+                    placeholder="Extra context shown after reveal..."
+                    rows={2}
+                  />
                 </div>
               </>
             )}

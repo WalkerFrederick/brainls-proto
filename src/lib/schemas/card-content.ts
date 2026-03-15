@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { stripDisallowedImages } from "@/lib/allowed-hosts";
 
 export const CARD_TYPES = [
   "front_back",
   "multiple_choice",
+  "keyboard_shortcut",
   "cloze",
   "image_occlusion",
   "ai_question",
@@ -15,31 +17,27 @@ export const cardTypeEnum = z.enum(CARD_TYPES);
 export const MAX_FIELD_LENGTH = 10_000;
 export const MAX_CHOICE_LENGTH = 1_000;
 
+const sanitizedField = (label: string) =>
+  z
+    .string()
+    .transform(stripDisallowedImages)
+    .pipe(
+      z
+        .string()
+        .min(1, `${label} is required`)
+        .max(
+          MAX_FIELD_LENGTH,
+          `${label} must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
+        ),
+    );
+
 export const FrontBackCardSchema = z.object({
-  front: z
-    .string()
-    .min(1, "Front side is required")
-    .max(
-      MAX_FIELD_LENGTH,
-      `Front side must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
-    ),
-  back: z
-    .string()
-    .min(1, "Back side is required")
-    .max(
-      MAX_FIELD_LENGTH,
-      `Back side must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
-    ),
+  front: sanitizedField("Front side"),
+  back: sanitizedField("Back side"),
 });
 
 export const MultipleChoiceCardSchema = z.object({
-  question: z
-    .string()
-    .min(1, "Question is required")
-    .max(
-      MAX_FIELD_LENGTH,
-      `Question must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
-    ),
+  question: sanitizedField("Question"),
   choices: z
     .array(
       z
@@ -57,8 +55,37 @@ export const MultipleChoiceCardSchema = z.object({
     .min(1, "At least 1 correct choice required"),
 });
 
+const shortcutObject = z.object({
+  key: z.string().min(1, "A key is required"),
+  ctrl: z.boolean().default(false),
+  shift: z.boolean().default(false),
+  alt: z.boolean().default(false),
+  meta: z.boolean().default(false),
+});
+
+const optionalSanitizedField = (label: string) =>
+  z
+    .string()
+    .transform(stripDisallowedImages)
+    .pipe(
+      z
+        .string()
+        .max(
+          MAX_FIELD_LENGTH,
+          `${label} must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
+        ),
+    )
+    .optional();
+
+export const KeyboardShortcutCardSchema = z.object({
+  prompt: sanitizedField("Prompt"),
+  shortcut: shortcutObject,
+  explanation: optionalSanitizedField("Explanation"),
+});
+
 export type FrontBackCard = z.infer<typeof FrontBackCardSchema>;
 export type MultipleChoiceCard = z.infer<typeof MultipleChoiceCardSchema>;
+export type KeyboardShortcutCard = z.infer<typeof KeyboardShortcutCardSchema>;
 
 const DEFERRED_TYPES = new Set<CardType>(["cloze", "image_occlusion", "ai_question"]);
 
@@ -68,6 +95,8 @@ export function getCardContentSchema(cardType: CardType): z.ZodType | null {
       return FrontBackCardSchema;
     case "multiple_choice":
       return MultipleChoiceCardSchema;
+    case "keyboard_shortcut":
+      return KeyboardShortcutCardSchema;
     default:
       if (DEFERRED_TYPES.has(cardType)) {
         return null;

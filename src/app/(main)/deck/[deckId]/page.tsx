@@ -10,6 +10,7 @@ import { UseDeckButton } from "@/components/use-deck-button";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import { ShareDeckButton } from "@/components/share-deck-button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { ShortcutDisplay } from "@/components/shortcut-display";
 
 interface Props {
   params: Promise<{ deckId: string }>;
@@ -123,7 +124,7 @@ export default async function DeckPage({ params }: Props) {
                     </div>
                   ) : card.cardType === "multiple_choice" ? (
                     <div>
-                      <p className="font-medium">{String(content.question ?? "")}</p>
+                      <MarkdownRenderer content={String(content.question ?? "")} />
                       <ul className="mt-2 space-y-1">
                         {(content.choices as string[] | undefined)?.map((choice, i) => {
                           const correct = (content.correctChoiceIndexes as number[])?.includes(i);
@@ -140,8 +141,40 @@ export default async function DeckPage({ params }: Props) {
                         })}
                       </ul>
                     </div>
+                  ) : card.cardType === "keyboard_shortcut" ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">Prompt</p>
+                      <MarkdownRenderer content={String(content.prompt ?? "")} />
+                      <p className="text-xs font-medium text-muted-foreground mt-2">Shortcut</p>
+                      {content.shortcut && (
+                        <ShortcutDisplay
+                          shortcut={
+                            content.shortcut as {
+                              key: string;
+                              ctrl: boolean;
+                              shift: boolean;
+                              alt: boolean;
+                              meta: boolean;
+                            }
+                          }
+                        />
+                      )}
+                      {content.explanation && (
+                        <>
+                          <p className="text-xs font-medium text-muted-foreground mt-2">
+                            Explanation
+                          </p>
+                          <MarkdownRenderer
+                            content={String(content.explanation)}
+                            className="text-sm"
+                          />
+                        </>
+                      )}
+                    </div>
                   ) : (
-                    <pre className="text-sm">{JSON.stringify(content, null, 2)}</pre>
+                    <p className="text-sm italic text-muted-foreground">
+                      Unsupported card type: {card.cardType.replace(/_/g, " ")}
+                    </p>
                   )}
                 </CardContent>
               </Card>

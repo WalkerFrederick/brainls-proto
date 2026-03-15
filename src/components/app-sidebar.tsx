@@ -52,7 +52,10 @@ export function AppSidebar() {
         {isPending ? (
           <div className="h-9 animate-pulse rounded-md bg-muted" />
         ) : session ? (
-          <div className="flex items-center gap-2.5 px-2">
+          <Link
+            href="/settings/account"
+            className="flex items-center gap-2.5 rounded-md px-2 py-1 transition-colors hover:bg-sidebar-accent"
+          >
             <UserAvatar
               src={session.user.image}
               fallback={session.user.name ?? session.user.email}
@@ -61,7 +64,7 @@ export function AppSidebar() {
             <p className="min-w-0 truncate text-sm font-medium">
               {session.user.name ?? session.user.email}
             </p>
-          </div>
+          </Link>
         ) : (
           <Link href="/sign-in">
             <Button variant="ghost" size="sm" className="w-full justify-start gap-2">

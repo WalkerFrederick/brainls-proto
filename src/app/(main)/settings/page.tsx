@@ -1,10 +1,10 @@
 import { getSession } from "@/lib/auth-server";
-import { Settings } from "lucide-react";
+import { Settings, ChevronRight } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { UpdateProfileForm } from "@/components/update-profile-form";
-import { DangerZone } from "@/components/danger-zone";
 import { LayoutToggle } from "@/components/layout-toggle";
 import { ThemeSelector } from "@/components/theme-selector";
+import { UserAvatar } from "@/components/user-avatar";
+import Link from "next/link";
 
 export default async function SettingsPage() {
   const session = await getSession();
@@ -13,6 +13,8 @@ export default async function SettingsPage() {
     return <div className="text-destructive">Not authenticated</div>;
   }
 
+  const { user } = session;
+
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3">
@@ -20,33 +22,22 @@ export default async function SettingsPage() {
         <h1 className="text-2xl font-bold">Settings</h1>
       </div>
 
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold">Profile</h2>
-          <p className="text-sm text-muted-foreground">Manage your account details.</p>
-        </div>
-        <UpdateProfileForm
-          name={session.user.name ?? ""}
-          email={session.user.email}
-          image={session.user.image ?? null}
-        />
-      </div>
-
-      <Separator />
-
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div>
           <h2 className="text-lg font-semibold">Account</h2>
-          <p className="text-sm text-muted-foreground">Session and account management.</p>
+          <p className="text-sm text-muted-foreground">Your profile and account details.</p>
         </div>
-        <div className="rounded-md border p-4">
-          <div className="grid grid-cols-2 gap-y-3 text-sm">
-            <span className="text-muted-foreground">Email</span>
-            <span>{session.user.email}</span>
-            <span className="text-muted-foreground">User ID</span>
-            <span className="font-mono text-xs">{session.user.id}</span>
+        <Link
+          href="/settings/account"
+          className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-accent/50"
+        >
+          <UserAvatar src={user.image} fallback={user.name ?? user.email} size="md" />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium truncate">{user.name ?? "No name set"}</p>
+            <p className="text-sm text-muted-foreground truncate">{user.email}</p>
           </div>
-        </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+        </Link>
       </div>
 
       <Separator />
@@ -59,10 +50,6 @@ export default async function SettingsPage() {
         <ThemeSelector />
         <LayoutToggle />
       </div>
-
-      <Separator />
-
-      <DangerZone />
     </div>
   );
 }

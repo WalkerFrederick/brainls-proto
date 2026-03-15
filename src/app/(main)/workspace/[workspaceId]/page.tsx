@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getWorkspace, getWorkspaceRole } from "@/actions/workspace";
 import { listDecks } from "@/actions/deck";
 import { Layers } from "lucide-react";
@@ -6,9 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
 import { WorkspaceSettingsDialog } from "@/components/workspace-settings-dialog";
+import { UserAvatar } from "@/components/user-avatar";
 
 interface Props {
   params: Promise<{ workspaceId: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { workspaceId } = await params;
+  const result = await getWorkspace(workspaceId);
+  const title = result.success ? result.data.name : "Workspace";
+  return { title };
 }
 
 export default async function WorkspacePage({ params }: Props) {
@@ -28,18 +37,22 @@ export default async function WorkspacePage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{wsResult.data.name}</h1>
-          {wsResult.data.description && (
-            <p className="text-sm text-muted-foreground">{wsResult.data.description}</p>
-          )}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <UserAvatar src={wsResult.data.avatarUrl} fallback={wsResult.data.name} size="md" />
+          <div>
+            <h1 className="text-2xl font-bold">{wsResult.data.name}</h1>
+            {wsResult.data.description && (
+              <p className="text-sm text-muted-foreground">{wsResult.data.description}</p>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap gap-2">
           <WorkspaceSettingsDialog
             workspaceId={workspaceId}
             workspaceName={wsResult.data.name}
             workspaceDescription={wsResult.data.description}
+            workspaceAvatarUrl={wsResult.data.avatarUrl}
             workspaceKind={wsResult.data.kind}
             currentUserRole={currentRole}
           />

@@ -54,6 +54,15 @@ export async function updateDeck(input: unknown): Promise<Result<{ id: string }>
   const canEdit = await canEditDeck(deckId, session.user.id);
   if (!canEdit) return err("Permission denied");
 
+  if (updates.viewPolicy !== undefined) {
+    const [deck] = await db
+      .select({ workspaceId: deckDefinitions.workspaceId })
+      .from(deckDefinitions)
+      .where(eq(deckDefinitions.id, deckId));
+    const perm = await requireWorkspaceRole(deck.workspaceId, session.user.id, "admin");
+    if (!perm.allowed) return err("Only admins and owners can change deck visibility");
+  }
+
   const updateData: Record<string, unknown> = {
     updatedAt: new Date(),
     updatedByUserId: session.user.id,
@@ -61,8 +70,6 @@ export async function updateDeck(input: unknown): Promise<Result<{ id: string }>
   if (updates.title !== undefined) updateData.title = updates.title;
   if (updates.description !== undefined) updateData.description = updates.description;
   if (updates.viewPolicy !== undefined) updateData.viewPolicy = updates.viewPolicy;
-  if (updates.usePolicy !== undefined) updateData.usePolicy = updates.usePolicy;
-  if (updates.forkPolicy !== undefined) updateData.forkPolicy = updates.forkPolicy;
 
   await db.update(deckDefinitions).set(updateData).where(eq(deckDefinitions.id, deckId));
 
@@ -108,8 +115,16 @@ export async function listDecks(
 export async function archiveDeck(deckId: string): Promise<Result<{ id: string }>> {
   if (!isValidUuid(deckId)) return err("Invalid deck ID");
   const session = await requireSession();
-  const canEdit = await canEditDeck(deckId, session.user.id);
-  if (!canEdit) return err("Permission denied");
+
+  if (session.user.defaultDeckId === deckId) {
+    return err("The Scratch Pad is your default deck and cannot be archived.");
+  }
+
+  const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
+  if (!deck) return err("Deck not found");
+
+  const perm = await requireWorkspaceRole(deck.workspaceId, session.user.id, "admin");
+  if (!perm.allowed) return err("Only workspace owners and admins can archive decks");
 
   await db
     .update(deckDefinitions)
@@ -117,4 +132,71 @@ export async function archiveDeck(deckId: string): Promise<Result<{ id: string }
     .where(eq(deckDefinitions.id, deckId));
 
   return ok({ id: deckId });
+}
+
+export async function listEditableDecks(): Promise<
+  Result<
+    Array<{
+      workspaceId: string;
+      workspaceName: string;
+      workspaceKind: string;
+      deckId: string;
+      deckTitle: string;
+    }>
+  >
+> {
+  const session = await requireSession();
+
+  const { workspaceMembers, workspaces } = await import("@/db/schema");
+
+  const memberRows = await db
+    .select({
+      workspaceId: workspaces.id,
+      workspaceName: workspaces.name,
+      workspaceKind: workspaces.kind,
+      role: workspaceMembers.role,
+    })
+    .from(workspaceMembers)
+    .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
+    .where(
+      and(eq(workspaceMembers.userId, session.user.id), eq(workspaceMembers.status, "active")),
+    );
+
+  const editable = memberRows.filter(
+    (ws) => ws.role === "owner" || ws.role === "admin" || ws.role === "editor",
+  );
+
+  const rows: Array<{
+    workspaceId: string;
+    workspaceName: string;
+    workspaceKind: string;
+    deckId: string;
+    deckTitle: string;
+  }> = [];
+
+  for (const ws of editable) {
+    const decks = await db
+      .select({
+        id: deckDefinitions.id,
+        title: deckDefinitions.title,
+        linked: deckDefinitions.linkedDeckDefinitionId,
+      })
+      .from(deckDefinitions)
+      .where(
+        and(eq(deckDefinitions.workspaceId, ws.workspaceId), isNull(deckDefinitions.archivedAt)),
+      );
+
+    for (const d of decks) {
+      if (d.linked) continue;
+      rows.push({
+        workspaceId: ws.workspaceId,
+        workspaceName: ws.workspaceName,
+        workspaceKind: ws.workspaceKind,
+        deckId: d.id,
+        deckTitle: d.title,
+      });
+    }
+  }
+
+  return ok(rows);
 }

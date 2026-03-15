@@ -45,28 +45,19 @@ export const CreateDeckSchema = z.object({
 });
 
 const viewPolicyEnum = z.enum(["private", "workspace", "link", "public"]);
-const usePolicyEnum = z.enum(["none", "invite_only", "passcode", "open"]);
-const forkPolicyEnum = z.enum([
-  "none",
-  "owner_only",
-  "workspace_editors",
-  "workspace_members",
-  "any_user",
-]);
 
 export const UpdateDeckSchema = z.object({
   deckId: z.string().uuid(),
   title: titleField.optional(),
   description: z.string().trim().max(5000).optional(),
   viewPolicy: viewPolicyEnum.optional(),
-  usePolicy: usePolicyEnum.optional(),
-  forkPolicy: forkPolicyEnum.optional(),
 });
 
 export const CreateCardSchema = z.object({
   deckDefinitionId: z.string().uuid(),
   cardType: cardTypeEnum,
   contentJson: z.record(z.string(), z.unknown()),
+  createReverse: z.boolean().optional(),
 });
 
 export const UpdateCardSchema = z.object({
@@ -79,6 +70,7 @@ export const SubmitReviewSchema = z.object({
   rating: z.enum(["again", "hard", "good", "easy"]),
   responseMs: z.number().int().nonnegative().optional(),
   idempotencyKey: z.string().min(1),
+  skipSrsUpdate: z.boolean().optional(),
 });
 
 export type CreateWorkspaceInput = z.infer<typeof CreateWorkspaceSchema>;
@@ -90,3 +82,49 @@ export type UpdateDeckInput = z.infer<typeof UpdateDeckSchema>;
 export type CreateCardInput = z.infer<typeof CreateCardSchema>;
 export type UpdateCardInput = z.infer<typeof UpdateCardSchema>;
 export type SubmitReviewInput = z.infer<typeof SubmitReviewSchema>;
+
+// ── Tags ──
+
+const tagNameField = z
+  .string()
+  .trim()
+  .min(1, "Tag must be at least 1 character")
+  .max(50, "Tag must be at most 50 characters")
+  .regex(/^[a-zA-Z0-9\s-]+$/, "Tags can only contain letters, numbers, spaces, and hyphens")
+  .transform((s) => s.toLowerCase());
+
+const tagNamesArray = z.array(tagNameField).max(10, "Maximum 10 tags");
+
+export const SetDeckTagsSchema = z.object({
+  deckDefinitionId: z.string().uuid(),
+  tagNames: tagNamesArray,
+});
+
+export const SetCardTagsSchema = z.object({
+  cardDefinitionId: z.string().uuid(),
+  tagNames: tagNamesArray,
+});
+
+export const SearchTagsSchema = z.object({
+  query: z.string().trim().max(100).default(""),
+});
+
+export type SetDeckTagsInput = z.infer<typeof SetDeckTagsSchema>;
+export type SetCardTagsInput = z.infer<typeof SetCardTagsSchema>;
+export type SearchTagsInput = z.infer<typeof SearchTagsSchema>;
+
+// ── Custom Study ──
+
+export const CustomStudySchema = z.object({
+  tagNames: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(50)
+        .transform((s) => s.toLowerCase()),
+    )
+    .min(1, "Select at least one tag")
+    .max(20),
+});

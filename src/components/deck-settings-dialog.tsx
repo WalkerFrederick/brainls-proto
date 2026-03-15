@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Loader2 } from "lucide-react";
+import { Settings, Loader2, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,37 +22,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { updateDeck } from "@/actions/deck";
+import { updateDeck, archiveDeck } from "@/actions/deck";
+import { setDeckTags } from "@/actions/tag";
+import { TagInput } from "@/components/tag-input";
 
 interface DeckSettingsDialogProps {
   deckId: string;
   title: string;
   description?: string | null;
   viewPolicy: string;
-  usePolicy: string;
-  forkPolicy: string;
+  canArchive?: boolean;
+  canChangeVisibility?: boolean;
+  workspaceKind?: string;
+  initialTags?: string[];
+  isDefaultDeck?: boolean;
 }
 
 const VIEW_POLICY_OPTIONS = [
-  { value: "private", label: "Private", hint: "Only workspace members" },
-  { value: "workspace", label: "Workspace", hint: "All workspace members" },
+  { value: "private", label: "Private", hint: "Only editors, admins, and owners" },
+  { value: "workspace", label: "Workspace", hint: "All workspace members, including viewers" },
   { value: "link", label: "Link", hint: "Anyone with the link" },
   { value: "public", label: "Public", hint: "Discoverable by everyone" },
-] as const;
-
-const USE_POLICY_OPTIONS = [
-  { value: "none", label: "None", hint: "Nobody can use this deck" },
-  { value: "invite_only", label: "Invite Only", hint: "Only invited users" },
-  { value: "passcode", label: "Passcode", hint: "Requires a passcode" },
-  { value: "open", label: "Open", hint: "Anyone who can view" },
-] as const;
-
-const FORK_POLICY_OPTIONS = [
-  { value: "none", label: "None", hint: "Forking disabled" },
-  { value: "owner_only", label: "Owner Only", hint: "Only the deck owner" },
-  { value: "workspace_editors", label: "Workspace Editors", hint: "Editors and above" },
-  { value: "workspace_members", label: "Workspace Members", hint: "All workspace members" },
-  { value: "any_user", label: "Any User", hint: "Anyone who can view" },
 ] as const;
 
 export function DeckSettingsDialog({
@@ -60,20 +50,24 @@ export function DeckSettingsDialog({
   title: initialTitle,
   description: initialDescription,
   viewPolicy: initialViewPolicy,
-  usePolicy: initialUsePolicy,
-  forkPolicy: initialForkPolicy,
+  canArchive = false,
+  canChangeVisibility = false,
+  workspaceKind = "shared",
+  initialTags = [],
+  isDefaultDeck = false,
 }: DeckSettingsDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription ?? "");
   const [viewPolicy, setViewPolicy] = useState(initialViewPolicy);
-  const [usePolicy, setUsePolicy] = useState(initialUsePolicy);
-  const [forkPolicy, setForkPolicy] = useState(initialForkPolicy);
+  const [deckTagsList, setDeckTagsList] = useState<string[]>(initialTags);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -86,14 +80,25 @@ export function DeckSettingsDialog({
     if (title !== initialTitle) updates.title = title;
     if (description !== (initialDescription ?? "")) updates.description = description;
     if (viewPolicy !== initialViewPolicy) updates.viewPolicy = viewPolicy;
-    if (usePolicy !== initialUsePolicy) updates.usePolicy = usePolicy;
-    if (forkPolicy !== initialForkPolicy) updates.forkPolicy = forkPolicy;
 
     const result = await updateDeck(updates);
 
     if (!result.success) {
       setError(result.error);
     } else {
+      const tagsChanged =
+        JSON.stringify([...deckTagsList].sort()) !== JSON.stringify([...initialTags].sort());
+      if (tagsChanged) {
+        const tagResult = await setDeckTags({
+          deckDefinitionId: deckId,
+          tagNames: deckTagsList,
+        });
+        if (!tagResult.success) {
+          setError(tagResult.error);
+          setSaving(false);
+          return;
+        }
+      }
       setSuccess("Saved");
       router.refresh();
     }
@@ -136,6 +141,13 @@ export function DeckSettingsDialog({
                 placeholder="Optional description"
               />
             </div>
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <TagInput value={deckTagsList} onChange={setDeckTagsList} placeholder="Add tags..." />
+              <p className="text-[11px] text-muted-foreground">
+                Tags help with discovery on the browse page.
+              </p>
+            </div>
           </div>
 
           <Separator />
@@ -149,25 +161,12 @@ export function DeckSettingsDialog({
               hint="Who can see this deck"
               value={viewPolicy}
               onChange={setViewPolicy}
-              options={VIEW_POLICY_OPTIONS}
-            />
-
-            <PolicySelect
-              id="use-policy"
-              label="Use Policy"
-              hint="Who can study this deck"
-              value={usePolicy}
-              onChange={setUsePolicy}
-              options={USE_POLICY_OPTIONS}
-            />
-
-            <PolicySelect
-              id="fork-policy"
-              label="Fork Policy"
-              hint="Who can create editable copies"
-              value={forkPolicy}
-              onChange={setForkPolicy}
-              options={FORK_POLICY_OPTIONS}
+              options={
+                workspaceKind === "personal"
+                  ? VIEW_POLICY_OPTIONS.filter((o) => o.value !== "workspace")
+                  : VIEW_POLICY_OPTIONS
+              }
+              disabled={!canChangeVisibility}
             />
           </div>
 
@@ -176,6 +175,75 @@ export function DeckSettingsDialog({
             Save Changes
           </Button>
         </form>
+
+        {canArchive && (
+          <>
+            <Separator />
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
+              {isDefaultDeck ? (
+                <div className="rounded-md border border-muted p-4">
+                  <p className="text-sm text-muted-foreground">
+                    This is your default Scratch Pad and cannot be archived.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-md border border-destructive/30 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Archive this deck</p>
+                      <p className="text-xs text-muted-foreground">
+                        The deck will be hidden from your library. Linked copies will show an
+                        &ldquo;abandoned&rdquo; warning.
+                      </p>
+                    </div>
+                    {confirmArchive ? (
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setConfirmArchive(false)}
+                          disabled={archiving}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={archiving}
+                          onClick={async () => {
+                            setArchiving(true);
+                            const result = await archiveDeck(deckId);
+                            if (result.success) {
+                              window.location.href = "/library";
+                            } else {
+                              setError(result.error);
+                              setArchiving(false);
+                              setConfirmArchive(false);
+                            }
+                          }}
+                        >
+                          {archiving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Confirm
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setConfirmArchive(true)}
+                      >
+                        <Archive className="mr-2 h-4 w-4" />
+                        Archive
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -188,6 +256,7 @@ function PolicySelect({
   value,
   onChange,
   options,
+  disabled,
 }: {
   id: string;
   label: string;
@@ -195,6 +264,7 @@ function PolicySelect({
   value: string;
   onChange: (v: string) => void;
   options: ReadonlyArray<{ value: string; label: string; hint: string }>;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -202,7 +272,7 @@ function PolicySelect({
         {label}
       </Label>
       <p className="text-xs text-muted-foreground">{hint}</p>
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value} onValueChange={(v) => onChange(v ?? "")} disabled={disabled}>
         <SelectTrigger id={id} className="w-full">
           <SelectValue />
         </SelectTrigger>

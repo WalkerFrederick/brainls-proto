@@ -17,7 +17,8 @@
     "db:studio": "drizzle-kit studio",
     "db:reset": "npx tsx src/db/reset.ts && drizzle-kit push && echo Reset complete.",
     "db:seed": "npx tsx src/db/seed.ts",
-    "db:fresh": "npx tsx src/db/reset.ts && drizzle-kit push && npx tsx src/db/seed.ts",
+    "db:seed-platform": "npx tsx src/db/seed-platform.ts",
+    "db:fresh": "npx tsx src/db/reset.ts && drizzle-kit push && npx tsx src/db/seed.ts && npx tsx src/db/seed-platform.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",
     "lucide-react": "^0.577.0",
+    "motion": "^12.36.0",
     "next": "16.1.6",
     "postgres": "^3.4.8",
     "react": "19.2.3",

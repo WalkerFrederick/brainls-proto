@@ -5,12 +5,15 @@ import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
-const THEME_META: Record<Theme, { label: string; swatch: string; ring: string }> = {
-  light: { label: "Light", swatch: "#ffffff", ring: "#e4e4e7" },
-  dark: { label: "Dark", swatch: "#1a1a1a", ring: "#3f3f46" },
-  parchment: { label: "Parchment", swatch: "#ede4d3", ring: "#c4b99a" },
-  midnight: { label: "Midnight", swatch: "#2a1f4e", ring: "#4a3f6e" },
-};
+const THEME_META: Record<Theme, { label: string; swatch: string; ring: string; isDark: boolean }> =
+  {
+    light: { label: "Light", swatch: "#ffffff", ring: "#e4e4e7", isDark: false },
+    dark: { label: "Dark", swatch: "#1a1a1a", ring: "#3f3f46", isDark: true },
+    parchment: { label: "Parchment", swatch: "#ede4d3", ring: "#c4b99a", isDark: false },
+    "dark-parchment": { label: "Dark Parchment", swatch: "#3d3225", ring: "#5a4d3e", isDark: true },
+    "dark-purple": { label: "Dark Purple", swatch: "#2a1f4e", ring: "#4a3f6e", isDark: true },
+    "light-purple": { label: "Light Purple", swatch: "#e8dff5", ring: "#c4b5e0", isDark: false },
+  };
 
 const ACCENT_META: Record<AccentColor, { label: string; swatch: string }> = {
   zinc: { label: "Zinc", swatch: "#71717a" },
@@ -19,13 +22,21 @@ const ACCENT_META: Record<AccentColor, { label: string; swatch: string }> = {
   green: { label: "Green", swatch: "#22c55e" },
   orange: { label: "Orange", swatch: "#f97316" },
   rose: { label: "Rose", swatch: "#f43f5e" },
+  teal: { label: "Teal", swatch: "#14b8a6" },
+  cyan: { label: "Cyan", swatch: "#06b6d4" },
+  amber: { label: "Amber", swatch: "#f59e0b" },
+  pink: { label: "Pink", swatch: "#ec4899" },
+  indigo: { label: "Indigo", swatch: "#6366f1" },
+  red: { label: "Red", swatch: "#ef4444" },
 };
 
 const PREVIEW_COLORS: Record<Theme, { bg: string; sidebar: string; fg: string; muted: string }> = {
   light: { bg: "#ffffff", sidebar: "#f5f5f5", fg: "#1a1a1a", muted: "#a1a1aa" },
   dark: { bg: "#1a1a1a", sidebar: "#2a2a2a", fg: "#f5f5f5", muted: "#71717a" },
   parchment: { bg: "#ede4d3", sidebar: "#d9cdb8", fg: "#3d3225", muted: "#8a7d6b" },
-  midnight: { bg: "#2a1f4e", sidebar: "#221a45", fg: "#e0daf0", muted: "#7a6fa0" },
+  "dark-parchment": { bg: "#3d3225", sidebar: "#332a1e", fg: "#e8dcc8", muted: "#8a7d6b" },
+  "dark-purple": { bg: "#2a1f4e", sidebar: "#221a45", fg: "#e0daf0", muted: "#7a6fa0" },
+  "light-purple": { bg: "#e8dff5", sidebar: "#ddd2ef", fg: "#2a1f4e", muted: "#8a7fa8" },
 };
 
 export function ThemeSelector() {
@@ -91,7 +102,7 @@ export function ThemeSelector() {
       {/* Theme circles */}
       <div className="space-y-3">
         <Label className="text-sm font-medium">Theme</Label>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {themes.map((t) => {
             const meta = THEME_META[t];
             const active = theme === t;
@@ -120,9 +131,7 @@ export function ThemeSelector() {
                   {active && (
                     <Check
                       className="absolute h-4 w-4"
-                      style={{
-                        color: t === "dark" || t === "midnight" ? "#fff" : "#000",
-                      }}
+                      style={{ color: meta.isDark ? "#fff" : "#000" }}
                     />
                   )}
                 </div>
@@ -136,7 +145,7 @@ export function ThemeSelector() {
       {/* Accent color circles */}
       <div className="space-y-3">
         <Label className="text-sm font-medium">Accent Color</Label>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {accents.map((a) => {
             const meta = ACCENT_META[a];
             const active = accent === a;

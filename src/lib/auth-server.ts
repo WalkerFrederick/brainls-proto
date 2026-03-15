@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
@@ -14,7 +15,7 @@ export async function getSession() {
 export async function requireSession() {
   const session = await getSession();
   if (!session) {
-    throw new Error("Unauthorized");
+    redirect("/sign-in?reason=session_expired");
   }
 
   if (!session.user.personalWorkspaceId) {
@@ -33,10 +34,7 @@ async function ensurePersonalWorkspace(userId: string, name?: string) {
     .limit(1);
 
   if (existing) {
-    await db
-      .update(users)
-      .set({ personalWorkspaceId: existing.id })
-      .where(eq(users.id, userId));
+    await db.update(users).set({ personalWorkspaceId: existing.id }).where(eq(users.id, userId));
     return;
   }
 
@@ -60,8 +58,5 @@ async function ensurePersonalWorkspace(userId: string, name?: string) {
     joinedAt: new Date(),
   });
 
-  await db
-    .update(users)
-    .set({ personalWorkspaceId: workspace.id })
-    .where(eq(users.id, userId));
+  await db.update(users).set({ personalWorkspaceId: workspace.id }).where(eq(users.id, userId));
 }

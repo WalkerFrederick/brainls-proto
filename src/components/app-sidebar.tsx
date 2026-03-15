@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Home, Library, GraduationCap, Settings, LogIn } from "lucide-react";
+import { Brain, Home, Library, Settings, LogIn, Globe, Building2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -10,50 +10,48 @@ import { useSession } from "@/lib/auth-client";
 import { UserAvatar } from "@/components/user-avatar";
 
 const navItems = [
-  { href: "/", label: "Home", icon: Home },
+  { href: "/home", label: "Home", icon: Home },
   { href: "/library", label: "Library", icon: Library },
-  { href: "/study", label: "Study", icon: GraduationCap },
+  { href: "/workspaces", label: "Workspaces", icon: Building2 },
+  { href: "/browse", label: "Browse", icon: Globe },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function AppSidebar() {
+export function SidebarNav({ showProfile = true }: { showProfile?: boolean }) {
   const pathname = usePathname();
   const { data: session, isPending } = useSession();
 
   return (
-    <aside className="flex h-screen w-60 flex-col border-r bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center gap-2 px-4 py-4">
-        <Brain className="h-6 w-6 text-primary" />
-        <span className="text-lg font-semibold">BrainLS</span>
-      </div>
-      <Separator />
-      <div className="px-3 py-3">
-        {isPending ? (
-          <div className="h-9 animate-pulse rounded-md bg-muted" />
-        ) : session ? (
-          <Link
-            href="/settings/account"
-            className="flex items-center gap-2.5 rounded-md px-2 py-1 transition-colors hover:bg-sidebar-accent"
-          >
-            <UserAvatar
-              src={session.user.image}
-              fallback={session.user.name ?? session.user.email}
-              size="sm"
-            />
-            <p className="min-w-0 truncate text-sm font-medium">
-              {session.user.name ?? session.user.email}
-            </p>
-          </Link>
-        ) : (
-          <Link href="/sign-in">
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
-              <LogIn className="h-4 w-4" />
-              Sign In
-            </Button>
-          </Link>
-        )}
-      </div>
-      <Separator />
+    <>
+      {showProfile && (
+        <div className="px-3 py-3">
+          {isPending ? (
+            <div className="h-9 animate-pulse rounded-md bg-muted" />
+          ) : session ? (
+            <Link
+              href="/settings/account"
+              className="flex items-center gap-2.5 rounded-md px-2 py-1 transition-colors hover:bg-sidebar-accent"
+            >
+              <UserAvatar
+                src={session.user.image}
+                fallback={session.user.name ?? session.user.email}
+                size="sm"
+              />
+              <p className="min-w-0 truncate text-sm font-medium">
+                {session.user.name ?? session.user.email}
+              </p>
+            </Link>
+          ) : (
+            <Link href="/sign-in">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                <LogIn className="h-4 w-4" />
+                Sign In
+              </Button>
+            </Link>
+          )}
+        </div>
+      )}
+      {showProfile && <Separator />}
       <nav className="flex-1 space-y-1 px-2 py-3">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -74,6 +72,19 @@ export function AppSidebar() {
           );
         })}
       </nav>
+    </>
+  );
+}
+
+export function AppSidebar() {
+  return (
+    <aside className="hidden h-screen w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
+      <div className="flex items-center gap-2 px-4 py-4">
+        <Brain className="h-6 w-6 text-primary" />
+        <span className="text-lg font-semibold">BrainLS</span>
+      </div>
+      <Separator />
+      <SidebarNav showProfile={false} />
     </aside>
   );
 }

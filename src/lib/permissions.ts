@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { workspaceMembers, deckDefinitions, workspaceSettings } from "@/db/schema";
+import { workspaceMembers, deckDefinitions } from "@/db/schema";
 
 export type WorkspaceRole = "owner" | "admin" | "editor" | "viewer";
 
@@ -45,10 +45,7 @@ export async function requireWorkspaceRole(
 }
 
 export async function canViewDeck(deckId: string, userId: string | null) {
-  const [deck] = await db
-    .select()
-    .from(deckDefinitions)
-    .where(eq(deckDefinitions.id, deckId));
+  const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
 
   if (!deck) return false;
 
@@ -71,72 +68,12 @@ export async function canViewDeck(deckId: string, userId: string | null) {
 }
 
 export async function canEditDeck(deckId: string, userId: string) {
-  const [deck] = await db
-    .select()
-    .from(deckDefinitions)
-    .where(eq(deckDefinitions.id, deckId));
+  const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
 
   if (!deck) return false;
 
   const member = await getWorkspaceMember(deck.workspaceId, userId);
   return member !== null && hasMinRole(member.role as WorkspaceRole, "editor");
-}
-
-export async function canUseDeck(deckId: string, userId: string) {
-  const [deck] = await db
-    .select()
-    .from(deckDefinitions)
-    .where(eq(deckDefinitions.id, deckId));
-
-  if (!deck) return false;
-
-  if (deck.usePolicy === "open") return true;
-
-  const member = await getWorkspaceMember(deck.workspaceId, userId);
-
-  if (deck.usePolicy === "none") {
-    return member !== null && hasMinRole(member.role as WorkspaceRole, "editor");
-  }
-
-  if (deck.usePolicy === "invite_only") {
-    if (!member) return false;
-    const [ws] = await db
-      .select()
-      .from(workspaceSettings)
-      .where(eq(workspaceSettings.workspaceId, deck.workspaceId));
-    if (ws?.allowViewerDeckUse) {
-      return true;
-    }
-    return hasMinRole(member.role as WorkspaceRole, "editor");
-  }
-
-  return false;
-}
-
-export async function canForkDeck(deckId: string, userId: string) {
-  const [deck] = await db
-    .select()
-    .from(deckDefinitions)
-    .where(eq(deckDefinitions.id, deckId));
-
-  if (!deck) return false;
-
-  if (deck.forkPolicy === "none") return false;
-  if (deck.forkPolicy === "any_user") return true;
-
-  const member = await getWorkspaceMember(deck.workspaceId, userId);
-  if (!member) return false;
-
-  switch (deck.forkPolicy) {
-    case "owner_only":
-      return hasMinRole(member.role as WorkspaceRole, "owner");
-    case "workspace_editors":
-      return hasMinRole(member.role as WorkspaceRole, "editor");
-    case "workspace_members":
-      return true;
-    default:
-      return false;
-  }
 }
 
 export async function canManageMembers(workspaceId: string, userId: string) {

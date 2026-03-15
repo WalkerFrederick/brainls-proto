@@ -1,4 +1,13 @@
-import { pgTable, uuid, varchar, timestamp, jsonb, integer, bigint } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  varchar,
+  timestamp,
+  jsonb,
+  integer,
+  bigint,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { workspaces } from "./workspaces";
 
@@ -11,8 +20,6 @@ export const deckDefinitions = pgTable("deck_definitions", {
   slug: varchar("slug", { length: 500 }),
   description: varchar("description", { length: 5000 }),
   viewPolicy: varchar("view_policy", { length: 31 }).notNull().default("private"),
-  usePolicy: varchar("use_policy", { length: 31 }).notNull().default("none"),
-  forkPolicy: varchar("fork_policy", { length: 31 }).notNull().default("none"),
   passcodeHash: varchar("passcode_hash", { length: 255 }),
   shareToken: varchar("share_token", { length: 255 }).unique(),
   createdByUserId: uuid("created_by_user_id")
@@ -22,6 +29,7 @@ export const deckDefinitions = pgTable("deck_definitions", {
     .notNull()
     .references(() => users.id),
   forkedFromDeckDefinitionId: uuid("forked_from_deck_definition_id"),
+  linkedDeckDefinitionId: uuid("linked_deck_definition_id"),
   publishedAt: timestamp("published_at", { withTimezone: true }),
   discoveryStatus: varchar("discovery_status", { length: 31 }).default("unlisted"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -63,3 +71,39 @@ export const assets = pgTable("assets", {
   fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const tags = pgTable("tags", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const deckTags = pgTable(
+  "deck_tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    deckDefinitionId: uuid("deck_definition_id")
+      .notNull()
+      .references(() => deckDefinitions.id),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("deck_tags_deck_tag_idx").on(table.deckDefinitionId, table.tagId)],
+);
+
+export const cardTags = pgTable(
+  "card_tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    cardDefinitionId: uuid("card_definition_id")
+      .notNull()
+      .references(() => cardDefinitions.id),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("card_tags_card_tag_idx").on(table.cardDefinitionId, table.tagId)],
+);

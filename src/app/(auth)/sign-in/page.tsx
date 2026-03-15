@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Brain, Loader2 } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
@@ -17,8 +17,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+const REASON_MESSAGES: Record<string, string> = {
+  session_expired: "Your session has expired. Please sign in again.",
+};
+
 export default function SignInPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const reason = searchParams.get("reason");
+  const reasonMessage = reason ? REASON_MESSAGES[reason] : null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -37,7 +44,8 @@ export default function SignInPage() {
       return;
     }
 
-    router.push("/");
+    const callbackUrl = searchParams.get("callbackUrl") || "/home";
+    router.push(callbackUrl);
     router.refresh();
   }
 
@@ -53,10 +61,13 @@ export default function SignInPage() {
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
+          {reasonMessage && (
+            <div className="rounded-md bg-yellow-500/10 border border-yellow-500/30 p-3 text-sm text-yellow-700 dark:text-yellow-400">
+              {reasonMessage}
             </div>
+          )}
+          {error && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
           )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>

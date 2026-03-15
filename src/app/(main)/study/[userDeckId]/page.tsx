@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { getStudySession } from "@/actions/study";
+
+export const metadata: Metadata = { title: "Study" };
 import { StudySessionClient } from "@/components/study-session";
 import { BookOpen } from "lucide-react";
 import Link from "next/link";
@@ -33,12 +36,5 @@ export default async function StudyPage({ params }: Props) {
     );
   }
 
-  return (
-    <StudySessionClient
-      userDeckId={userDeckId}
-      deckTitle={deckTitle}
-      initialCards={cards}
-      totalDue={totalDue}
-    />
-  );
+  return <StudySessionClient deckTitle={deckTitle} initialCards={cards} totalDue={totalDue} />;
 }

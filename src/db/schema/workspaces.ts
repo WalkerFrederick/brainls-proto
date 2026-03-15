@@ -32,9 +32,8 @@ export const workspaceMembers = pgTable("workspace_members", {
   workspaceId: uuid("workspace_id")
     .notNull()
     .references(() => workspaces.id),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: uuid("user_id").references(() => users.id),
+  invitedEmail: varchar("invited_email", { length: 255 }),
   role: varchar("role", { length: 31 }).notNull().default("viewer"),
   status: varchar("status", { length: 31 }).notNull().default("invited"),
   joinedAt: timestamp("joined_at", { withTimezone: true }),

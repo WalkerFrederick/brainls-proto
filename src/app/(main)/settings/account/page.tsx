@@ -1,11 +1,13 @@
+import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-server";
-import { ArrowLeft, UserCog } from "lucide-react";
+
+export const metadata: Metadata = { title: "Account" };
+import { UserCog } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { UpdateProfileForm } from "@/components/update-profile-form";
 import { DangerZone } from "@/components/danger-zone";
 import { getStorageInfo } from "@/actions/storage";
 import { formatBytes } from "@/lib/storage";
-import Link from "next/link";
 
 export default async function AccountSettingsPage() {
   const session = await getSession();
@@ -20,12 +22,6 @@ export default async function AccountSettingsPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3">
-        <Link
-          href="/settings"
-          className="flex h-8 w-8 items-center justify-center rounded-md border hover:bg-accent transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
         <UserCog className="h-6 w-6" />
         <h1 className="text-2xl font-bold">Account Settings</h1>
       </div>

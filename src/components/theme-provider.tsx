@@ -2,11 +2,49 @@
 
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 
-export type Theme = "light" | "dark" | "parchment" | "midnight";
-export type AccentColor = "zinc" | "blue" | "violet" | "green" | "orange" | "rose";
+export type Theme =
+  | "light"
+  | "dark"
+  | "parchment"
+  | "dark-parchment"
+  | "dark-purple"
+  | "light-purple";
+export type AccentColor =
+  | "zinc"
+  | "blue"
+  | "violet"
+  | "green"
+  | "orange"
+  | "rose"
+  | "teal"
+  | "cyan"
+  | "amber"
+  | "pink"
+  | "indigo"
+  | "red";
 
-export const THEMES: Theme[] = ["light", "dark", "parchment", "midnight"];
-export const ACCENT_COLORS: AccentColor[] = ["zinc", "blue", "violet", "green", "orange", "rose"];
+export const THEMES: Theme[] = [
+  "light",
+  "dark",
+  "parchment",
+  "dark-parchment",
+  "dark-purple",
+  "light-purple",
+];
+export const ACCENT_COLORS: AccentColor[] = [
+  "zinc",
+  "blue",
+  "violet",
+  "green",
+  "orange",
+  "rose",
+  "teal",
+  "cyan",
+  "amber",
+  "pink",
+  "indigo",
+  "red",
+];
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 

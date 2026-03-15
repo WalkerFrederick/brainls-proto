@@ -9,6 +9,7 @@ interface UseFileUploadOptions<T extends keyof AppFileRouter> {
   route: T;
   maxFileBytes?: number;
   acceptedTypes?: string[];
+  input?: Record<string, unknown>;
   onSuccess?: (files: { name: string; url: string; key: string }[]) => void;
 }
 
@@ -16,6 +17,7 @@ export function useFileUpload<T extends keyof AppFileRouter>({
   route,
   maxFileBytes,
   acceptedTypes,
+  input,
   onSuccess,
 }: UseFileUploadOptions<T>) {
   const [uploading, setUploading] = useState(false);
@@ -72,16 +74,23 @@ export function useFileUpload<T extends keyof AppFileRouter>({
         return;
       }
 
-      const result = await startUpload(files);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (startUpload as any)(files, input);
 
       if (result) {
-        onSuccess?.(result.map((f) => ({ name: f.name, url: f.ufsUrl, key: f.key })));
+        onSuccess?.(
+          result.map((f: { name: string; ufsUrl: string; key: string }) => ({
+            name: f.name,
+            url: f.ufsUrl,
+            key: f.key,
+          })),
+        );
       }
 
       setUploading(false);
       resetInput();
     },
-    [startUpload, onSuccess, acceptedTypes, maxFileBytes, resetInput],
+    [startUpload, onSuccess, acceptedTypes, maxFileBytes, input, resetInput],
   );
 
   const handleInputChange = useCallback(

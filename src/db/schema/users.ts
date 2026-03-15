@@ -9,6 +9,7 @@ export const users = pgTable("users", {
   username: varchar("username", { length: 63 }).unique(),
   status: varchar("status", { length: 31 }).notNull().default("active"),
   personalWorkspaceId: uuid("personal_workspace_id"),
+  defaultDeckId: uuid("default_deck_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   archivedAt: timestamp("archived_at", { withTimezone: true }),

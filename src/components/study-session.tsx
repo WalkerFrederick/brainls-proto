@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { submitReview } from "@/actions/study";
-import { Loader2, RotateCcw, Check, ChevronRight, Trophy } from "lucide-react";
+import { Loader2, Trophy, Info } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
 import {
@@ -18,6 +18,7 @@ import {
   isModifierOnly,
 } from "@/lib/shortcut-blocklist";
 import { renderClozeHidden, renderClozeRevealed } from "@/lib/cloze";
+import { processReview, type CardState, type Rating as SrsRating } from "@/lib/srs";
 
 interface StudyCard {
   userCardStateId: string;
@@ -25,18 +26,56 @@ interface StudyCard {
   cardType: string;
   contentJson: unknown;
   srsState: string;
+  intervalDays: number | null;
+  easeFactor: string | null;
+  reps: number | null;
+  lapses: number | null;
 }
 
 interface Props {
-  userDeckId: string;
   deckTitle: string;
   initialCards: StudyCard[];
   totalDue: number;
+  skipSrsUpdate?: boolean;
 }
 
 type Rating = "again" | "hard" | "good" | "easy";
 
-export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props) {
+function formatInterval(days: number): string {
+  if (days <= 0) return "Now";
+  if (days < 1) {
+    const mins = Math.round(days * 24 * 60);
+    return mins <= 1 ? "1 Min" : `${mins} Min`;
+  }
+  if (days < 30) {
+    const d = Math.round(days);
+    return d === 1 ? "1 Day" : `${d} Day`;
+  }
+  const months = Math.round(days / 30);
+  if (months < 12) return months === 1 ? "1 Mo" : `${months} Mo`;
+  const years = (days / 365).toFixed(1).replace(/\.0$/, "");
+  return `${years} Yr`;
+}
+
+function getIntervalPreviews(card: StudyCard): Record<Rating, string> {
+  const state: CardState = {
+    srsState: (card.srsState as CardState["srsState"]) ?? "new",
+    intervalDays: card.intervalDays ?? 0,
+    easeFactor: Number(card.easeFactor) || 2.5,
+    reps: card.reps ?? 0,
+    lapses: card.lapses ?? 0,
+  };
+
+  const ratings: Rating[] = ["again", "hard", "good", "easy"];
+  const result = {} as Record<Rating, string>;
+  for (const r of ratings) {
+    const review = processReview(state, r as SrsRating);
+    result[r] = formatInterval(review.nextState.intervalDays);
+  }
+  return result;
+}
+
+export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsUpdate }: Props) {
   const router = useRouter();
   const [cards] = useState(initialCards);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -52,6 +91,11 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
   const content = currentCard?.contentJson as Record<string, unknown>;
   const startTime = useState(() => Date.now())[0];
 
+  const intervalPreviews = useMemo(
+    () => (currentCard ? getIntervalPreviews(currentCard) : null),
+    [currentCard],
+  );
+
   const handleRate = useCallback(
     async (rating: Rating) => {
       setLoading(true);
@@ -62,6 +106,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
         rating,
         responseMs,
         idempotencyKey: uuidv4(),
+        skipSrsUpdate: skipSrsUpdate || undefined,
       });
 
       setReviewed((r) => r + 1);
@@ -77,7 +122,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
 
       setLoading(false);
     },
-    [currentCard, currentIndex, cards.length, startTime],
+    [currentCard, currentIndex, cards.length, startTime, skipSrsUpdate],
   );
 
   const canRate = showAnswer && !loading && !finished;
@@ -128,12 +173,9 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
         <p className="text-muted-foreground">
           You reviewed {reviewed} card{reviewed !== 1 ? "s" : ""} from &quot;{deckTitle}&quot;.
         </p>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={() => router.push("/library")}>
-            Back to Library
-          </Button>
-          <Button onClick={() => router.refresh()}>Study More</Button>
-        </div>
+        <Button variant="outline" onClick={() => router.push("/library")}>
+          Back to Library
+        </Button>
       </div>
     );
   }
@@ -150,13 +192,16 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
         <Badge variant="outline">{currentCard.srsState}</Badge>
       </div>
 
+      {skipSrsUpdate && (
+        <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-400">
+          <Info className="h-4 w-4 shrink-0" />
+          Practice mode &mdash; SRS data won&apos;t be updated
+        </div>
+      )}
+
       <Card className="min-h-[300px]">
         {currentCard.cardType === "front_back" ? (
-          <FrontBackStudy
-            content={content}
-            showAnswer={showAnswer}
-            onReveal={() => setShowAnswer(true)}
-          />
+          <FrontBackStudy content={content} showAnswer={showAnswer} />
         ) : currentCard.cardType === "multiple_choice" ? (
           <MultipleChoiceStudy
             content={content}
@@ -179,7 +224,6 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
             showAnswer={showAnswer}
             shortcutCorrect={shortcutCorrect}
             shakeKey={shakeKey}
-            onReveal={() => setShowAnswer(true)}
             onCorrect={() => {
               setShortcutCorrect(true);
               setShowAnswer(true);
@@ -198,50 +242,13 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
         )}
       </Card>
 
-      {showAnswer && (
-        <div className="flex justify-center gap-3">
-          <Button
-            variant="destructive"
-            onClick={() => handleRate("again")}
-            disabled={loading}
-            className="min-w-[100px]"
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCcw className="mr-1 h-4 w-4" />
-            )}
-            Again
-            <ShortcutHint keyChar="1" />
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleRate("hard")}
-            disabled={loading}
-            className="min-w-[100px]"
-          >
-            Hard
-            <ShortcutHint keyChar="2" />
-          </Button>
-          <Button
-            variant="default"
-            onClick={() => handleRate("good")}
-            disabled={loading}
-            className="min-w-[100px]"
-          >
-            <Check className="mr-1 h-4 w-4" />
-            Good
-            <ShortcutHint keyChar="3" />
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => handleRate("easy")}
-            disabled={loading}
-            className="min-w-[100px]"
-          >
-            <ChevronRight className="mr-1 h-4 w-4" />
-            Easy
-            <ShortcutHint keyChar="4" />
+      {showAnswer ? (
+        <RatingPanel intervalPreviews={intervalPreviews} loading={loading} onRate={handleRate} />
+      ) : (
+        <div className="rounded-xl border bg-card p-4">
+          <Button variant="outline" className="w-full" onClick={() => setShowAnswer(true)}>
+            Show Answer
+            <ShortcutHint keyChar="space" />
           </Button>
         </div>
       )}
@@ -249,14 +256,88 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
   );
 }
 
+const RATING_CONFIG: {
+  rating: Rating;
+  label: string;
+  key: string;
+  badgeClass: string;
+}[] = [
+  {
+    rating: "again",
+    label: "Again",
+    key: "1",
+    badgeClass: "bg-red-500/15 text-red-600 border-red-500/30",
+  },
+  {
+    rating: "hard",
+    label: "Hard",
+    key: "2",
+    badgeClass: "bg-yellow-500/15 text-yellow-600 border-yellow-500/30",
+  },
+  {
+    rating: "good",
+    label: "Good",
+    key: "3",
+    badgeClass: "bg-green-500/15 text-green-600 border-green-500/30",
+  },
+  {
+    rating: "easy",
+    label: "Easy",
+    key: "4",
+    badgeClass: "bg-violet-500/15 text-violet-600 border-violet-500/30",
+  },
+];
+
+function RatingPanel({
+  intervalPreviews,
+  loading,
+  onRate,
+}: {
+  intervalPreviews: Record<Rating, string> | null;
+  loading: boolean;
+  onRate: (r: Rating) => void;
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold">Self Rating</h3>
+        <p className="text-xs text-muted-foreground">
+          This tells the algorithm when this card should come up again.
+        </p>
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        {RATING_CONFIG.map(({ rating, label, key, badgeClass }) => (
+          <button
+            key={rating}
+            type="button"
+            disabled={loading}
+            onClick={() => onRate(rating)}
+            className="group flex flex-col items-center gap-1.5 rounded-lg border bg-muted/50 px-2 py-3 transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+          >
+            <span className="flex items-center gap-1.5 text-sm font-medium">
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : label}
+              <span
+                className={`inline-flex h-5 min-w-5 items-center justify-center rounded border px-1 font-mono text-[11px] font-semibold ${badgeClass}`}
+              >
+                {key}
+              </span>
+            </span>
+            {intervalPreviews && (
+              <span className="text-xs text-muted-foreground">{intervalPreviews[rating]}</span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FrontBackStudy({
   content,
   showAnswer,
-  onReveal,
 }: {
   content: Record<string, unknown>;
   showAnswer: boolean;
-  onReveal: () => void;
 }) {
   return (
     <>
@@ -266,15 +347,10 @@ function FrontBackStudy({
         </div>
       </CardHeader>
       <CardContent className="text-center">
-        {showAnswer ? (
+        {showAnswer && (
           <div className="rounded-lg bg-muted p-4">
             <MarkdownRenderer content={String(content.back ?? "")} />
           </div>
-        ) : (
-          <Button variant="outline" onClick={onReveal} className="mt-4">
-            Show Answer
-            <ShortcutHint keyChar="space" />
-          </Button>
         )}
       </CardContent>
     </>
@@ -329,11 +405,6 @@ function MultipleChoiceStudy({
             </Button>
           );
         })}
-        {!showAnswer && (
-          <p className="pt-2 text-center text-xs text-muted-foreground">
-            Press a number to pick or <ShortcutHint keyChar="space" /> to reveal
-          </p>
-        )}
       </CardContent>
     </>
   );
@@ -344,7 +415,6 @@ function KeyboardShortcutStudy({
   showAnswer,
   shortcutCorrect,
   shakeKey,
-  onReveal,
   onCorrect,
   onWrong,
 }: {
@@ -352,7 +422,6 @@ function KeyboardShortcutStudy({
   showAnswer: boolean;
   shortcutCorrect: boolean | null;
   shakeKey: number;
-  onReveal: () => void;
   onCorrect: () => void;
   onWrong: () => void;
 }) {
@@ -381,7 +450,7 @@ function KeyboardShortcutStudy({
         meta: e.metaKey,
       };
 
-      if (shortcutMatches(pressed, storedShortcut)) {
+      if (storedShortcut && shortcutMatches(pressed, storedShortcut)) {
         onCorrect();
       } else {
         onWrong();
@@ -418,15 +487,9 @@ function KeyboardShortcutStudy({
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Press the keyboard shortcut, or reveal the answer
-            </p>
-            <Button variant="outline" onClick={onReveal}>
-              Show Answer
-              <ShortcutHint keyChar="space" />
-            </Button>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Press the keyboard shortcut, or reveal the answer below
+          </p>
         )}
       </CardContent>
     </>
@@ -445,21 +508,24 @@ function ClozeStudy({
   const text = String(content.text ?? "");
   const clozeIndex = Number(content.clozeIndex ?? 1);
 
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (showAnswer) return;
+  useEffect(() => {
+    if (showAnswer) return;
+
+    function handleClick(e: MouseEvent) {
       const target = e.target as HTMLElement;
       if (target.classList.contains("cloze-blank")) {
         onReveal();
       }
-    },
-    [showAnswer, onReveal],
-  );
+    }
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [showAnswer, onReveal]);
 
   return (
     <>
       <CardHeader>
-        <div className="text-center" onClick={handleClick}>
+        <div className="text-center">
           <MarkdownRenderer
             content={
               showAnswer
@@ -469,14 +535,6 @@ function ClozeStudy({
           />
         </div>
       </CardHeader>
-      <CardContent className="text-center">
-        {!showAnswer && (
-          <Button variant="outline" onClick={onReveal} className="mt-4">
-            Show Answer
-            <ShortcutHint keyChar="space" />
-          </Button>
-        )}
-      </CardContent>
     </>
   );
 }

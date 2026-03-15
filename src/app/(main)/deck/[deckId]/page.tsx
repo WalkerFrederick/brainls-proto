@@ -1,24 +1,39 @@
+import type { Metadata } from "next";
 import { getDeck } from "@/actions/deck";
+import { getWorkspace } from "@/actions/workspace";
 import { listCards } from "@/actions/card";
 import { getDeckStudyStats } from "@/actions/study";
-import { BookOpen } from "lucide-react";
+import { getDeckTags } from "@/actions/tag";
+import { BookOpen, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { CreateCardDialog } from "@/components/create-card-dialog";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import { ShareDeckButton } from "@/components/share-deck-button";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { ShortcutDisplay } from "@/components/shortcut-display";
-import { renderClozePreview, getUniqueClozeIndices } from "@/lib/cloze";
+import { AddToWorkspaceButtons } from "@/components/add-to-workspace-dialog";
+import { DeckCardItem } from "@/components/deck-card-item";
+import { PlatformBadge } from "@/components/platform-badge";
+import { TagFilter } from "@/components/tag-filter";
+import { canEditDeck, getWorkspaceMember } from "@/lib/permissions";
+import { resolveSourceDeck } from "@/lib/deck-resolver";
+import { requireSession } from "@/lib/auth-server";
 
 interface Props {
   params: Promise<{ deckId: string }>;
+  searchParams: Promise<{ tag?: string }>;
 }
 
-export default async function DeckPage({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { deckId } = await params;
+  const result = await getDeck(deckId);
+  const title = result.success ? result.data.title : "Deck";
+  return { title };
+}
+
+export default async function DeckPage({ params, searchParams }: Props) {
+  const { deckId } = await params;
+  const { tag: tagFilter } = await searchParams;
+  const session = await requireSession();
   const deckResult = await getDeck(deckId);
 
   if (!deckResult.success) {
@@ -26,38 +41,113 @@ export default async function DeckPage({ params }: Props) {
   }
 
   const deck = deckResult.data;
-  const [cardsResult, statsResult] = await Promise.all([
-    listCards(deckId),
+  const isEditor = await canEditDeck(deckId, session.user.id);
+  const member = await getWorkspaceMember(deck.workspaceId, session.user.id);
+  const canArchive = member !== null && ["owner", "admin"].includes(member.role);
+  const canChangeVisibility = canArchive;
+  const isDefaultDeck = session.user.defaultDeckId === deckId;
+  const resolved = await resolveSourceDeck(deckId);
+  const wsResult = await getWorkspace(deck.workspaceId);
+  const workspaceKind = wsResult.success ? wsResult.data.kind : "shared";
+
+  const [cardsResult, statsResult, deckTagNames] = await Promise.all([
+    listCards(deckId, { tag: tagFilter }),
     getDeckStudyStats(deckId),
+    getDeckTags(deckId),
   ]);
   const cards = cardsResult.success ? cardsResult.data : [];
   const stats = statsResult.success ? statsResult.data : null;
 
+  const allCardTags = [...new Set(cards.flatMap((c) => c.tags))].sort();
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {resolved.isLinked && resolved.isAbandoned && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+              The author has archived this deck
+            </p>
+            <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
+              Your existing cards are still available, but no new cards will be added. Fork it to
+              your workspace to keep an independent copy you can update.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{deck.title}</h1>
+          <PlatformBadge createdByUserId={deck.createdByUserId} showPill />
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">{deck.title}</h1>
+            <PlatformBadge createdByUserId={deck.createdByUserId} showCheck />
+          </div>
           {deck.description && <p className="text-sm text-muted-foreground">{deck.description}</p>}
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge variant="outline">{cards.length} cards</Badge>
             <Badge variant="secondary">{deck.viewPolicy}</Badge>
+            {resolved.isLinked && !resolved.isAbandoned && (
+              <Badge
+                variant="secondary"
+                className="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              >
+                linked
+              </Badge>
+            )}
+            {resolved.isLinked && resolved.isAbandoned && (
+              <Badge
+                variant="secondary"
+                className="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+              >
+                abandoned
+              </Badge>
+            )}
+            {deck.forkedFromDeckDefinitionId && (
+              <Badge
+                variant="secondary"
+                className="bg-violet-500/10 text-violet-600 dark:text-violet-400"
+              >
+                forked
+              </Badge>
+            )}
           </div>
+          {deckTagNames.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {deckTagNames.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {(deck.viewPolicy === "public" || deck.viewPolicy === "link") && (
             <ShareDeckButton deckId={deckId} />
           )}
-          <DeckSettingsDialog
-            deckId={deckId}
-            title={deck.title}
-            description={deck.description}
-            viewPolicy={deck.viewPolicy}
-            usePolicy={deck.usePolicy}
-            forkPolicy={deck.forkPolicy}
+          {isEditor && (
+            <DeckSettingsDialog
+              deckId={deckId}
+              title={deck.title}
+              description={deck.description}
+              viewPolicy={deck.viewPolicy}
+              canArchive={canArchive}
+              canChangeVisibility={canChangeVisibility}
+              workspaceKind={workspaceKind}
+              initialTags={deckTagNames}
+              isDefaultDeck={isDefaultDeck}
+            />
+          )}
+          <AddToWorkspaceButtons
+            deckId={resolved.isLinked ? resolved.sourceDeckId : deckId}
+            sourceArchived={resolved.isAbandoned || !!deck.archivedAt}
           />
           <UseDeckButton deckDefinitionId={deckId} />
-          <CreateCardDialog deckDefinitionId={deckId} />
         </div>
       </div>
 
@@ -82,7 +172,9 @@ export default async function DeckPage({ params }: Props) {
         </div>
       )}
 
-      {cards.length === 0 ? (
+      {allCardTags.length > 0 && <TagFilter availableTags={allCardTags} />}
+
+      {cards.length === 0 && !tagFilter ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
           <BookOpen className="h-12 w-12 text-muted-foreground" />
           <div className="text-center">
@@ -90,105 +182,40 @@ export default async function DeckPage({ params }: Props) {
             <p className="text-sm text-muted-foreground">Add cards to start building this deck.</p>
           </div>
         </div>
+      ) : cards.length === 0 && tagFilter ? (
+        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
+          <BookOpen className="h-12 w-12 text-muted-foreground" />
+          <div className="text-center">
+            <h3 className="text-lg font-semibold">No cards with tag &ldquo;{tagFilter}&rdquo;</h3>
+            <p className="text-sm text-muted-foreground">
+              Try a different tag or clear the filter.
+            </p>
+          </div>
+        </div>
       ) : (
         <div className="space-y-3">
           {cards.map((card) => {
             const content = card.contentJson as Record<string, unknown>;
             return (
-              <Card key={card.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="w-fit">
-                      {card.cardType}
-                    </Badge>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">v{card.version}</span>
-                      <EditCardDialog
-                        cardId={card.id}
-                        cardType={card.cardType}
-                        contentJson={content}
-                      />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {card.cardType === "front_back" ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground">Front</p>
-                        <MarkdownRenderer content={String(content.front ?? "")} className="mt-1" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground">Back</p>
-                        <MarkdownRenderer content={String(content.back ?? "")} className="mt-1" />
-                      </div>
-                    </div>
-                  ) : card.cardType === "multiple_choice" ? (
-                    <div>
-                      <MarkdownRenderer content={String(content.question ?? "")} />
-                      <ul className="mt-2 space-y-1">
-                        {(content.choices as string[] | undefined)?.map((choice, i) => {
-                          const correct = (content.correctChoiceIndexes as number[])?.includes(i);
-                          return (
-                            <li
-                              key={i}
-                              className={
-                                correct ? "font-semibold text-green-600" : "text-muted-foreground"
-                              }
-                            >
-                              {correct ? "✓" : "○"} {choice}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ) : card.cardType === "cloze" ? (
-                    <div className="space-y-2">
-                      <MarkdownRenderer content={renderClozePreview(String(content.text ?? ""))} />
-                      <p className="text-xs text-muted-foreground">
-                        {(() => {
-                          const indices = getUniqueClozeIndices(String(content.text ?? ""));
-                          return `${indices.length} cloze card${indices.length !== 1 ? "s" : ""} (${indices.map((i) => `c${i}`).join(", ")})`;
-                        })()}
-                      </p>
-                    </div>
-                  ) : card.cardType === "keyboard_shortcut" ? (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">Prompt</p>
-                      <MarkdownRenderer content={String(content.prompt ?? "")} />
-                      <p className="text-xs font-medium text-muted-foreground mt-2">Shortcut</p>
-                      {content.shortcut && (
-                        <ShortcutDisplay
-                          shortcut={
-                            content.shortcut as {
-                              key: string;
-                              ctrl: boolean;
-                              shift: boolean;
-                              alt: boolean;
-                              meta: boolean;
-                            }
-                          }
-                        />
-                      )}
-                      {content.explanation && (
-                        <>
-                          <p className="text-xs font-medium text-muted-foreground mt-2">
-                            Explanation
-                          </p>
-                          <MarkdownRenderer
-                            content={String(content.explanation)}
-                            className="text-sm"
-                          />
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm italic text-muted-foreground">
-                      Unsupported card type: {card.cardType.replace(/_/g, " ")}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              <DeckCardItem
+                key={card.id}
+                cardId={card.id}
+                cardType={card.cardType}
+                contentJson={content}
+                tags={card.tags}
+                version={card.version}
+                editSlot={
+                  isEditor && !resolved.isLinked ? (
+                    <EditCardDialog
+                      cardId={card.id}
+                      cardType={card.cardType}
+                      contentJson={content}
+                      deckDefinitionId={deckId}
+                      initialTags={card.tags}
+                    />
+                  ) : undefined
+                }
+              />
             );
           })}
         </div>

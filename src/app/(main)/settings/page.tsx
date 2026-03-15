@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-server";
 import { Settings, ChevronRight } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -5,6 +6,8 @@ import { LayoutToggle } from "@/components/layout-toggle";
 import { ThemeSelector } from "@/components/theme-selector";
 import { UserAvatar } from "@/components/user-avatar";
 import Link from "next/link";
+
+export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const session = await getSession();

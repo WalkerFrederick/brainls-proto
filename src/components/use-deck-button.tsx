@@ -25,7 +25,7 @@ export function UseDeckButton({ deckDefinitionId }: Props) {
   }
 
   return (
-    <Button variant="secondary" onClick={handleClick} disabled={loading}>
+    <Button variant="secondary" size="sm" onClick={handleClick} disabled={loading}>
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       ) : (

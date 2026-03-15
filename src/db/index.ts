@@ -1,15 +1,4 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 
-const connectionString = process.env.DATABASE_URL!;
-
-const globalForDb = globalThis as unknown as {
-  _pgClient?: ReturnType<typeof postgres>;
-};
-
-if (!globalForDb._pgClient) {
-  globalForDb._pgClient = postgres(connectionString);
-}
-
-export const db = drizzle(globalForDb._pgClient, { schema });
+export const db = drizzle(process.env.DATABASE_URL!, { schema });

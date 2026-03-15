@@ -11,6 +11,7 @@ import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import { ShareDeckButton } from "@/components/share-deck-button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
+import { renderClozePreview, getUniqueClozeIndices } from "@/lib/cloze";
 
 interface Props {
   params: Promise<{ deckId: string }>;
@@ -140,6 +141,16 @@ export default async function DeckPage({ params }: Props) {
                           );
                         })}
                       </ul>
+                    </div>
+                  ) : card.cardType === "cloze" ? (
+                    <div className="space-y-2">
+                      <MarkdownRenderer content={renderClozePreview(String(content.text ?? ""))} />
+                      <p className="text-xs text-muted-foreground">
+                        {(() => {
+                          const indices = getUniqueClozeIndices(String(content.text ?? ""));
+                          return `${indices.length} cloze card${indices.length !== 1 ? "s" : ""} (${indices.map((i) => `c${i}`).join(", ")})`;
+                        })()}
+                      </p>
                     </div>
                   ) : card.cardType === "keyboard_shortcut" ? (
                     <div className="space-y-2">

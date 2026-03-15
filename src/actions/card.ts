@@ -10,6 +10,7 @@ import { validateCardContent, type CardType } from "@/lib/schemas/card-content";
 import { canEditDeck, canViewDeck } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
 import { cleanupRemovedAssets } from "@/lib/asset-cleanup";
+import { getUniqueClozeIndices } from "@/lib/cloze";
 
 export async function createCard(input: unknown): Promise<Result<{ id: string }>> {
   const session = await requireSession();
@@ -38,12 +39,46 @@ export async function createCard(input: unknown): Promise<Result<{ id: string }>
   const contentResult = validateCardContent(cardType as CardType, contentJson);
   if (!contentResult.success) return err(contentResult.error);
 
+  const validatedContent = contentResult.data as Record<string, unknown>;
+
+  if (cardType === "cloze") {
+    const text = String(validatedContent.text ?? "");
+    const indices = getUniqueClozeIndices(text);
+    if (indices.length === 0) {
+      return err("Cloze text must contain at least one cloze deletion (e.g. {{c1::answer}})");
+    }
+
+    const [parent] = await db
+      .insert(cardDefinitions)
+      .values({
+        deckDefinitionId,
+        cardType: "cloze",
+        contentJson: { text },
+        createdByUserId: session.user.id,
+        updatedByUserId: session.user.id,
+      })
+      .returning({ id: cardDefinitions.id });
+
+    await db.insert(cardDefinitions).values(
+      indices.map((clozeIndex) => ({
+        deckDefinitionId,
+        cardType: "cloze",
+        contentJson: { text, clozeIndex },
+        parentCardId: parent.id,
+        createdByUserId: session.user.id,
+        updatedByUserId: session.user.id,
+      })),
+    );
+
+    return ok({ id: parent.id });
+  }
+
   const [card] = await db
     .insert(cardDefinitions)
     .values({
       deckDefinitionId,
       cardType,
-      contentJson: contentResult.data,
+      contentJson: validatedContent,
       createdByUserId: session.user.id,
       updatedByUserId: session.user.id,
     })
@@ -69,19 +104,104 @@ export async function updateCard(input: unknown): Promise<Result<{ id: string }>
   const contentResult = validateCardContent(card.cardType as CardType, contentJson);
   if (!contentResult.success) return err(contentResult.error);
 
+  const validatedContent = contentResult.data as Record<string, unknown>;
   const oldContentJson = card.contentJson;
+
+  if (card.cardType === "cloze" && !card.parentCardId) {
+    const text = String(validatedContent.text ?? "");
+    const newIndices = getUniqueClozeIndices(text);
+    if (newIndices.length === 0) {
+      return err("Cloze text must contain at least one cloze deletion (e.g. {{c1::answer}})");
+    }
+
+    await db
+      .update(cardDefinitions)
+      .set({
+        contentJson: { text },
+        version: card.version + 1,
+        updatedByUserId: session.user.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(cardDefinitions.id, cardId));
+
+    const existingChildren = await db
+      .select({
+        id: cardDefinitions.id,
+        contentJson: cardDefinitions.contentJson,
+      })
+      .from(cardDefinitions)
+      .where(and(eq(cardDefinitions.parentCardId, cardId), isNull(cardDefinitions.archivedAt)));
+
+    const existingIndices = new Map<number, string>();
+    for (const child of existingChildren) {
+      const cj = child.contentJson as Record<string, unknown>;
+      const idx = Number(cj.clozeIndex);
+      if (idx) existingIndices.set(idx, child.id);
+    }
+
+    const newSet = new Set(newIndices);
+    const existingSet = new Set(existingIndices.keys());
+
+    const toAdd = newIndices.filter((i) => !existingSet.has(i));
+    const toRemove = [...existingSet].filter((i) => !newSet.has(i));
+    const toUpdate = newIndices.filter((i) => existingSet.has(i));
+
+    if (toRemove.length > 0) {
+      for (const idx of toRemove) {
+        const childId = existingIndices.get(idx)!;
+        await db
+          .update(cardDefinitions)
+          .set({
+            archivedAt: new Date(),
+            updatedAt: new Date(),
+            updatedByUserId: session.user.id,
+          })
+          .where(eq(cardDefinitions.id, childId));
+      }
+    }
+
+    if (toUpdate.length > 0) {
+      for (const idx of toUpdate) {
+        const childId = existingIndices.get(idx)!;
+        await db
+          .update(cardDefinitions)
+          .set({
+            contentJson: { text, clozeIndex: idx },
+            updatedAt: new Date(),
+            updatedByUserId: session.user.id,
+          })
+          .where(eq(cardDefinitions.id, childId));
+      }
+    }
+
+    if (toAdd.length > 0) {
+      await db.insert(cardDefinitions).values(
+        toAdd.map((clozeIndex) => ({
+          deckDefinitionId: card.deckDefinitionId,
+          cardType: "cloze",
+          contentJson: { text, clozeIndex },
+          parentCardId: cardId,
+          createdByUserId: session.user.id,
+          updatedByUserId: session.user.id,
+        })),
+      );
+    }
+
+    await cleanupRemovedAssets(oldContentJson, { text }, cardId);
+    return ok({ id: cardId });
+  }
 
   await db
     .update(cardDefinitions)
     .set({
-      contentJson: contentResult.data,
+      contentJson: validatedContent,
       version: card.version + 1,
       updatedByUserId: session.user.id,
       updatedAt: new Date(),
     })
     .where(eq(cardDefinitions.id, cardId));
 
-  await cleanupRemovedAssets(oldContentJson, contentResult.data, cardId);
+  await cleanupRemovedAssets(oldContentJson, validatedContent, cardId);
 
   return ok({ id: cardId });
 }
@@ -100,34 +220,6 @@ export async function getCard(
   if (!canView) return err("Permission denied");
 
   return ok(card);
-}
-
-export async function listCards(
-  deckDefinitionId: string,
-  opts?: { limit?: number; offset?: number },
-): Promise<Result<Array<typeof cardDefinitions.$inferSelect>>> {
-  if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
-  const session = await requireSession();
-
-  const canView = await canViewDeck(deckDefinitionId, session.user.id);
-  if (!canView) return err("Permission denied");
-
-  const limit = opts?.limit ?? 100;
-  const offset = opts?.offset ?? 0;
-
-  const rows = await db
-    .select()
-    .from(cardDefinitions)
-    .where(
-      and(
-        eq(cardDefinitions.deckDefinitionId, deckDefinitionId),
-        isNull(cardDefinitions.archivedAt),
-      ),
-    )
-    .limit(limit)
-    .offset(offset);
-
-  return ok(rows);
 }
 
 export async function archiveCard(cardId: string): Promise<Result<{ id: string }>> {
@@ -150,7 +242,47 @@ export async function archiveCard(cardId: string): Promise<Result<{ id: string }
     })
     .where(eq(cardDefinitions.id, cardId));
 
+  if (card.cardType === "cloze" && !card.parentCardId) {
+    await db
+      .update(cardDefinitions)
+      .set({
+        archivedAt: new Date(),
+        updatedAt: new Date(),
+        updatedByUserId: session.user.id,
+      })
+      .where(and(eq(cardDefinitions.parentCardId, cardId), isNull(cardDefinitions.archivedAt)));
+  }
+
   await cleanupRemovedAssets(card.contentJson, {}, cardId);
 
   return ok({ id: cardId });
+}
+
+export async function listCards(
+  deckDefinitionId: string,
+  opts?: { limit?: number; offset?: number },
+): Promise<Result<Array<typeof cardDefinitions.$inferSelect>>> {
+  if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
+  const session = await requireSession();
+
+  const canView = await canViewDeck(deckDefinitionId, session.user.id);
+  if (!canView) return err("Permission denied");
+
+  const limit = opts?.limit ?? 100;
+  const offset = opts?.offset ?? 0;
+
+  const rows = await db
+    .select()
+    .from(cardDefinitions)
+    .where(
+      and(
+        eq(cardDefinitions.deckDefinitionId, deckDefinitionId),
+        isNull(cardDefinitions.archivedAt),
+        isNull(cardDefinitions.parentCardId),
+      ),
+    )
+    .limit(limit)
+    .offset(offset);
+
+  return ok(rows);
 }

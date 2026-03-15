@@ -17,6 +17,7 @@ import {
   normalizeKey,
   isModifierOnly,
 } from "@/lib/shortcut-blocklist";
+import { renderClozeHidden, renderClozeRevealed } from "@/lib/cloze";
 
 interface StudyCard {
   userCardStateId: string;
@@ -165,6 +166,12 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
               setSelectedChoice(i);
               setShowAnswer(true);
             }}
+          />
+        ) : currentCard.cardType === "cloze" ? (
+          <ClozeStudy
+            content={content}
+            showAnswer={showAnswer}
+            onReveal={() => setShowAnswer(true)}
           />
         ) : currentCard.cardType === "keyboard_shortcut" ? (
           <KeyboardShortcutStudy
@@ -420,6 +427,54 @@ function KeyboardShortcutStudy({
               <ShortcutHint keyChar="space" />
             </Button>
           </div>
+        )}
+      </CardContent>
+    </>
+  );
+}
+
+function ClozeStudy({
+  content,
+  showAnswer,
+  onReveal,
+}: {
+  content: Record<string, unknown>;
+  showAnswer: boolean;
+  onReveal: () => void;
+}) {
+  const text = String(content.text ?? "");
+  const clozeIndex = Number(content.clozeIndex ?? 1);
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (showAnswer) return;
+      const target = e.target as HTMLElement;
+      if (target.classList.contains("cloze-blank")) {
+        onReveal();
+      }
+    },
+    [showAnswer, onReveal],
+  );
+
+  return (
+    <>
+      <CardHeader>
+        <div className="text-center" onClick={handleClick}>
+          <MarkdownRenderer
+            content={
+              showAnswer
+                ? renderClozeRevealed(text, clozeIndex)
+                : renderClozeHidden(text, clozeIndex)
+            }
+          />
+        </div>
+      </CardHeader>
+      <CardContent className="text-center">
+        {!showAnswer && (
+          <Button variant="outline" onClick={onReveal} className="mt-4">
+            Show Answer
+            <ShortcutHint keyChar="space" />
+          </Button>
         )}
       </CardContent>
     </>

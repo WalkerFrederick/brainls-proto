@@ -398,3 +398,48 @@
 .animate-shake {
   animation: shake 0.4s ease-in-out;
 }
+
+/* Cloze deletion styles */
+.cloze-blank {
+  display: inline;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.cloze-blank:hover {
+  opacity: 0.8;
+}
+
+.cloze-reveal {
+  display: inline;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background-color: color-mix(in srgb, var(--primary) 20%, transparent);
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+.cloze-preview {
+  display: inline;
+  padding: 0.0625rem 0.25rem;
+  border-radius: 0.25rem;
+  background-color: color-mix(in srgb, var(--primary) 15%, transparent);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.cloze-preview::before {
+  content: "c" attr(data-cloze) " ";
+  font-size: 0.65em;
+  opacity: 0.6;
+  vertical-align: super;
+}

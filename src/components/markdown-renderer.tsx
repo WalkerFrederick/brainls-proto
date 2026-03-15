@@ -2,6 +2,7 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { cn } from "@/lib/utils";
 import { isAllowedImageUrl } from "@/lib/allowed-hosts";
 
@@ -19,9 +20,10 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
     <div className={cn("prose prose-sm max-w-none", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
         components={{
           img: ({ src, alt }) => {
-            if (!src || !isAllowedImageUrl(src)) {
+            if (!src || typeof src !== "string" || !isAllowedImageUrl(src)) {
               return (
                 <span className="inline-block rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
                   Image not available

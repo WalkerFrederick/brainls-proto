@@ -41,7 +41,13 @@ export async function listPublicCards(
   const rows = await db
     .select()
     .from(cardDefinitions)
-    .where(and(eq(cardDefinitions.deckDefinitionId, deckId), isNull(cardDefinitions.archivedAt)));
+    .where(
+      and(
+        eq(cardDefinitions.deckDefinitionId, deckId),
+        isNull(cardDefinitions.archivedAt),
+        isNull(cardDefinitions.parentCardId),
+      ),
+    );
 
   return ok(rows);
 }

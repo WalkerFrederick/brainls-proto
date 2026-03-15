@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { MarkdownEditor } from "@/components/markdown-editor";
 import { ShortcutRecorder } from "@/components/shortcut-recorder";
 import { MAX_FIELD_LENGTH } from "@/lib/schemas/card-content";
 import type { ShortcutCombo } from "@/lib/shortcut-blocklist";
+import { getUniqueClozeIndices } from "@/lib/cloze";
 import {
   Select,
   SelectContent,
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { createCard } from "@/actions/card";
 
-type SupportedCardType = "front_back" | "multiple_choice" | "keyboard_shortcut";
+type SupportedCardType = "front_back" | "multiple_choice" | "keyboard_shortcut" | "cloze";
 
 interface Props {
   deckDefinitionId: string;
@@ -51,8 +52,24 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
   const [shortcut, setShortcut] = useState<ShortcutCombo | null>(null);
   const [explanation, setExplanation] = useState("");
 
+  const [clozeText, setClozeText] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable)
+        return;
+      if (e.key === "N" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setOpen(true);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   function resetForm() {
     setFront("");
@@ -63,6 +80,7 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
     setPrompt("");
     setShortcut(null);
     setExplanation("");
+    setClozeText("");
     setError("");
   }
 
@@ -80,6 +98,8 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
         choices: choices.filter((c) => c.trim()),
         correctChoiceIndexes: [correctIndex],
       };
+    } else if (cardType === "cloze") {
+      contentJson = { text: clozeText };
     } else {
       if (!shortcut) {
         setError("Please record a keyboard shortcut.");
@@ -109,9 +129,12 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button />}>
+      <DialogTrigger render={<Button />} title="Add Card (Shift+N)">
         <Plus className="mr-2 h-4 w-4" />
         Add Card
+        <kbd className="ml-1.5 hidden sm:inline-flex h-5 min-w-5 items-center justify-center rounded border border-current/20 px-1 font-mono text-[10px] font-medium opacity-60">
+          ⇧N
+        </kbd>
       </DialogTrigger>
       <DialogContent className="max-w-5xl w-[90vw] max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
@@ -135,6 +158,7 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
                   <SelectItem value="front_back">Front / Back</SelectItem>
                   <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
                   <SelectItem value="keyboard_shortcut">Keyboard Shortcut</SelectItem>
+                  <SelectItem value="cloze">Cloze Deletion</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -217,6 +241,41 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
                     >
                       Add Choice ({choices.length}/10)
                     </Button>
+                  )}
+                </div>
+              </>
+            ) : cardType === "cloze" ? (
+              <>
+                <MarkdownEditor
+                  label="Cloze Text"
+                  value={clozeText}
+                  onChange={setClozeText}
+                  placeholder={"The {{c1::mitochondria}} is the {{c2::powerhouse}} of the cell."}
+                  required
+                  maxLength={MAX_FIELD_LENGTH}
+                  maxAttachments={10}
+                />
+                <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground space-y-1">
+                  <p className="font-medium text-foreground">Cloze syntax</p>
+                  <p>
+                    Wrap answers with{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">{"{{c1::answer}}"}</code>{" "}
+                    or{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      {"{{c1::answer::hint}}"}
+                    </code>
+                  </p>
+                  <p>
+                    Use different numbers (c1, c2, c3...) to create separate cards from one note.
+                  </p>
+                  {clozeText.trim() && (
+                    <p className="mt-2 font-medium text-foreground">
+                      {(() => {
+                        const indices = getUniqueClozeIndices(clozeText);
+                        if (indices.length === 0) return "No cloze deletions found";
+                        return `Will generate ${indices.length} card${indices.length > 1 ? "s" : ""} (${indices.map((i) => `c${i}`).join(", ")})`;
+                      })()}
+                    </p>
                   )}
                 </div>
               </>

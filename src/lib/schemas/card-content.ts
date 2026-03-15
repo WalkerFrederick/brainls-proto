@@ -83,11 +83,17 @@ export const KeyboardShortcutCardSchema = z.object({
   explanation: optionalSanitizedField("Explanation"),
 });
 
+export const ClozeCardSchema = z.object({
+  text: sanitizedField("Cloze text"),
+  clozeIndex: z.number().int().positive().optional(),
+});
+
 export type FrontBackCard = z.infer<typeof FrontBackCardSchema>;
 export type MultipleChoiceCard = z.infer<typeof MultipleChoiceCardSchema>;
 export type KeyboardShortcutCard = z.infer<typeof KeyboardShortcutCardSchema>;
+export type ClozeCard = z.infer<typeof ClozeCardSchema>;
 
-const DEFERRED_TYPES = new Set<CardType>(["cloze", "image_occlusion", "ai_question"]);
+const DEFERRED_TYPES = new Set<CardType>(["image_occlusion", "ai_question"]);
 
 export function getCardContentSchema(cardType: CardType): z.ZodType | null {
   switch (cardType) {
@@ -97,6 +103,8 @@ export function getCardContentSchema(cardType: CardType): z.ZodType | null {
       return MultipleChoiceCardSchema;
     case "keyboard_shortcut":
       return KeyboardShortcutCardSchema;
+    case "cloze":
+      return ClozeCardSchema;
     default:
       if (DEFERRED_TYPES.has(cardType)) {
         return null;

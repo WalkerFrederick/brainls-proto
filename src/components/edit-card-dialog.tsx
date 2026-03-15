@@ -20,6 +20,7 @@ import { MarkdownEditor } from "@/components/markdown-editor";
 import { ShortcutRecorder } from "@/components/shortcut-recorder";
 import { MAX_FIELD_LENGTH } from "@/lib/schemas/card-content";
 import type { ShortcutCombo } from "@/lib/shortcut-blocklist";
+import { getUniqueClozeIndices } from "@/lib/cloze";
 import {
   Select,
   SelectContent,
@@ -54,6 +55,8 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
     (contentJson.shortcut as ShortcutCombo) ?? null,
   );
   const [explanation, setExplanation] = useState(String(contentJson.explanation ?? ""));
+
+  const [clozeText, setClozeText] = useState(String(contentJson.text ?? ""));
 
   const [srsState, setSrsState] = useState("new");
   const [intervalDays, setIntervalDays] = useState(0);
@@ -99,6 +102,7 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
       setPrompt(String(contentJson.prompt ?? ""));
       setShortcut((contentJson.shortcut as ShortcutCombo) ?? null);
       setExplanation(String(contentJson.explanation ?? ""));
+      setClozeText(String(contentJson.text ?? ""));
       setError("");
       setShowAdvanced(false);
       setHasStudyState(false);
@@ -120,6 +124,8 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
         choices: choices.filter((c) => c.trim()),
         correctChoiceIndexes: [correctIndex],
       };
+    } else if (cardType === "cloze") {
+      newContent = { text: clozeText };
     } else if (cardType === "keyboard_shortcut") {
       if (!shortcut) {
         setError("Please record a keyboard shortcut.");
@@ -255,6 +261,38 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
                     >
                       Add Choice ({choices.length}/10)
                     </Button>
+                  )}
+                </div>
+              </>
+            ) : cardType === "cloze" ? (
+              <>
+                <MarkdownEditor
+                  label="Cloze Text"
+                  value={clozeText}
+                  onChange={setClozeText}
+                  placeholder={"The {{c1::mitochondria}} is the {{c2::powerhouse}} of the cell."}
+                  required
+                  maxLength={MAX_FIELD_LENGTH}
+                  maxAttachments={10}
+                />
+                <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground space-y-1">
+                  <p className="font-medium text-foreground">Cloze syntax</p>
+                  <p>
+                    Wrap answers with{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">{"{{c1::answer}}"}</code>{" "}
+                    or{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      {"{{c1::answer::hint}}"}
+                    </code>
+                  </p>
+                  {clozeText.trim() && (
+                    <p className="mt-2 font-medium text-foreground">
+                      {(() => {
+                        const indices = getUniqueClozeIndices(clozeText);
+                        if (indices.length === 0) return "No cloze deletions found";
+                        return `Will generate ${indices.length} card${indices.length > 1 ? "s" : ""} (${indices.map((i) => `c${i}`).join(", ")})`;
+                      })()}
+                    </p>
                   )}
                 </div>
               </>

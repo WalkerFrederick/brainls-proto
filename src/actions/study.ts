@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, isNull, sql, asc } from "drizzle-orm";
+import { eq, and, isNull, sql, asc, or, ne, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   userDecks,
@@ -57,6 +57,7 @@ export async function addDeckToLibrary(deckDefinitionId: string): Promise<Result
         eq(cardDefinitions.deckDefinitionId, deckDefinitionId),
         isNull(cardDefinitions.archivedAt),
         eq(cardDefinitions.status, "active"),
+        or(ne(cardDefinitions.cardType, "cloze"), isNotNull(cardDefinitions.parentCardId)),
       ),
     );
 
@@ -375,6 +376,7 @@ async function syncNewCards(userDeckId: string, deckDefinitionId: string) {
         isNull(cardDefinitions.archivedAt),
         eq(cardDefinitions.status, "active"),
         sql`${cardDefinitions.id} NOT IN (${existingCardIds})`,
+        or(ne(cardDefinitions.cardType, "cloze"), isNotNull(cardDefinitions.parentCardId)),
       ),
     );
 

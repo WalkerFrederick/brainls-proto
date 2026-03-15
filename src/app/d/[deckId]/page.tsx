@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
+import { renderClozePreview, getUniqueClozeIndices } from "@/lib/cloze";
 import Link from "next/link";
 
 interface Props {
@@ -109,6 +110,16 @@ export default async function PublicDeckPage({ params }: Props) {
                           );
                         })}
                       </ul>
+                    </div>
+                  ) : card.cardType === "cloze" ? (
+                    <div className="space-y-2">
+                      <MarkdownRenderer content={renderClozePreview(String(content.text ?? ""))} />
+                      <p className="text-xs text-muted-foreground">
+                        {(() => {
+                          const indices = getUniqueClozeIndices(String(content.text ?? ""));
+                          return `${indices.length} cloze card${indices.length !== 1 ? "s" : ""} (${indices.map((i) => `c${i}`).join(", ")})`;
+                        })()}
+                      </p>
                     </div>
                   ) : card.cardType === "keyboard_shortcut" ? (
                     <div className="space-y-2">

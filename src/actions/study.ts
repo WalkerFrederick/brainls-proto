@@ -468,7 +468,7 @@ async function ensureLibraryForTags(userId: string, tagNames: string[]) {
   // Find distinct deck IDs the user can access that have matching tagged cards
   type DeckRow = { deckId: string; linkedDeckDefinitionId: string | null };
 
-  const accessibleRows = await db.execute<DeckRow>(sql`
+  const accessibleResult = await db.execute<DeckRow>(sql`
     SELECT DISTINCT dd.id as "deckId", dd.linked_deck_definition_id as "linkedDeckDefinitionId"
     FROM deck_definitions dd
     JOIN workspace_members wm ON wm.workspace_id = dd.workspace_id
@@ -478,7 +478,7 @@ async function ensureLibraryForTags(userId: string, tagNames: string[]) {
       AND cd.id IN ${taggedCardFilter}
   `);
 
-  const linkedRows = await db.execute<DeckRow>(sql`
+  const linkedResult = await db.execute<DeckRow>(sql`
     SELECT DISTINCT dd.id as "deckId", dd.linked_deck_definition_id as "linkedDeckDefinitionId"
     FROM deck_definitions dd
     JOIN workspace_members wm ON wm.workspace_id = dd.workspace_id
@@ -489,7 +489,7 @@ async function ensureLibraryForTags(userId: string, tagNames: string[]) {
       AND cd.id IN ${taggedCardFilter}
   `);
 
-  const allDecks = [...accessibleRows, ...linkedRows] as DeckRow[];
+  const allDecks = [...accessibleResult.rows, ...linkedResult.rows] as DeckRow[];
   const seen = new Set<string>();
   const uniqueDecks = allDecks.filter((d) => {
     if (seen.has(d.deckId)) return false;

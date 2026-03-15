@@ -28,22 +28,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { updateCard } from "@/actions/card";
+import { updateCard, createCard } from "@/actions/card";
 import { getCardState, updateCardState } from "@/actions/card-state";
 
 interface Props {
   cardId: string;
   cardType: string;
   contentJson: Record<string, unknown>;
+  deckDefinitionId: string;
 }
 
-export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
+export function EditCardDialog({ cardId, cardType, contentJson, deckDefinitionId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [front, setFront] = useState(String(contentJson.front ?? ""));
   const [back, setBack] = useState(String(contentJson.back ?? ""));
+  const [createReverse, setCreateReverse] = useState(false);
   const [question, setQuestion] = useState(String(contentJson.question ?? ""));
   const [choices, setChoices] = useState<string[]>((contentJson.choices as string[]) ?? ["", ""]);
   const [correctIndex, setCorrectIndex] = useState(
@@ -96,6 +98,7 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
     if (isOpen) {
       setFront(String(contentJson.front ?? ""));
       setBack(String(contentJson.back ?? ""));
+      setCreateReverse(false);
       setQuestion(String(contentJson.question ?? ""));
       setChoices((contentJson.choices as string[]) ?? ["", ""]);
       setCorrectIndex(((contentJson.correctChoiceIndexes as number[]) ?? [0])[0]);
@@ -163,6 +166,14 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
       });
     }
 
+    if (createReverse && cardType === "front_back") {
+      await createCard({
+        deckDefinitionId,
+        cardType: "front_back",
+        contentJson: { front: back, back: front },
+      });
+    }
+
     setOpen(false);
     setLoading(false);
     router.refresh();
@@ -204,6 +215,15 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
                   maxLength={MAX_FIELD_LENGTH}
                   maxAttachments={10}
                 />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={createReverse}
+                    onChange={(e) => setCreateReverse(e.target.checked)}
+                    className="accent-primary"
+                  />
+                  Create reverse card (Back → Front)
+                </label>
               </>
             ) : cardType === "multiple_choice" ? (
               <>

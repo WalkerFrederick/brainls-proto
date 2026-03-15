@@ -1,14 +1,17 @@
 import { listWorkspacesWithDecks, listPendingInvites } from "@/actions/workspace";
+import { getReviewHeatmapData } from "@/actions/study";
 import { Library, FolderOpen, Layers, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { CreateWorkspaceDialog } from "@/components/create-workspace-dialog";
 import { PendingInvites } from "@/components/pending-invites";
+import { ReviewHeatmap } from "@/components/review-heatmap";
 
 export default async function LibraryPage() {
-  const [result, invitesResult] = await Promise.all([
+  const [result, invitesResult, heatmapResult] = await Promise.all([
     listWorkspacesWithDecks(),
     listPendingInvites(),
+    getReviewHeatmapData(),
   ]);
 
   if (!result.success) {
@@ -29,6 +32,8 @@ export default async function LibraryPage() {
       </div>
 
       <PendingInvites invites={invites} />
+
+      {heatmapResult.success && <ReviewHeatmap data={heatmapResult.data} />}
 
       {workspaces.length === 0 && invites.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">

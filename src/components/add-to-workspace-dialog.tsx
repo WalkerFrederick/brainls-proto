@@ -33,6 +33,7 @@ interface AddToWorkspaceDialogProps {
   initialMode: CopyMode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  sourceArchived?: boolean;
 }
 
 const MODE_CONFIG = {
@@ -63,6 +64,7 @@ export function AddToWorkspaceDialog({
   initialMode,
   open,
   onOpenChange,
+  sourceArchived,
 }: AddToWorkspaceDialogProps) {
   const router = useRouter();
   const [mode, setMode] = useState<CopyMode>(initialMode);
@@ -136,11 +138,13 @@ export function AddToWorkspaceDialog({
 
         <div className="space-y-4 pt-2">
           {/* Mode toggle */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid gap-2 ${sourceArchived ? "grid-cols-1" : "grid-cols-2"}`}>
             {(Object.entries(MODE_CONFIG) as [CopyMode, typeof MODE_CONFIG.link][]).map(
               ([key, cfg]) => {
                 const active = mode === key;
+                const disabled = key === "link" && sourceArchived;
                 const ModeIcon = cfg.icon;
+                if (disabled) return null;
                 return (
                   <button
                     key={key}
@@ -266,25 +270,28 @@ export function AddToWorkspaceDialog({
 
 interface AddToWorkspaceButtonsProps {
   deckId: string;
+  sourceArchived?: boolean;
 }
 
-export function AddToWorkspaceButtons({ deckId }: AddToWorkspaceButtonsProps) {
+export function AddToWorkspaceButtons({ deckId, sourceArchived }: AddToWorkspaceButtonsProps) {
   const [dialogMode, setDialogMode] = useState<CopyMode>("link");
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          setDialogMode("link");
-          setDialogOpen(true);
-        }}
-      >
-        <Link2 className="mr-2 h-4 w-4" />
-        Create Linked Copy
-      </Button>
+      {!sourceArchived && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setDialogMode("link");
+            setDialogOpen(true);
+          }}
+        >
+          <Link2 className="mr-2 h-4 w-4" />
+          Create Linked Copy
+        </Button>
+      )}
       <Button
         variant="outline"
         size="sm"
@@ -302,6 +309,7 @@ export function AddToWorkspaceButtons({ deckId }: AddToWorkspaceButtonsProps) {
         initialMode={dialogMode}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        sourceArchived={sourceArchived}
       />
     </>
   );

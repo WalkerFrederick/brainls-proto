@@ -25,7 +25,7 @@ export async function createCard(input: unknown): Promise<Result<{ id: string }>
     );
   }
 
-  const { deckDefinitionId, cardType, contentJson } = parsed.data;
+  const { deckDefinitionId, cardType, contentJson, createReverse } = parsed.data;
 
   const [deck] = await db
     .select()
@@ -84,6 +84,17 @@ export async function createCard(input: unknown): Promise<Result<{ id: string }>
       updatedByUserId: session.user.id,
     })
     .returning({ id: cardDefinitions.id });
+
+  if (createReverse && cardType === "front_back") {
+    const reverseContent = { front: validatedContent.back, back: validatedContent.front };
+    await db.insert(cardDefinitions).values({
+      deckDefinitionId,
+      cardType: "front_back",
+      contentJson: reverseContent,
+      createdByUserId: session.user.id,
+      updatedByUserId: session.user.id,
+    });
+  }
 
   return ok({ id: card.id });
 }

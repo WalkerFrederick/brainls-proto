@@ -57,6 +57,7 @@ export const CreateCardSchema = z.object({
   deckDefinitionId: z.string().uuid(),
   cardType: cardTypeEnum,
   contentJson: z.record(z.string(), z.unknown()),
+  createReverse: z.boolean().optional(),
 });
 
 export const UpdateCardSchema = z.object({

@@ -12,6 +12,7 @@ import { ShareDeckButton } from "@/components/share-deck-button";
 import { AddToWorkspaceButtons } from "@/components/add-to-workspace-dialog";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
+import { CardAnswerReveal } from "@/components/card-answer-reveal";
 import { renderClozePreview, getUniqueClozeIndices } from "@/lib/cloze";
 import { canEditDeck, getWorkspaceMember } from "@/lib/permissions";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
@@ -106,7 +107,10 @@ export default async function DeckPage({ params }: Props) {
               canArchive={canArchive}
             />
           )}
-          <AddToWorkspaceButtons deckId={resolved.isLinked ? resolved.sourceDeckId : deckId} />
+          <AddToWorkspaceButtons
+            deckId={resolved.isLinked ? resolved.sourceDeckId : deckId}
+            sourceArchived={resolved.isAbandoned || !!deck.archivedAt}
+          />
           <UseDeckButton deckDefinitionId={deckId} />
           {isEditor && !resolved.isLinked && <CreateCardDialog deckDefinitionId={deckId} />}
         </div>
@@ -159,6 +163,7 @@ export default async function DeckPage({ params }: Props) {
                           cardId={card.id}
                           cardType={card.cardType}
                           contentJson={content}
+                          deckDefinitionId={deckId}
                         />
                       )}
                     </div>
@@ -166,34 +171,38 @@ export default async function DeckPage({ params }: Props) {
                 </CardHeader>
                 <CardContent>
                   {card.cardType === "front_back" ? (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
                       <div>
                         <p className="text-xs font-medium text-muted-foreground">Front</p>
                         <MarkdownRenderer content={String(content.front ?? "")} className="mt-1" />
                       </div>
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground">Back</p>
-                        <MarkdownRenderer content={String(content.back ?? "")} className="mt-1" />
-                      </div>
+                      <CardAnswerReveal>
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground">Back</p>
+                          <MarkdownRenderer content={String(content.back ?? "")} className="mt-1" />
+                        </div>
+                      </CardAnswerReveal>
                     </div>
                   ) : card.cardType === "multiple_choice" ? (
                     <div>
                       <MarkdownRenderer content={String(content.question ?? "")} />
-                      <ul className="mt-2 space-y-1">
-                        {(content.choices as string[] | undefined)?.map((choice, i) => {
-                          const correct = (content.correctChoiceIndexes as number[])?.includes(i);
-                          return (
-                            <li
-                              key={i}
-                              className={
-                                correct ? "font-semibold text-green-600" : "text-muted-foreground"
-                              }
-                            >
-                              {correct ? "✓" : "○"} {choice}
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <CardAnswerReveal>
+                        <ul className="mt-2 space-y-1">
+                          {(content.choices as string[] | undefined)?.map((choice, i) => {
+                            const correct = (content.correctChoiceIndexes as number[])?.includes(i);
+                            return (
+                              <li
+                                key={i}
+                                className={
+                                  correct ? "font-semibold text-green-600" : "text-muted-foreground"
+                                }
+                              >
+                                {correct ? "✓" : "○"} {choice}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </CardAnswerReveal>
                     </div>
                   ) : card.cardType === "cloze" ? (
                     <div className="space-y-2">
@@ -209,31 +218,35 @@ export default async function DeckPage({ params }: Props) {
                     <div className="space-y-2">
                       <p className="text-xs font-medium text-muted-foreground">Prompt</p>
                       <MarkdownRenderer content={String(content.prompt ?? "")} />
-                      <p className="text-xs font-medium text-muted-foreground mt-2">Shortcut</p>
-                      {content.shortcut ? (
-                        <ShortcutDisplay
-                          shortcut={
-                            content.shortcut as {
-                              key: string;
-                              ctrl: boolean;
-                              shift: boolean;
-                              alt: boolean;
-                              meta: boolean;
-                            }
-                          }
-                        />
-                      ) : null}
-                      {content.explanation ? (
-                        <>
-                          <p className="text-xs font-medium text-muted-foreground mt-2">
-                            Explanation
-                          </p>
-                          <MarkdownRenderer
-                            content={String(content.explanation)}
-                            className="text-sm"
-                          />
-                        </>
-                      ) : null}
+                      <CardAnswerReveal>
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground">Shortcut</p>
+                          {content.shortcut ? (
+                            <ShortcutDisplay
+                              shortcut={
+                                content.shortcut as {
+                                  key: string;
+                                  ctrl: boolean;
+                                  shift: boolean;
+                                  alt: boolean;
+                                  meta: boolean;
+                                }
+                              }
+                            />
+                          ) : null}
+                          {content.explanation ? (
+                            <>
+                              <p className="text-xs font-medium text-muted-foreground mt-2">
+                                Explanation
+                              </p>
+                              <MarkdownRenderer
+                                content={String(content.explanation)}
+                                className="text-sm"
+                              />
+                            </>
+                          ) : null}
+                        </div>
+                      </CardAnswerReveal>
                     </div>
                   ) : (
                     <p className="text-sm italic text-muted-foreground">

@@ -94,6 +94,10 @@ export async function getStudySession(
       cardType: string;
       contentJson: unknown;
       srsState: string;
+      intervalDays: number | null;
+      easeFactor: string | null;
+      reps: number | null;
+      lapses: number | null;
     }>;
     totalDue: number;
   }>
@@ -127,6 +131,10 @@ export async function getStudySession(
       cardType: cardDefinitions.cardType,
       contentJson: cardDefinitions.contentJson,
       srsState: userCardStates.srsState,
+      intervalDays: userCardStates.intervalDays,
+      easeFactor: userCardStates.easeFactor,
+      reps: userCardStates.reps,
+      lapses: userCardStates.lapses,
     })
     .from(userCardStates)
     .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
@@ -398,4 +406,32 @@ async function syncNewCards(userDeckId: string, deckDefinitionId: string) {
       lapses: 0,
     })),
   );
+}
+
+export async function getReviewHeatmapData(): Promise<Result<{ date: string; count: number }[]>> {
+  const session = await requireSession();
+
+  const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+
+  const myDeckIds = db
+    .select({ id: userDecks.id })
+    .from(userDecks)
+    .where(eq(userDecks.userId, session.user.id));
+
+  const rows = await db
+    .select({
+      date: sql<string>`to_char(${reviewLogs.reviewedAt}::date, 'YYYY-MM-DD')`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(reviewLogs)
+    .where(
+      and(
+        sql`${reviewLogs.userDeckId} IN (${myDeckIds})`,
+        sql`${reviewLogs.reviewedAt} >= ${startOfYear.toISOString()}`,
+      ),
+    )
+    .groupBy(sql`${reviewLogs.reviewedAt}::date`)
+    .orderBy(sql`${reviewLogs.reviewedAt}::date`);
+
+  return ok(rows);
 }

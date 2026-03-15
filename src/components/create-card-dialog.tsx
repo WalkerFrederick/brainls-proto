@@ -43,6 +43,7 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
 
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
+  const [createReverse, setCreateReverse] = useState(false);
 
   const [question, setQuestion] = useState("");
   const [choices, setChoices] = useState(["", ""]);
@@ -74,6 +75,7 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
   function resetForm() {
     setFront("");
     setBack("");
+    setCreateReverse(false);
     setQuestion("");
     setChoices(["", ""]);
     setCorrectIndex(0);
@@ -113,7 +115,12 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
       };
     }
 
-    const result = await createCard({ deckDefinitionId, cardType, contentJson });
+    const result = await createCard({
+      deckDefinitionId,
+      cardType,
+      contentJson,
+      createReverse: cardType === "front_back" && createReverse,
+    });
 
     if (!result.success) {
       setError(result.error);
@@ -183,6 +190,15 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
                   maxLength={MAX_FIELD_LENGTH}
                   maxAttachments={10}
                 />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={createReverse}
+                    onChange={(e) => setCreateReverse(e.target.checked)}
+                    className="accent-primary"
+                  />
+                  Also create reverse card (Back → Front)
+                </label>
               </>
             ) : cardType === "multiple_choice" ? (
               <>

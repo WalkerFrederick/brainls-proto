@@ -34,6 +34,10 @@ export async function linkDeckToWorkspace(
     return err("Cannot link a deck that is itself a linked copy");
   }
 
+  if (sourceDeck.archivedAt) {
+    return err("Cannot create a linked copy of an archived deck");
+  }
+
   if (sourceDeck.workspaceId === targetWorkspaceId) {
     return err("Cannot create a linked copy in the same workspace as the original");
   }

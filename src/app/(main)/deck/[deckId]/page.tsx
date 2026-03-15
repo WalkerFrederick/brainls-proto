@@ -13,7 +13,7 @@ import { AddToWorkspaceButtons } from "@/components/add-to-workspace-dialog";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
 import { renderClozePreview, getUniqueClozeIndices } from "@/lib/cloze";
-import { canEditDeck } from "@/lib/permissions";
+import { canEditDeck, getWorkspaceMember } from "@/lib/permissions";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
 import { requireSession } from "@/lib/auth-server";
 
@@ -32,6 +32,8 @@ export default async function DeckPage({ params }: Props) {
 
   const deck = deckResult.data;
   const isEditor = await canEditDeck(deckId, session.user.id);
+  const member = await getWorkspaceMember(deck.workspaceId, session.user.id);
+  const canArchive = member !== null && ["owner", "admin"].includes(member.role);
   const resolved = await resolveSourceDeck(deckId);
 
   const [cardsResult, statsResult] = await Promise.all([
@@ -101,12 +103,10 @@ export default async function DeckPage({ params }: Props) {
               title={deck.title}
               description={deck.description}
               viewPolicy={deck.viewPolicy}
+              canArchive={canArchive}
             />
           )}
-          {!isEditor && <AddToWorkspaceButtons deckId={deckId} />}
-          {isEditor && resolved.isLinked && (
-            <AddToWorkspaceButtons deckId={resolved.sourceDeckId} />
-          )}
+          <AddToWorkspaceButtons deckId={resolved.isLinked ? resolved.sourceDeckId : deckId} />
           <UseDeckButton deckDefinitionId={deckId} />
           {isEditor && !resolved.isLinked && <CreateCardDialog deckDefinitionId={deckId} />}
         </div>

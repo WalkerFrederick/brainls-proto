@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Loader2 } from "lucide-react";
+import { Settings, Loader2, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,13 +22,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { updateDeck } from "@/actions/deck";
+import { updateDeck, archiveDeck } from "@/actions/deck";
 
 interface DeckSettingsDialogProps {
   deckId: string;
   title: string;
   description?: string | null;
   viewPolicy: string;
+  canArchive?: boolean;
 }
 
 const VIEW_POLICY_OPTIONS = [
@@ -43,10 +44,13 @@ export function DeckSettingsDialog({
   title: initialTitle,
   description: initialDescription,
   viewPolicy: initialViewPolicy,
+  canArchive = false,
 }: DeckSettingsDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -135,6 +139,63 @@ export function DeckSettingsDialog({
             Save Changes
           </Button>
         </form>
+
+        {canArchive && (
+          <>
+            <Separator />
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
+              <div className="rounded-md border border-destructive/30 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Archive this deck</p>
+                    <p className="text-xs text-muted-foreground">
+                      The deck will be hidden from your library. Linked copies will show an
+                      &ldquo;abandoned&rdquo; warning.
+                    </p>
+                  </div>
+                  {confirmArchive ? (
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConfirmArchive(false)}
+                        disabled={archiving}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={archiving}
+                        onClick={async () => {
+                          setArchiving(true);
+                          const result = await archiveDeck(deckId);
+                          if (result.success) {
+                            window.location.href = "/library";
+                          } else {
+                            setError(result.error);
+                            setArchiving(false);
+                            setConfirmArchive(false);
+                          }
+                        }}
+                      >
+                        {archiving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Confirm
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button variant="destructive" size="sm" onClick={() => setConfirmArchive(true)}>
+                      <Archive className="mr-2 h-4 w-4" />
+                      Archive
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

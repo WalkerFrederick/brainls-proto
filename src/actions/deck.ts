@@ -106,8 +106,12 @@ export async function listDecks(
 export async function archiveDeck(deckId: string): Promise<Result<{ id: string }>> {
   if (!isValidUuid(deckId)) return err("Invalid deck ID");
   const session = await requireSession();
-  const canEdit = await canEditDeck(deckId, session.user.id);
-  if (!canEdit) return err("Permission denied");
+
+  const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
+  if (!deck) return err("Deck not found");
+
+  const perm = await requireWorkspaceRole(deck.workspaceId, session.user.id, "admin");
+  if (!perm.allowed) return err("Only workspace owners and admins can archive decks");
 
   await db
     .update(deckDefinitions)

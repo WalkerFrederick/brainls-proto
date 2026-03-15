@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Link2, Copy, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -73,31 +73,28 @@ export function AddToWorkspaceDialog({
   const [workspaces, setWorkspaces] = useState<WorkspacePickerItem[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState("");
 
-  const loadWorkspaces = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    const result = await listWorkspacesForPicker(deckId);
-    if (result.success) {
-      setWorkspaces(result.data);
-      if (result.data.length > 0) {
-        setSelectedWorkspaceId(result.data[0].id);
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      const result = await listWorkspacesForPicker(deckId);
+      if (cancelled) return;
+      if (result.success) {
+        setWorkspaces(result.data);
+        if (result.data.length > 0) {
+          setSelectedWorkspaceId(result.data[0].id);
+        }
+      } else {
+        setError(result.error);
       }
-    } else {
-      setError(result.error);
+      setLoading(false);
     }
-    setLoading(false);
-  }, [deckId]);
-
-  function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen) {
-      setMode(initialMode);
-      setSelectedWorkspaceId("");
-      setSuccess("");
-      setError("");
-      loadWorkspaces();
-    }
-    onOpenChange(nextOpen);
-  }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, deckId]);
 
   const selectedWorkspace = workspaces.find((w) => w.id === selectedWorkspaceId);
   const config = MODE_CONFIG[mode];
@@ -130,7 +127,7 @@ export function AddToWorkspaceDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add to Workspace</DialogTitle>
@@ -227,7 +224,12 @@ export function AddToWorkspaceDialog({
 
               {selectedWorkspace && (
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  {selectedWorkspace.hasLink && mode === "link" && (
+                  {selectedWorkspace.isSource && mode === "link" && (
+                    <Badge variant="secondary">
+                      This workspace already contains the original deck
+                    </Badge>
+                  )}
+                  {selectedWorkspace.hasLink && mode === "link" && !selectedWorkspace.isSource && (
                     <Badge variant="secondary">Already linked in this workspace</Badge>
                   )}
                   {selectedWorkspace.hasFork && mode === "fork" && (
@@ -246,7 +248,8 @@ export function AddToWorkspaceDialog({
                 disabled={
                   submitting ||
                   !selectedWorkspaceId ||
-                  (mode === "link" && !!selectedWorkspace?.hasLink)
+                  (mode === "link" && !!selectedWorkspace?.hasLink) ||
+                  (mode === "link" && !!selectedWorkspace?.isSource)
                 }
                 className="w-full"
               >
@@ -294,6 +297,7 @@ export function AddToWorkspaceButtons({ deckId }: AddToWorkspaceButtonsProps) {
         Create Editable Copy
       </Button>
       <AddToWorkspaceDialog
+        key={`${dialogMode}-${dialogOpen}`}
         deckId={deckId}
         initialMode={dialogMode}
         open={dialogOpen}

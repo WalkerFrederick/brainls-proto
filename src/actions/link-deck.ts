@@ -34,6 +34,10 @@ export async function linkDeckToWorkspace(
     return err("Cannot link a deck that is itself a linked copy");
   }
 
+  if (sourceDeck.workspaceId === targetWorkspaceId) {
+    return err("Cannot create a linked copy in the same workspace as the original");
+  }
+
   const existing = await db
     .select({ id: deckDefinitions.id })
     .from(deckDefinitions)
@@ -103,6 +107,7 @@ export type WorkspacePickerItem = {
   kind: string;
   hasLink: boolean;
   hasFork: boolean;
+  isSource: boolean;
 };
 
 export async function listWorkspacesForPicker(
@@ -126,6 +131,13 @@ export async function listWorkspacesForPicker(
     .map((m) => m.workspaceId);
 
   if (editorWorkspaceIds.length === 0) return ok([]);
+
+  const [sourceDeck] = await db
+    .select({ workspaceId: deckDefinitions.workspaceId })
+    .from(deckDefinitions)
+    .where(eq(deckDefinitions.id, sourceDeckId));
+
+  const sourceWorkspaceId = sourceDeck?.workspaceId ?? null;
 
   const result: WorkspacePickerItem[] = [];
 
@@ -165,6 +177,7 @@ export async function listWorkspacesForPicker(
       kind: ws.kind,
       hasLink: linkedDecks.length > 0,
       hasFork: forkedDecks.length > 0,
+      isSource: wsId === sourceWorkspaceId,
     });
   }
 

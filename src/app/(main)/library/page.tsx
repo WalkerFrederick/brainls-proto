@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreateWorkspaceDialog } from "@/components/create-workspace-dialog";
 import { PendingInvites } from "@/components/pending-invites";
 import { ReviewHeatmap } from "@/components/review-heatmap";
+import { CustomStudyDialog } from "@/components/custom-study-dialog";
 
 export default async function LibraryPage() {
   const [result, invitesResult, heatmapResult] = await Promise.all([
@@ -34,6 +35,8 @@ export default async function LibraryPage() {
       <PendingInvites invites={invites} />
 
       {heatmapResult.success && <ReviewHeatmap data={heatmapResult.data} />}
+
+      <CustomStudyDialog />
 
       {workspaces.length === 0 && invites.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
@@ -87,6 +90,18 @@ export default async function LibraryPage() {
                             <p className="text-xs text-muted-foreground line-clamp-1">
                               {deck.description}
                             </p>
+                          )}
+                          {deck.tags.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {deck.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </div>

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { submitReview } from "@/actions/study";
-import { Loader2, Trophy } from "lucide-react";
+import { Loader2, Trophy, Info } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
 import {
@@ -36,6 +36,7 @@ interface Props {
   deckTitle: string;
   initialCards: StudyCard[];
   totalDue: number;
+  skipSrsUpdate?: boolean;
 }
 
 type Rating = "again" | "hard" | "good" | "easy";
@@ -74,7 +75,7 @@ function getIntervalPreviews(card: StudyCard): Record<Rating, string> {
   return result;
 }
 
-export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props) {
+export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsUpdate }: Props) {
   const router = useRouter();
   const [cards] = useState(initialCards);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -105,6 +106,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
         rating,
         responseMs,
         idempotencyKey: uuidv4(),
+        skipSrsUpdate: skipSrsUpdate || undefined,
       });
 
       setReviewed((r) => r + 1);
@@ -120,7 +122,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
 
       setLoading(false);
     },
-    [currentCard, currentIndex, cards.length, startTime],
+    [currentCard, currentIndex, cards.length, startTime, skipSrsUpdate],
   );
 
   const canRate = showAnswer && !loading && !finished;
@@ -189,6 +191,13 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
         </div>
         <Badge variant="outline">{currentCard.srsState}</Badge>
       </div>
+
+      {skipSrsUpdate && (
+        <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700 dark:text-yellow-400">
+          <Info className="h-4 w-4 shrink-0" />
+          Practice mode &mdash; SRS data won&apos;t be updated
+        </div>
+      )}
 
       <Card className="min-h-[300px]">
         {currentCard.cardType === "front_back" ? (

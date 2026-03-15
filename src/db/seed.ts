@@ -124,13 +124,14 @@ async function seed() {
     return deck;
   }
 
-  // ── Helper: create cards ───────────────────────────────────────
+  // ── Helper: create cards (returns created card IDs) ──────────
   async function createCards(
     deckId: string,
     userId: string,
     cardType: string,
     cards: Record<string, unknown>[],
-  ) {
+  ): Promise<string[]> {
+    const createdIds: string[] = [];
     for (const contentJson of cards) {
       if (cardType === "cloze") {
         const text = String(contentJson.text ?? "");
@@ -147,6 +148,8 @@ async function seed() {
           })
           .returning({ id: schema.cardDefinitions.id });
 
+        createdIds.push(parent.id);
+
         for (const clozeIndex of indices) {
           await db.insert(schema.cardDefinitions).values({
             deckDefinitionId: deckId,
@@ -158,15 +161,20 @@ async function seed() {
           });
         }
       } else {
-        await db.insert(schema.cardDefinitions).values({
-          deckDefinitionId: deckId,
-          cardType,
-          contentJson,
-          createdByUserId: userId,
-          updatedByUserId: userId,
-        });
+        const [row] = await db
+          .insert(schema.cardDefinitions)
+          .values({
+            deckDefinitionId: deckId,
+            cardType,
+            contentJson,
+            createdByUserId: userId,
+            updatedByUserId: userId,
+          })
+          .returning({ id: schema.cardDefinitions.id });
+        createdIds.push(row.id);
       }
     }
+    return createdIds;
   }
 
   function getClozeIndices(text: string): number[] {
@@ -249,7 +257,7 @@ async function seed() {
     { front: "What is DNA?", back: "Deoxyribonucleic acid — carries genetic instructions" },
     { front: "What is osmosis?", back: "Movement of water through a semipermeable membrane" },
   ]);
-  await createCards(bioDeck.id, users.allison.id, "cloze", [
+  const bioClozeIds = await createCards(bioDeck.id, users.allison.id, "cloze", [
     { text: "The {{c1::mitochondria}} is the powerhouse of the {{c2::cell}}." },
     {
       text: "{{c1::Photosynthesis}} converts {{c2::light energy}} into {{c3::chemical energy}} in plants.",
@@ -314,7 +322,7 @@ async function seed() {
       viewPolicy: "workspace",
     },
   );
-  await createCards(jsDeck.id, users.allison.id, "front_back", [
+  const jsCardIds = await createCards(jsDeck.id, users.allison.id, "front_back", [
     {
       front: "What is a closure?",
       back: "A function that retains access to its lexical scope even when called outside that scope",
@@ -324,7 +332,7 @@ async function seed() {
       back: "== performs type coercion, === checks value and type (strict equality)",
     },
   ]);
-  await createCards(jsDeck.id, users.allison.id, "cloze", [
+  const jsClozeIds = await createCards(jsDeck.id, users.allison.id, "cloze", [
     {
       text: "The {{c1::event loop}} processes the {{c2::callback queue}} after the {{c2::call stack}} is empty.",
     },
@@ -407,7 +415,7 @@ async function seed() {
       viewPolicy: "workspace",
     },
   );
-  await createCards(chemDeck.id, users.bob.id, "front_back", [
+  const chemCardIds = await createCards(chemDeck.id, users.bob.id, "front_back", [
     {
       front: "What is Avogadro's number?",
       back: "6.022 × 10²³ — the number of particles in one mole",
@@ -691,6 +699,131 @@ async function seed() {
     `  Linked "Eve's Music Theory" (ABANDONED) into Allison's Personal (${linkedAbandoned.id})`,
   );
 
+  // ── Seed user libraries (userDecks + userCardStates) ──────────
+  console.log("\nSeeding user libraries...");
+
+  async function addToLibrary(userId: string, deckId: string, sourceDeckId?: string) {
+    const [userDeck] = await db
+      .insert(schema.userDecks)
+      .values({ userId, deckDefinitionId: deckId })
+      .returning({ id: schema.userDecks.id });
+
+    const cardSource = sourceDeckId ?? deckId;
+    const allCards = await db
+      .select({
+        id: schema.cardDefinitions.id,
+        cardType: schema.cardDefinitions.cardType,
+        parentCardId: schema.cardDefinitions.parentCardId,
+        status: schema.cardDefinitions.status,
+        archivedAt: schema.cardDefinitions.archivedAt,
+      })
+      .from(schema.cardDefinitions)
+      .where(eq(schema.cardDefinitions.deckDefinitionId, cardSource));
+
+    const studyableCards = allCards.filter(
+      (c) =>
+        c.status === "active" &&
+        !c.archivedAt &&
+        (c.cardType !== "cloze" || c.parentCardId !== null),
+    );
+
+    if (studyableCards.length > 0) {
+      await db.insert(schema.userCardStates).values(
+        studyableCards.map((c) => ({
+          userDeckId: userDeck.id,
+          cardDefinitionId: c.id,
+          srsState: "new",
+          easeFactor: "2.500",
+          reps: 0,
+          lapses: 0,
+        })),
+      );
+    }
+    return userDeck.id;
+  }
+
+  // Allison's own decks
+  await addToLibrary(users.allison.id, bioDeck.id);
+  await addToLibrary(users.allison.id, capitalsDeck.id);
+  await addToLibrary(users.allison.id, jsDeck.id);
+  await addToLibrary(users.allison.id, dsDeck.id);
+  // Allison's linked decks (cards come from source)
+  await addToLibrary(users.allison.id, linkedWorldCapitals.id, bobPublicDeck.id);
+  await addToLibrary(users.allison.id, linkedIdioms.id, carolPublicDeck.id);
+  await addToLibrary(users.allison.id, linkedAbandoned.id, eveAbandonedDeck.id);
+  // Decks from workspaces Allison is a member of
+  await addToLibrary(users.allison.id, chemDeck.id);
+  await addToLibrary(users.allison.id, physicsDeck.id);
+  await addToLibrary(users.allison.id, artDeck.id);
+  await addToLibrary(users.allison.id, spanishDeck.id);
+
+  console.log("  Added 11 decks to Allison's library with userCardStates");
+
+  // ── Tags ────────────────────────────────────────────────────────
+  console.log("\nSeeding tags...");
+
+  async function upsertTag(name: string): Promise<string> {
+    const [row] = await db
+      .insert(schema.tags)
+      .values({ name: name.toLowerCase().trim() })
+      .onConflictDoNothing()
+      .returning({ id: schema.tags.id });
+    if (row) return row.id;
+    const [existing] = await db
+      .select({ id: schema.tags.id })
+      .from(schema.tags)
+      .where(eq(schema.tags.name, name.toLowerCase().trim()));
+    return existing.id;
+  }
+
+  async function tagDeck(deckId: string, tagNames: string[]) {
+    for (const name of tagNames) {
+      const tagId = await upsertTag(name);
+      await db
+        .insert(schema.deckTags)
+        .values({ deckDefinitionId: deckId, tagId })
+        .onConflictDoNothing();
+    }
+  }
+
+  async function tagCard(cardId: string, tagNames: string[]) {
+    for (const name of tagNames) {
+      const tagId = await upsertTag(name);
+      await db
+        .insert(schema.cardTags)
+        .values({ cardDefinitionId: cardId, tagId })
+        .onConflictDoNothing();
+    }
+  }
+
+  await tagDeck(bioDeck.id, ["biology", "science", "intro"]);
+  await tagDeck(capitalsDeck.id, ["geography", "trivia"]);
+  await tagDeck(jsDeck.id, ["javascript", "programming", "interviews"]);
+  await tagDeck(dsDeck.id, ["data-structures", "programming", "computer-science"]);
+  await tagDeck(chemDeck.id, ["chemistry", "science", "intro", "chem101"]);
+  await tagDeck(physicsDeck.id, ["physics", "science"]);
+  await tagDeck(artDeck.id, ["art", "history"]);
+  await tagDeck(spanishDeck.id, ["spanish", "language"]);
+  await tagDeck(bobPublicDeck.id, ["geography", "trivia"]);
+  await tagDeck(carolPublicDeck.id, ["english", "language", "idioms"]);
+  await tagDeck(davePublicDeck.id, ["programming", "computer-science"]);
+  await tagDeck(eveAbandonedDeck.id, ["music", "theory"]);
+
+  for (const cardId of bioClozeIds) {
+    await tagCard(cardId, ["biology", "chem101"]);
+  }
+  for (const cardId of jsCardIds) {
+    await tagCard(cardId, ["javascript", "interviews"]);
+  }
+  for (const cardId of jsClozeIds) {
+    await tagCard(cardId, ["javascript", "advanced"]);
+  }
+  for (const cardId of chemCardIds) {
+    await tagCard(cardId, ["chem101", "chemistry"]);
+  }
+
+  console.log("  Tagged 12 decks and sample cards");
+
   // ── Summary ────────────────────────────────────────────────────
   console.log(`
 Seed complete!
@@ -714,6 +847,11 @@ Seed complete!
   Allison's pending invites:
     ✉ Dave's Research — Pending Invite  → invited as editor
     ✉ Eve's Book Club — Pending Invite  → invited as viewer
+
+  Allison's library (userDecks + userCardStates seeded):
+    📚 Biology 101, World Capitals, JS Fundamentals, Data Structures
+    🔗 World Capitals (linked), English Idioms (linked), Music Theory (abandoned)
+    👀 Chemistry Basics, Physics 101 (Bob's Lab), Art History, Spanish Vocab (Carol's Studio)
 
   Public decks (visible on /browse):
     🌐 World Capitals (Bob)               → 5 cards

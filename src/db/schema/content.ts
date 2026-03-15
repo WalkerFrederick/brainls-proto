@@ -1,4 +1,13 @@
-import { pgTable, uuid, varchar, timestamp, jsonb, integer, bigint } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  varchar,
+  timestamp,
+  jsonb,
+  integer,
+  bigint,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { workspaces } from "./workspaces";
 
@@ -62,3 +71,39 @@ export const assets = pgTable("assets", {
   fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const tags = pgTable("tags", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const deckTags = pgTable(
+  "deck_tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    deckDefinitionId: uuid("deck_definition_id")
+      .notNull()
+      .references(() => deckDefinitions.id),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("deck_tags_deck_tag_idx").on(table.deckDefinitionId, table.tagId)],
+);
+
+export const cardTags = pgTable(
+  "card_tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    cardDefinitionId: uuid("card_definition_id")
+      .notNull()
+      .references(() => cardDefinitions.id),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("card_tags_card_tag_idx").on(table.cardDefinitionId, table.tagId)],
+);

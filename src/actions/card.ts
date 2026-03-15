@@ -1,8 +1,8 @@
 "use server";
 
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { cardDefinitions, deckDefinitions } from "@/db/schema";
+import { cardDefinitions, deckDefinitions, cardTags, tags } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { CreateCardSchema, UpdateCardSchema } from "@/lib/schemas";
@@ -272,8 +272,8 @@ export async function archiveCard(cardId: string): Promise<Result<{ id: string }
 
 export async function listCards(
   deckDefinitionId: string,
-  opts?: { limit?: number; offset?: number },
-): Promise<Result<Array<typeof cardDefinitions.$inferSelect>>> {
+  opts?: { limit?: number; offset?: number; tag?: string },
+): Promise<Result<Array<typeof cardDefinitions.$inferSelect & { tags: string[] }>>> {
   if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
   const session = await requireSession();
 
@@ -284,19 +284,84 @@ export async function listCards(
 
   const limit = opts?.limit ?? 100;
   const offset = opts?.offset ?? 0;
+  const tagFilter = opts?.tag?.trim().toLowerCase();
 
-  const rows = await db
-    .select()
-    .from(cardDefinitions)
-    .where(
-      and(
-        eq(cardDefinitions.deckDefinitionId, sourceDeckId),
-        isNull(cardDefinitions.archivedAt),
-        isNull(cardDefinitions.parentCardId),
-      ),
-    )
-    .limit(limit)
-    .offset(offset);
+  let rows: (typeof cardDefinitions.$inferSelect)[];
 
-  return ok(rows);
+  if (tagFilter) {
+    rows = await db
+      .select({
+        id: cardDefinitions.id,
+        deckDefinitionId: cardDefinitions.deckDefinitionId,
+        cardType: cardDefinitions.cardType,
+        status: cardDefinitions.status,
+        contentJson: cardDefinitions.contentJson,
+        parentCardId: cardDefinitions.parentCardId,
+        parentVersionAtGeneration: cardDefinitions.parentVersionAtGeneration,
+        version: cardDefinitions.version,
+        createdByUserId: cardDefinitions.createdByUserId,
+        updatedByUserId: cardDefinitions.updatedByUserId,
+        createdAt: cardDefinitions.createdAt,
+        updatedAt: cardDefinitions.updatedAt,
+        archivedAt: cardDefinitions.archivedAt,
+      })
+      .from(cardDefinitions)
+      .innerJoin(cardTags, eq(cardTags.cardDefinitionId, cardDefinitions.id))
+      .innerJoin(tags, eq(cardTags.tagId, tags.id))
+      .where(
+        and(
+          eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+          isNull(cardDefinitions.archivedAt),
+          isNull(cardDefinitions.parentCardId),
+          eq(tags.name, tagFilter),
+        ),
+      )
+      .limit(limit)
+      .offset(offset);
+  } else {
+    rows = await db
+      .select()
+      .from(cardDefinitions)
+      .where(
+        and(
+          eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+          isNull(cardDefinitions.archivedAt),
+          isNull(cardDefinitions.parentCardId),
+        ),
+      )
+      .limit(limit)
+      .offset(offset);
+  }
+
+  const cardIds = rows.map((r) => r.id);
+  const tagMap = new Map<string, string[]>();
+
+  if (cardIds.length > 0) {
+    const tagRows = await db
+      .select({
+        cardDefinitionId: cardTags.cardDefinitionId,
+        tagName: tags.name,
+      })
+      .from(cardTags)
+      .innerJoin(tags, eq(cardTags.tagId, tags.id))
+      .where(
+        sql`${cardTags.cardDefinitionId} IN (${sql.join(
+          cardIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+      );
+
+    for (const row of tagRows) {
+      const existing = tagMap.get(row.cardDefinitionId) ?? [];
+      existing.push(row.tagName);
+      tagMap.set(row.cardDefinitionId, existing);
+    }
+  }
+
+  const result = rows.map((row) => ({
+    ...row,
+    tags: (tagMap.get(row.id) ?? []).sort(),
+  }));
+
+  return ok(result);
 }

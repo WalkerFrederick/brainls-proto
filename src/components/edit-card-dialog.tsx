@@ -30,15 +30,24 @@ import {
 } from "@/components/ui/select";
 import { updateCard, createCard } from "@/actions/card";
 import { getCardState, updateCardState } from "@/actions/card-state";
+import { setCardTags } from "@/actions/tag";
+import { TagInput } from "@/components/tag-input";
 
 interface Props {
   cardId: string;
   cardType: string;
   contentJson: Record<string, unknown>;
   deckDefinitionId: string;
+  initialTags?: string[];
 }
 
-export function EditCardDialog({ cardId, cardType, contentJson, deckDefinitionId }: Props) {
+export function EditCardDialog({
+  cardId,
+  cardType,
+  contentJson,
+  deckDefinitionId,
+  initialTags = [],
+}: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -59,6 +68,8 @@ export function EditCardDialog({ cardId, cardType, contentJson, deckDefinitionId
   const [explanation, setExplanation] = useState(String(contentJson.explanation ?? ""));
 
   const [clozeText, setClozeText] = useState(String(contentJson.text ?? ""));
+
+  const [cardTagsList, setCardTagsList] = useState<string[]>(initialTags);
 
   const [srsState, setSrsState] = useState("new");
   const [intervalDays, setIntervalDays] = useState(0);
@@ -106,6 +117,7 @@ export function EditCardDialog({ cardId, cardType, contentJson, deckDefinitionId
       setShortcut((contentJson.shortcut as ShortcutCombo) ?? null);
       setExplanation(String(contentJson.explanation ?? ""));
       setClozeText(String(contentJson.text ?? ""));
+      setCardTagsList(initialTags);
       setError("");
       setShowAdvanced(false);
       setHasStudyState(false);
@@ -172,6 +184,12 @@ export function EditCardDialog({ cardId, cardType, contentJson, deckDefinitionId
         cardType: "front_back",
         contentJson: { front: back, back: front },
       });
+    }
+
+    const tagsChanged =
+      JSON.stringify([...cardTagsList].sort()) !== JSON.stringify([...initialTags].sort());
+    if (tagsChanged) {
+      await setCardTags({ cardDefinitionId: cardId, tagNames: cardTagsList });
     }
 
     setOpen(false);
@@ -346,6 +364,15 @@ export function EditCardDialog({ cardId, cardType, contentJson, deckDefinitionId
                 <p className="mt-1">This card type is coming soon.</p>
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <TagInput
+                value={cardTagsList}
+                onChange={setCardTagsList}
+                placeholder="Add tags (e.g. chem101)..."
+              />
+            </div>
 
             <div className="border-t pt-3">
               <button

@@ -1,6 +1,7 @@
 import { getDeck } from "@/actions/deck";
 import { listCards } from "@/actions/card";
 import { getDeckStudyStats } from "@/actions/study";
+import { getDeckTags } from "@/actions/tag";
 import { BookOpen, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { AddToWorkspaceButtons } from "@/components/add-to-workspace-dialog";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
 import { CardAnswerReveal } from "@/components/card-answer-reveal";
+import { TagFilter } from "@/components/tag-filter";
 import { renderClozePreview, getUniqueClozeIndices } from "@/lib/cloze";
 import { canEditDeck, getWorkspaceMember } from "@/lib/permissions";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
@@ -20,10 +22,12 @@ import { requireSession } from "@/lib/auth-server";
 
 interface Props {
   params: Promise<{ deckId: string }>;
+  searchParams: Promise<{ tag?: string }>;
 }
 
-export default async function DeckPage({ params }: Props) {
+export default async function DeckPage({ params, searchParams }: Props) {
   const { deckId } = await params;
+  const { tag: tagFilter } = await searchParams;
   const session = await requireSession();
   const deckResult = await getDeck(deckId);
 
@@ -37,12 +41,15 @@ export default async function DeckPage({ params }: Props) {
   const canArchive = member !== null && ["owner", "admin"].includes(member.role);
   const resolved = await resolveSourceDeck(deckId);
 
-  const [cardsResult, statsResult] = await Promise.all([
-    listCards(deckId),
+  const [cardsResult, statsResult, deckTagNames] = await Promise.all([
+    listCards(deckId, { tag: tagFilter }),
     getDeckStudyStats(deckId),
+    getDeckTags(deckId),
   ]);
   const cards = cardsResult.success ? cardsResult.data : [];
   const stats = statsResult.success ? statsResult.data : null;
+
+  const allCardTags = [...new Set(cards.flatMap((c) => c.tags))].sort();
 
   return (
     <div className="space-y-6">
@@ -93,6 +100,18 @@ export default async function DeckPage({ params }: Props) {
               </Badge>
             )}
           </div>
+          {deckTagNames.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {deckTagNames.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           {(deck.viewPolicy === "public" || deck.viewPolicy === "link") && (
@@ -105,6 +124,7 @@ export default async function DeckPage({ params }: Props) {
               description={deck.description}
               viewPolicy={deck.viewPolicy}
               canArchive={canArchive}
+              initialTags={deckTagNames}
             />
           )}
           <AddToWorkspaceButtons
@@ -137,12 +157,24 @@ export default async function DeckPage({ params }: Props) {
         </div>
       )}
 
-      {cards.length === 0 ? (
+      {allCardTags.length > 0 && <TagFilter availableTags={allCardTags} />}
+
+      {cards.length === 0 && !tagFilter ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
           <BookOpen className="h-12 w-12 text-muted-foreground" />
           <div className="text-center">
             <h3 className="text-lg font-semibold">No cards yet</h3>
             <p className="text-sm text-muted-foreground">Add cards to start building this deck.</p>
+          </div>
+        </div>
+      ) : cards.length === 0 && tagFilter ? (
+        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
+          <BookOpen className="h-12 w-12 text-muted-foreground" />
+          <div className="text-center">
+            <h3 className="text-lg font-semibold">No cards with tag &ldquo;{tagFilter}&rdquo;</h3>
+            <p className="text-sm text-muted-foreground">
+              Try a different tag or clear the filter.
+            </p>
           </div>
         </div>
       ) : (
@@ -153,9 +185,19 @@ export default async function DeckPage({ params }: Props) {
               <Card key={card.id}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="w-fit">
-                      {card.cardType}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="w-fit">
+                        {card.cardType}
+                      </Badge>
+                      {card.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">v{card.version}</span>
                       {isEditor && !resolved.isLinked && (
@@ -164,6 +206,7 @@ export default async function DeckPage({ params }: Props) {
                           cardType={card.cardType}
                           contentJson={content}
                           deckDefinitionId={deckId}
+                          initialTags={card.tags}
                         />
                       )}
                     </div>

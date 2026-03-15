@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { updateDeck, archiveDeck } from "@/actions/deck";
+import { setDeckTags } from "@/actions/tag";
+import { TagInput } from "@/components/tag-input";
 
 interface DeckSettingsDialogProps {
   deckId: string;
@@ -30,6 +32,7 @@ interface DeckSettingsDialogProps {
   description?: string | null;
   viewPolicy: string;
   canArchive?: boolean;
+  initialTags?: string[];
 }
 
 const VIEW_POLICY_OPTIONS = [
@@ -45,6 +48,7 @@ export function DeckSettingsDialog({
   description: initialDescription,
   viewPolicy: initialViewPolicy,
   canArchive = false,
+  initialTags = [],
 }: DeckSettingsDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -57,6 +61,7 @@ export function DeckSettingsDialog({
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription ?? "");
   const [viewPolicy, setViewPolicy] = useState(initialViewPolicy);
+  const [deckTagsList, setDeckTagsList] = useState<string[]>(initialTags);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -75,6 +80,19 @@ export function DeckSettingsDialog({
     if (!result.success) {
       setError(result.error);
     } else {
+      const tagsChanged =
+        JSON.stringify([...deckTagsList].sort()) !== JSON.stringify([...initialTags].sort());
+      if (tagsChanged) {
+        const tagResult = await setDeckTags({
+          deckDefinitionId: deckId,
+          tagNames: deckTagsList,
+        });
+        if (!tagResult.success) {
+          setError(tagResult.error);
+          setSaving(false);
+          return;
+        }
+      }
       setSuccess("Saved");
       router.refresh();
     }
@@ -116,6 +134,13 @@ export function DeckSettingsDialog({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional description"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <TagInput value={deckTagsList} onChange={setDeckTagsList} placeholder="Add tags..." />
+              <p className="text-[11px] text-muted-foreground">
+                Tags help with discovery on the browse page.
+              </p>
             </div>
           </div>
 

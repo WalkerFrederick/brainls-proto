@@ -2,7 +2,7 @@
 
 import { eq, and, isNull, sql, desc } from "drizzle-orm";
 import { db } from "@/db";
-import { deckDefinitions, cardDefinitions } from "@/db/schema";
+import { deckDefinitions, cardDefinitions, deckTags, tags } from "@/db/schema";
 import { users } from "@/db/schema";
 import { ok, err, type Result } from "@/lib/result";
 import { isValidUuid } from "@/lib/validate-uuid";
@@ -56,7 +56,7 @@ export async function listPublicCards(
   return ok(rows);
 }
 
-export async function listPublicDecks(): Promise<
+export async function listPublicDecks(opts?: { tag?: string }): Promise<
   Result<
     Array<{
       id: string;
@@ -65,24 +65,77 @@ export async function listPublicDecks(): Promise<
       cardCount: number;
       createdByName: string;
       createdAt: Date;
+      tags: string[];
     }>
   >
 > {
-  const decks = await db
-    .select({
-      id: deckDefinitions.id,
-      title: deckDefinitions.title,
-      description: deckDefinitions.description,
-      createdByName: users.name,
-      createdAt: deckDefinitions.createdAt,
-    })
-    .from(deckDefinitions)
-    .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
-    .where(and(eq(deckDefinitions.viewPolicy, "public"), isNull(deckDefinitions.archivedAt)))
-    .orderBy(desc(deckDefinitions.createdAt));
+  const tagFilter = opts?.tag?.trim().toLowerCase();
+
+  let deckRows;
+
+  if (tagFilter) {
+    deckRows = await db
+      .select({
+        id: deckDefinitions.id,
+        title: deckDefinitions.title,
+        description: deckDefinitions.description,
+        createdByName: users.name,
+        createdAt: deckDefinitions.createdAt,
+      })
+      .from(deckDefinitions)
+      .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
+      .innerJoin(deckTags, eq(deckTags.deckDefinitionId, deckDefinitions.id))
+      .innerJoin(tags, eq(deckTags.tagId, tags.id))
+      .where(
+        and(
+          eq(deckDefinitions.viewPolicy, "public"),
+          isNull(deckDefinitions.archivedAt),
+          eq(tags.name, tagFilter),
+        ),
+      )
+      .orderBy(desc(deckDefinitions.createdAt));
+  } else {
+    deckRows = await db
+      .select({
+        id: deckDefinitions.id,
+        title: deckDefinitions.title,
+        description: deckDefinitions.description,
+        createdByName: users.name,
+        createdAt: deckDefinitions.createdAt,
+      })
+      .from(deckDefinitions)
+      .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
+      .where(and(eq(deckDefinitions.viewPolicy, "public"), isNull(deckDefinitions.archivedAt)))
+      .orderBy(desc(deckDefinitions.createdAt));
+  }
+
+  const allDeckIds = deckRows.map((d) => d.id);
+  const deckTagMap = new Map<string, string[]>();
+
+  if (allDeckIds.length > 0) {
+    const tagRows = await db
+      .select({
+        deckDefinitionId: deckTags.deckDefinitionId,
+        tagName: tags.name,
+      })
+      .from(deckTags)
+      .innerJoin(tags, eq(deckTags.tagId, tags.id))
+      .where(
+        sql`${deckTags.deckDefinitionId} IN (${sql.join(
+          allDeckIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+      );
+
+    for (const row of tagRows) {
+      const existing = deckTagMap.get(row.deckDefinitionId) ?? [];
+      existing.push(row.tagName);
+      deckTagMap.set(row.deckDefinitionId, existing);
+    }
+  }
 
   const result = await Promise.all(
-    decks.map(async (deck) => {
+    deckRows.map(async (deck) => {
       const [countResult] = await db
         .select({ count: sql<number>`count(*)` })
         .from(cardDefinitions)
@@ -101,6 +154,7 @@ export async function listPublicDecks(): Promise<
         cardCount: Number(countResult.count),
         createdByName: deck.createdByName ?? "Unknown",
         createdAt: deck.createdAt,
+        tags: (deckTagMap.get(deck.id) ?? []).sort(),
       };
     }),
   );

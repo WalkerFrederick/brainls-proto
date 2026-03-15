@@ -29,6 +29,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createCard } from "@/actions/card";
+import { setCardTags } from "@/actions/tag";
+import { TagInput } from "@/components/tag-input";
 
 type SupportedCardType = "front_back" | "multiple_choice" | "keyboard_shortcut" | "cloze";
 
@@ -54,6 +56,8 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
   const [explanation, setExplanation] = useState("");
 
   const [clozeText, setClozeText] = useState("");
+
+  const [cardTagsList, setCardTagsList] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -83,6 +87,7 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
     setShortcut(null);
     setExplanation("");
     setClozeText("");
+    setCardTagsList([]);
     setError("");
   }
 
@@ -126,6 +131,10 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
       setError(result.error);
       setLoading(false);
       return;
+    }
+
+    if (cardTagsList.length > 0 && result.data?.id) {
+      await setCardTags({ cardDefinitionId: result.data.id, tagNames: cardTagsList });
     }
 
     setOpen(false);
@@ -319,6 +328,15 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
                 </div>
               </>
             )}
+
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <TagInput
+                value={cardTagsList}
+                onChange={setCardTagsList}
+                placeholder="Add tags (e.g. chem101)..."
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>

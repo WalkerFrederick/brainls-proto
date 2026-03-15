@@ -11,7 +11,7 @@ import {
 } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
-import { SubmitReviewSchema } from "@/lib/schemas";
+import { SubmitReviewSchema, CustomStudySchema } from "@/lib/schemas";
 import { canViewDeck } from "@/lib/permissions";
 import { processReview, getDefaultCardState, type Rating, type CardState } from "@/lib/srs";
 import { isValidUuid } from "@/lib/validate-uuid";
@@ -173,7 +173,7 @@ export async function submitReview(
   const parsed = SubmitReviewSchema.safeParse(input);
   if (!parsed.success) return err("Validation failed");
 
-  const { userCardStateId, rating, responseMs, idempotencyKey } = parsed.data;
+  const { userCardStateId, rating, responseMs, idempotencyKey, skipSrsUpdate } = parsed.data;
 
   const existingLog = await db
     .select()
@@ -211,19 +211,21 @@ export async function submitReview(
 
   const result = processReview(currentState, rating as Rating);
 
-  await db
-    .update(userCardStates)
-    .set({
-      srsState: result.nextState.srsState,
-      dueAt: result.nextDueAt,
-      intervalDays: result.nextState.intervalDays,
-      easeFactor: String(result.nextState.easeFactor),
-      reps: result.nextState.reps,
-      lapses: result.nextState.lapses,
-      lastReviewedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(userCardStates.id, userCardStateId));
+  if (!skipSrsUpdate) {
+    await db
+      .update(userCardStates)
+      .set({
+        srsState: result.nextState.srsState,
+        dueAt: result.nextDueAt,
+        intervalDays: result.nextState.intervalDays,
+        easeFactor: String(result.nextState.easeFactor),
+        reps: result.nextState.reps,
+        lapses: result.nextState.lapses,
+        lastReviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(userCardStates.id, userCardStateId));
+  }
 
   await db.insert(reviewLogs).values({
     userDeckId: cardState.userDeckId,
@@ -242,10 +244,12 @@ export async function submitReview(
     srsVersionUsed: userDeck.srsConfigVersion,
   });
 
-  await db
-    .update(userDecks)
-    .set({ lastStudiedAt: new Date(), updatedAt: new Date() })
-    .where(eq(userDecks.id, cardState.userDeckId));
+  if (!skipSrsUpdate) {
+    await db
+      .update(userDecks)
+      .set({ lastStudiedAt: new Date(), updatedAt: new Date() })
+      .where(eq(userDecks.id, cardState.userDeckId));
+  }
 
   return ok({
     userCardStateId,
@@ -434,4 +438,261 @@ export async function getReviewHeatmapData(): Promise<Result<{ date: string; cou
     .orderBy(sql`${reviewLogs.reviewedAt}::date`);
 
   return ok(rows);
+}
+
+/**
+ * Ensures the user has userDecks + userCardStates for every accessible deck
+ * containing cards with the given tags. This auto-provisions decks the user
+ * can view but hasn't explicitly "studied" yet, so custom study sessions
+ * work immediately.
+ */
+async function ensureLibraryForTags(userId: string, tagNames: string[]) {
+  const tagNameParams = sql.join(
+    tagNames.map((n) => sql`${n}`),
+    sql`, `,
+  );
+
+  const taggedCardFilter = sql`(
+    SELECT cd.id FROM card_definitions cd
+    JOIN card_tags ct ON ct.card_definition_id = cd.id
+    JOIN tags t ON ct.tag_id = t.id
+    WHERE t.name IN (${tagNameParams})
+    UNION
+    SELECT cd.id FROM card_definitions cd
+    JOIN card_tags ct ON ct.card_definition_id = cd.parent_card_id
+    JOIN tags t ON ct.tag_id = t.id
+    WHERE cd.parent_card_id IS NOT NULL
+      AND t.name IN (${tagNameParams})
+  )`;
+
+  // Find distinct deck IDs the user can access that have matching tagged cards
+  type DeckRow = { deckId: string; linkedDeckDefinitionId: string | null };
+
+  const accessibleRows = await db.execute<DeckRow>(sql`
+    SELECT DISTINCT dd.id as "deckId", dd.linked_deck_definition_id as "linkedDeckDefinitionId"
+    FROM deck_definitions dd
+    JOIN workspace_members wm ON wm.workspace_id = dd.workspace_id
+      AND wm.user_id = ${userId} AND wm.status = 'active'
+    JOIN card_definitions cd ON cd.deck_definition_id = dd.id
+    WHERE dd.archived_at IS NULL
+      AND cd.id IN ${taggedCardFilter}
+  `);
+
+  const linkedRows = await db.execute<DeckRow>(sql`
+    SELECT DISTINCT dd.id as "deckId", dd.linked_deck_definition_id as "linkedDeckDefinitionId"
+    FROM deck_definitions dd
+    JOIN workspace_members wm ON wm.workspace_id = dd.workspace_id
+      AND wm.user_id = ${userId} AND wm.status = 'active'
+    JOIN card_definitions cd ON cd.deck_definition_id = dd.linked_deck_definition_id
+    WHERE dd.archived_at IS NULL
+      AND dd.linked_deck_definition_id IS NOT NULL
+      AND cd.id IN ${taggedCardFilter}
+  `);
+
+  const allDecks = [...accessibleRows, ...linkedRows] as DeckRow[];
+  const seen = new Set<string>();
+  const uniqueDecks = allDecks.filter((d) => {
+    if (seen.has(d.deckId)) return false;
+    seen.add(d.deckId);
+    return true;
+  });
+
+  for (const deck of uniqueDecks) {
+    const [existing] = await db
+      .select({ id: userDecks.id })
+      .from(userDecks)
+      .where(and(eq(userDecks.userId, userId), eq(userDecks.deckDefinitionId, deck.deckId)));
+
+    if (existing) continue;
+
+    const [userDeck] = await db
+      .insert(userDecks)
+      .values({ userId, deckDefinitionId: deck.deckId })
+      .returning({ id: userDecks.id });
+
+    const sourceDeckId = deck.linkedDeckDefinitionId ?? deck.deckId;
+    const cards = await db
+      .select({ id: cardDefinitions.id })
+      .from(cardDefinitions)
+      .where(
+        and(
+          eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+          isNull(cardDefinitions.archivedAt),
+          eq(cardDefinitions.status, "active"),
+          or(ne(cardDefinitions.cardType, "cloze"), isNotNull(cardDefinitions.parentCardId)),
+        ),
+      );
+
+    if (cards.length > 0) {
+      const defaultState = getDefaultCardState();
+      await db.insert(userCardStates).values(
+        cards.map((card) => ({
+          userDeckId: userDeck.id,
+          cardDefinitionId: card.id,
+          srsState: defaultState.srsState,
+          easeFactor: String(defaultState.easeFactor),
+          reps: 0,
+          lapses: 0,
+        })),
+      );
+    }
+  }
+}
+
+export async function getCustomStudySession(input: unknown): Promise<
+  Result<{
+    title: string;
+    cards: Array<{
+      userCardStateId: string;
+      cardDefinitionId: string;
+      cardType: string;
+      contentJson: unknown;
+      srsState: string;
+      intervalDays: number | null;
+      easeFactor: string | null;
+      reps: number | null;
+      lapses: number | null;
+    }>;
+    totalDue: number;
+  }>
+> {
+  const session = await requireSession();
+  const parsed = CustomStudySchema.safeParse(input);
+  if (!parsed.success) return err("Validation failed");
+
+  const { tagNames } = parsed.data;
+
+  await ensureLibraryForTags(session.user.id, tagNames);
+
+  const nowIso = new Date().toISOString();
+
+  const myDeckIds = db
+    .select({ id: userDecks.id })
+    .from(userDecks)
+    .where(and(eq(userDecks.userId, session.user.id), isNull(userDecks.archivedAt)));
+
+  const taggedCardFilter = sql`${cardDefinitions.id} IN (
+    SELECT cd.id FROM card_definitions cd
+    JOIN card_tags ct ON ct.card_definition_id = cd.id
+    JOIN tags t ON ct.tag_id = t.id
+    WHERE t.name IN (${sql.join(
+      tagNames.map((n) => sql`${n}`),
+      sql`, `,
+    )})
+    UNION
+    SELECT cd.id FROM card_definitions cd
+    JOIN card_tags ct ON ct.card_definition_id = cd.parent_card_id
+    JOIN tags t ON ct.tag_id = t.id
+    WHERE cd.parent_card_id IS NOT NULL
+      AND t.name IN (${sql.join(
+        tagNames.map((n) => sql`${n}`),
+        sql`, `,
+      )})
+  )`;
+
+  const dueCards = await db
+    .select({
+      userCardStateId: userCardStates.id,
+      cardDefinitionId: userCardStates.cardDefinitionId,
+      cardType: cardDefinitions.cardType,
+      contentJson: cardDefinitions.contentJson,
+      srsState: userCardStates.srsState,
+      intervalDays: userCardStates.intervalDays,
+      easeFactor: userCardStates.easeFactor,
+      reps: userCardStates.reps,
+      lapses: userCardStates.lapses,
+      dueAt: userCardStates.dueAt,
+    })
+    .from(userCardStates)
+    .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+    .where(
+      and(
+        sql`${userCardStates.userDeckId} IN (${myDeckIds})`,
+        sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
+        isNull(cardDefinitions.archivedAt),
+        taggedCardFilter,
+      ),
+    )
+    .orderBy(asc(userCardStates.dueAt))
+    .limit(50);
+
+  const [countResult] = await db
+    .select({ count: sql<number>`count(DISTINCT ${userCardStates.id})` })
+    .from(userCardStates)
+    .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+    .where(
+      and(
+        sql`${userCardStates.userDeckId} IN (${myDeckIds})`,
+        sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
+        isNull(cardDefinitions.archivedAt),
+        taggedCardFilter,
+      ),
+    );
+
+  const title = `Custom: ${tagNames.join(", ")}`;
+
+  return ok({
+    title,
+    cards: dueCards,
+    totalDue: Number(countResult.count),
+  });
+}
+
+export async function countCustomStudyCards(
+  input: unknown,
+): Promise<Result<{ cardCount: number; deckCount: number }>> {
+  const session = await requireSession();
+  const parsed = CustomStudySchema.safeParse(input);
+  if (!parsed.success) return err("Validation failed");
+
+  const { tagNames } = parsed.data;
+
+  await ensureLibraryForTags(session.user.id, tagNames);
+
+  const nowIso = new Date().toISOString();
+
+  const myDeckIds = db
+    .select({ id: userDecks.id })
+    .from(userDecks)
+    .where(and(eq(userDecks.userId, session.user.id), isNull(userDecks.archivedAt)));
+
+  const taggedCardFilter = sql`${cardDefinitions.id} IN (
+    SELECT cd.id FROM card_definitions cd
+    JOIN card_tags ct ON ct.card_definition_id = cd.id
+    JOIN tags t ON ct.tag_id = t.id
+    WHERE t.name IN (${sql.join(
+      tagNames.map((n) => sql`${n}`),
+      sql`, `,
+    )})
+    UNION
+    SELECT cd.id FROM card_definitions cd
+    JOIN card_tags ct ON ct.card_definition_id = cd.parent_card_id
+    JOIN tags t ON ct.tag_id = t.id
+    WHERE cd.parent_card_id IS NOT NULL
+      AND t.name IN (${sql.join(
+        tagNames.map((n) => sql`${n}`),
+        sql`, `,
+      )})
+  )`;
+
+  const rows = await db
+    .select({
+      cardCount: sql<number>`count(DISTINCT ${userCardStates.id})::int`,
+      deckCount: sql<number>`count(DISTINCT ${userCardStates.userDeckId})::int`,
+    })
+    .from(userCardStates)
+    .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+    .where(
+      and(
+        sql`${userCardStates.userDeckId} IN (${myDeckIds})`,
+        sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
+        isNull(cardDefinitions.archivedAt),
+        taggedCardFilter,
+      ),
+    );
+
+  return ok({
+    cardCount: rows[0]?.cardCount ?? 0,
+    deckCount: rows[0]?.deckCount ?? 0,
+  });
 }

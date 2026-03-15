@@ -1,8 +1,15 @@
 "use server";
 
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { workspaces, workspaceSettings, workspaceMembers, deckDefinitions } from "@/db/schema";
+import {
+  workspaces,
+  workspaceSettings,
+  workspaceMembers,
+  deckDefinitions,
+  deckTags,
+  tags,
+} from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import {
@@ -114,6 +121,7 @@ export async function listWorkspacesWithDecks(): Promise<
         linkedDeckDefinitionId: string | null;
         forkedFromDeckDefinitionId: string | null;
         isAbandoned: boolean;
+        tags: string[];
       }>;
     }>
   >
@@ -147,18 +155,45 @@ export async function listWorkspacesWithDecks(): Promise<
         .from(deckDefinitions)
         .where(and(eq(deckDefinitions.workspaceId, ws.id), isNull(deckDefinitions.archivedAt)));
 
+      const allDeckIds = rawDecks.map((d) => d.id);
+      const deckTagMap = new Map<string, string[]>();
+
+      if (allDeckIds.length > 0) {
+        const tagRows = await db
+          .select({
+            deckDefinitionId: deckTags.deckDefinitionId,
+            tagName: tags.name,
+          })
+          .from(deckTags)
+          .innerJoin(tags, eq(deckTags.tagId, tags.id))
+          .where(
+            sql`${deckTags.deckDefinitionId} IN (${sql.join(
+              allDeckIds.map((id) => sql`${id}`),
+              sql`, `,
+            )})`,
+          );
+
+        for (const row of tagRows) {
+          const existing = deckTagMap.get(row.deckDefinitionId) ?? [];
+          existing.push(row.tagName);
+          deckTagMap.set(row.deckDefinitionId, existing);
+        }
+      }
+
       const decks = await Promise.all(
         rawDecks.map(async (deck) => {
-          if (!deck.linkedDeckDefinitionId) {
-            return { ...deck, isAbandoned: false };
+          let isAbandoned = false;
+          if (deck.linkedDeckDefinitionId) {
+            const [source] = await db
+              .select({ archivedAt: deckDefinitions.archivedAt })
+              .from(deckDefinitions)
+              .where(eq(deckDefinitions.id, deck.linkedDeckDefinitionId));
+            isAbandoned = source?.archivedAt !== null && source?.archivedAt !== undefined;
           }
-          const [source] = await db
-            .select({ archivedAt: deckDefinitions.archivedAt })
-            .from(deckDefinitions)
-            .where(eq(deckDefinitions.id, deck.linkedDeckDefinitionId));
           return {
             ...deck,
-            isAbandoned: source?.archivedAt !== null && source?.archivedAt !== undefined,
+            isAbandoned,
+            tags: (deckTagMap.get(deck.id) ?? []).sort(),
           };
         }),
       );

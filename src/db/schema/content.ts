@@ -11,8 +11,6 @@ export const deckDefinitions = pgTable("deck_definitions", {
   slug: varchar("slug", { length: 500 }),
   description: varchar("description", { length: 5000 }),
   viewPolicy: varchar("view_policy", { length: 31 }).notNull().default("private"),
-  usePolicy: varchar("use_policy", { length: 31 }).notNull().default("none"),
-  forkPolicy: varchar("fork_policy", { length: 31 }).notNull().default("none"),
   passcodeHash: varchar("passcode_hash", { length: 255 }),
   shareToken: varchar("share_token", { length: 255 }).unique(),
   createdByUserId: uuid("created_by_user_id")
@@ -22,6 +20,7 @@ export const deckDefinitions = pgTable("deck_definitions", {
     .notNull()
     .references(() => users.id),
   forkedFromDeckDefinitionId: uuid("forked_from_deck_definition_id"),
+  linkedDeckDefinitionId: uuid("linked_deck_definition_id"),
   publishedAt: timestamp("published_at", { withTimezone: true }),
   discoveryStatus: varchar("discovery_status", { length: 31 }).default("unlisted"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

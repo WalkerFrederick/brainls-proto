@@ -54,7 +54,7 @@ function trackAsset(kind: string) {
 }
 
 export const uploadRouter = {
-  avatar: f({ image: { maxFileSize: "5MB", maxFileCount: 1 } })
+  avatar: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
     .middleware(baseMiddleware)
     .onUploadComplete(async ({ metadata, file }) => {
       const oldAvatars = await db
@@ -77,7 +77,7 @@ export const uploadRouter = {
       return result;
     }),
 
-  cardImage: f({ image: { maxFileSize: "5MB", maxFileCount: 10 } })
+  cardImage: f({ image: { maxFileSize: "4MB", maxFileCount: 10 } })
     .middleware(baseMiddleware)
     .onUploadComplete(trackAsset("card_image")),
 

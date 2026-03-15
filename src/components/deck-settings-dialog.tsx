@@ -29,8 +29,6 @@ interface DeckSettingsDialogProps {
   title: string;
   description?: string | null;
   viewPolicy: string;
-  usePolicy: string;
-  forkPolicy: string;
 }
 
 const VIEW_POLICY_OPTIONS = [
@@ -40,28 +38,11 @@ const VIEW_POLICY_OPTIONS = [
   { value: "public", label: "Public", hint: "Discoverable by everyone" },
 ] as const;
 
-const USE_POLICY_OPTIONS = [
-  { value: "none", label: "None", hint: "Nobody can use this deck" },
-  { value: "invite_only", label: "Invite Only", hint: "Only invited users" },
-  { value: "passcode", label: "Passcode", hint: "Requires a passcode" },
-  { value: "open", label: "Open", hint: "Anyone who can view" },
-] as const;
-
-const FORK_POLICY_OPTIONS = [
-  { value: "none", label: "None", hint: "Forking disabled" },
-  { value: "owner_only", label: "Owner Only", hint: "Only the deck owner" },
-  { value: "workspace_editors", label: "Workspace Editors", hint: "Editors and above" },
-  { value: "workspace_members", label: "Workspace Members", hint: "All workspace members" },
-  { value: "any_user", label: "Any User", hint: "Anyone who can view" },
-] as const;
-
 export function DeckSettingsDialog({
   deckId,
   title: initialTitle,
   description: initialDescription,
   viewPolicy: initialViewPolicy,
-  usePolicy: initialUsePolicy,
-  forkPolicy: initialForkPolicy,
 }: DeckSettingsDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -72,8 +53,6 @@ export function DeckSettingsDialog({
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription ?? "");
   const [viewPolicy, setViewPolicy] = useState(initialViewPolicy);
-  const [usePolicy, setUsePolicy] = useState(initialUsePolicy);
-  const [forkPolicy, setForkPolicy] = useState(initialForkPolicy);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -86,8 +65,6 @@ export function DeckSettingsDialog({
     if (title !== initialTitle) updates.title = title;
     if (description !== (initialDescription ?? "")) updates.description = description;
     if (viewPolicy !== initialViewPolicy) updates.viewPolicy = viewPolicy;
-    if (usePolicy !== initialUsePolicy) updates.usePolicy = usePolicy;
-    if (forkPolicy !== initialForkPolicy) updates.forkPolicy = forkPolicy;
 
     const result = await updateDeck(updates);
 
@@ -151,24 +128,6 @@ export function DeckSettingsDialog({
               onChange={setViewPolicy}
               options={VIEW_POLICY_OPTIONS}
             />
-
-            <PolicySelect
-              id="use-policy"
-              label="Use Policy"
-              hint="Who can study this deck"
-              value={usePolicy}
-              onChange={setUsePolicy}
-              options={USE_POLICY_OPTIONS}
-            />
-
-            <PolicySelect
-              id="fork-policy"
-              label="Fork Policy"
-              hint="Who can create editable copies"
-              value={forkPolicy}
-              onChange={setForkPolicy}
-              options={FORK_POLICY_OPTIONS}
-            />
           </div>
 
           <Button type="submit" disabled={saving} className="w-full">
@@ -202,7 +161,7 @@ function PolicySelect({
         {label}
       </Label>
       <p className="text-xs text-muted-foreground">{hint}</p>
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value} onValueChange={(v) => onChange(v ?? "")}>
         <SelectTrigger id={id} className="w-full">
           <SelectValue />
         </SelectTrigger>

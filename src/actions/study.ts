@@ -12,16 +12,17 @@ import {
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { SubmitReviewSchema } from "@/lib/schemas";
-import { canUseDeck } from "@/lib/permissions";
+import { canViewDeck } from "@/lib/permissions";
 import { processReview, getDefaultCardState, type Rating, type CardState } from "@/lib/srs";
 import { isValidUuid } from "@/lib/validate-uuid";
+import { resolveSourceDeck } from "@/lib/deck-resolver";
 
 export async function addDeckToLibrary(deckDefinitionId: string): Promise<Result<{ id: string }>> {
   if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
   const session = await requireSession();
 
-  const canUse = await canUseDeck(deckDefinitionId, session.user.id);
-  if (!canUse) return err("Permission denied");
+  const canView = await canViewDeck(deckDefinitionId, session.user.id);
+  if (!canView) return err("Permission denied");
 
   const existing = await db
     .select()
@@ -49,12 +50,14 @@ export async function addDeckToLibrary(deckDefinitionId: string): Promise<Result
     })
     .returning({ id: userDecks.id });
 
+  const { sourceDeckId } = await resolveSourceDeck(deckDefinitionId);
+
   const cards = await db
     .select({ id: cardDefinitions.id })
     .from(cardDefinitions)
     .where(
       and(
-        eq(cardDefinitions.deckDefinitionId, deckDefinitionId),
+        eq(cardDefinitions.deckDefinitionId, sourceDeckId),
         isNull(cardDefinitions.archivedAt),
         eq(cardDefinitions.status, "active"),
         or(ne(cardDefinitions.cardType, "cloze"), isNotNull(cardDefinitions.parentCardId)),
@@ -362,6 +365,8 @@ export async function getDeckStudyStats(deckDefinitionId: string): Promise<
 }
 
 async function syncNewCards(userDeckId: string, deckDefinitionId: string) {
+  const { sourceDeckId } = await resolveSourceDeck(deckDefinitionId);
+
   const existingCardIds = db
     .select({ cardDefinitionId: userCardStates.cardDefinitionId })
     .from(userCardStates)
@@ -372,7 +377,7 @@ async function syncNewCards(userDeckId: string, deckDefinitionId: string) {
     .from(cardDefinitions)
     .where(
       and(
-        eq(cardDefinitions.deckDefinitionId, deckDefinitionId),
+        eq(cardDefinitions.deckDefinitionId, sourceDeckId),
         isNull(cardDefinitions.archivedAt),
         eq(cardDefinitions.status, "active"),
         sql`${cardDefinitions.id} NOT IN (${existingCardIds})`,

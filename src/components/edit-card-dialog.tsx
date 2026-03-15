@@ -363,7 +363,7 @@ export function EditCardDialog({ cardId, cardType, contentJson }: Props) {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">SRS State</Label>
-                          <Select value={srsState} onValueChange={setSrsState}>
+                          <Select value={srsState} onValueChange={(v) => setSrsState(v ?? "")}>
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>

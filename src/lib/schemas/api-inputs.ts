@@ -45,22 +45,12 @@ export const CreateDeckSchema = z.object({
 });
 
 const viewPolicyEnum = z.enum(["private", "workspace", "link", "public"]);
-const usePolicyEnum = z.enum(["none", "invite_only", "passcode", "open"]);
-const forkPolicyEnum = z.enum([
-  "none",
-  "owner_only",
-  "workspace_editors",
-  "workspace_members",
-  "any_user",
-]);
 
 export const UpdateDeckSchema = z.object({
   deckId: z.string().uuid(),
   title: titleField.optional(),
   description: z.string().trim().max(5000).optional(),
   viewPolicy: viewPolicyEnum.optional(),
-  usePolicy: usePolicyEnum.optional(),
-  forkPolicy: forkPolicyEnum.optional(),
 });
 
 export const CreateCardSchema = z.object({

@@ -391,7 +391,7 @@ export function WorkspaceSettingsDialog({
                           <>
                             <Select
                               value={member.role}
-                              onValueChange={(v) => handleRoleChange(member.memberId, v)}
+                              onValueChange={(v) => v && handleRoleChange(member.memberId, v)}
                             >
                               <SelectTrigger className="h-8 w-24 text-xs">
                                 <SelectValue />

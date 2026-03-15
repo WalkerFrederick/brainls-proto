@@ -28,7 +28,6 @@ interface StudyCard {
 }
 
 interface Props {
-  userDeckId: string;
   deckTitle: string;
   initialCards: StudyCard[];
   totalDue: number;
@@ -128,12 +127,9 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue }: Props)
         <p className="text-muted-foreground">
           You reviewed {reviewed} card{reviewed !== 1 ? "s" : ""} from &quot;{deckTitle}&quot;.
         </p>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={() => router.push("/library")}>
-            Back to Library
-          </Button>
-          <Button onClick={() => router.refresh()}>Study More</Button>
-        </div>
+        <Button variant="outline" onClick={() => router.push("/library")}>
+          Back to Library
+        </Button>
       </div>
     );
   }
@@ -381,7 +377,7 @@ function KeyboardShortcutStudy({
         meta: e.metaKey,
       };
 
-      if (shortcutMatches(pressed, storedShortcut)) {
+      if (storedShortcut && shortcutMatches(pressed, storedShortcut)) {
         onCorrect();
       } else {
         onWrong();

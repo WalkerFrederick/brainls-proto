@@ -129,7 +129,7 @@ export function CreateCardDialog({ deckDefinitionId }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button />} title="Add Card (Shift+N)">
+      <DialogTrigger render={<Button size="sm" />} title="Add Card (Shift+N)">
         <Plus className="mr-2 h-4 w-4" />
         Add Card
         <kbd className="ml-1.5 hidden sm:inline-flex h-5 min-w-5 items-center justify-center rounded border border-current/20 px-1 font-mono text-[10px] font-medium opacity-60">

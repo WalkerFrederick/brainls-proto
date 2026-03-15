@@ -85,9 +85,35 @@ export default async function LibraryPage() {
                           )}
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        {deck.viewPolicy}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        {deck.linkedDeckDefinitionId && !deck.isAbandoned && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                          >
+                            linked
+                          </Badge>
+                        )}
+                        {deck.linkedDeckDefinitionId && deck.isAbandoned && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          >
+                            abandoned
+                          </Badge>
+                        )}
+                        {deck.forkedFromDeckDefinitionId && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                          >
+                            forked
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="text-xs">
+                          {deck.viewPolicy}
+                        </Badge>
+                      </div>
                     </Link>
                   ))}
                 </div>

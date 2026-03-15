@@ -61,8 +61,6 @@ export async function updateDeck(input: unknown): Promise<Result<{ id: string }>
   if (updates.title !== undefined) updateData.title = updates.title;
   if (updates.description !== undefined) updateData.description = updates.description;
   if (updates.viewPolicy !== undefined) updateData.viewPolicy = updates.viewPolicy;
-  if (updates.usePolicy !== undefined) updateData.usePolicy = updates.usePolicy;
-  if (updates.forkPolicy !== undefined) updateData.forkPolicy = updates.forkPolicy;
 
   await db.update(deckDefinitions).set(updateData).where(eq(deckDefinitions.id, deckId));
 

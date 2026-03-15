@@ -1,7 +1,7 @@
 import { getDeck } from "@/actions/deck";
 import { listCards } from "@/actions/card";
 import { getDeckStudyStats } from "@/actions/study";
-import { BookOpen } from "lucide-react";
+import { BookOpen, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CreateCardDialog } from "@/components/create-card-dialog";
@@ -9,9 +9,13 @@ import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import { ShareDeckButton } from "@/components/share-deck-button";
+import { AddToWorkspaceButtons } from "@/components/add-to-workspace-dialog";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
 import { renderClozePreview, getUniqueClozeIndices } from "@/lib/cloze";
+import { canEditDeck } from "@/lib/permissions";
+import { resolveSourceDeck } from "@/lib/deck-resolver";
+import { requireSession } from "@/lib/auth-server";
 
 interface Props {
   params: Promise<{ deckId: string }>;
@@ -19,6 +23,7 @@ interface Props {
 
 export default async function DeckPage({ params }: Props) {
   const { deckId } = await params;
+  const session = await requireSession();
   const deckResult = await getDeck(deckId);
 
   if (!deckResult.success) {
@@ -26,6 +31,9 @@ export default async function DeckPage({ params }: Props) {
   }
 
   const deck = deckResult.data;
+  const isEditor = await canEditDeck(deckId, session.user.id);
+  const resolved = await resolveSourceDeck(deckId);
+
   const [cardsResult, statsResult] = await Promise.all([
     listCards(deckId),
     getDeckStudyStats(deckId),
@@ -35,6 +43,21 @@ export default async function DeckPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
+      {resolved.isLinked && resolved.isAbandoned && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+              The author has archived this deck
+            </p>
+            <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
+              Your existing cards are still available, but no new cards will be added. Fork it to
+              your workspace to keep an independent copy you can update.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{deck.title}</h1>
@@ -42,22 +65,50 @@ export default async function DeckPage({ params }: Props) {
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge variant="outline">{cards.length} cards</Badge>
             <Badge variant="secondary">{deck.viewPolicy}</Badge>
+            {resolved.isLinked && !resolved.isAbandoned && (
+              <Badge
+                variant="secondary"
+                className="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              >
+                linked
+              </Badge>
+            )}
+            {resolved.isLinked && resolved.isAbandoned && (
+              <Badge
+                variant="secondary"
+                className="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+              >
+                abandoned
+              </Badge>
+            )}
+            {deck.forkedFromDeckDefinitionId && (
+              <Badge
+                variant="secondary"
+                className="bg-violet-500/10 text-violet-600 dark:text-violet-400"
+              >
+                forked
+              </Badge>
+            )}
           </div>
         </div>
         <div className="flex gap-2">
           {(deck.viewPolicy === "public" || deck.viewPolicy === "link") && (
             <ShareDeckButton deckId={deckId} />
           )}
-          <DeckSettingsDialog
-            deckId={deckId}
-            title={deck.title}
-            description={deck.description}
-            viewPolicy={deck.viewPolicy}
-            usePolicy={deck.usePolicy}
-            forkPolicy={deck.forkPolicy}
-          />
+          {isEditor && (
+            <DeckSettingsDialog
+              deckId={deckId}
+              title={deck.title}
+              description={deck.description}
+              viewPolicy={deck.viewPolicy}
+            />
+          )}
+          {!isEditor && <AddToWorkspaceButtons deckId={deckId} />}
+          {isEditor && resolved.isLinked && (
+            <AddToWorkspaceButtons deckId={resolved.sourceDeckId} />
+          )}
           <UseDeckButton deckDefinitionId={deckId} />
-          <CreateCardDialog deckDefinitionId={deckId} />
+          {isEditor && !resolved.isLinked && <CreateCardDialog deckDefinitionId={deckId} />}
         </div>
       </div>
 
@@ -103,11 +154,13 @@ export default async function DeckPage({ params }: Props) {
                     </Badge>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">v{card.version}</span>
-                      <EditCardDialog
-                        cardId={card.id}
-                        cardType={card.cardType}
-                        contentJson={content}
-                      />
+                      {isEditor && !resolved.isLinked && (
+                        <EditCardDialog
+                          cardId={card.id}
+                          cardType={card.cardType}
+                          contentJson={content}
+                        />
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -157,7 +210,7 @@ export default async function DeckPage({ params }: Props) {
                       <p className="text-xs font-medium text-muted-foreground">Prompt</p>
                       <MarkdownRenderer content={String(content.prompt ?? "")} />
                       <p className="text-xs font-medium text-muted-foreground mt-2">Shortcut</p>
-                      {content.shortcut && (
+                      {content.shortcut ? (
                         <ShortcutDisplay
                           shortcut={
                             content.shortcut as {
@@ -169,8 +222,8 @@ export default async function DeckPage({ params }: Props) {
                             }
                           }
                         />
-                      )}
-                      {content.explanation && (
+                      ) : null}
+                      {content.explanation ? (
                         <>
                           <p className="text-xs font-medium text-muted-foreground mt-2">
                             Explanation
@@ -180,7 +233,7 @@ export default async function DeckPage({ params }: Props) {
                             className="text-sm"
                           />
                         </>
-                      )}
+                      ) : null}
                     </div>
                   ) : (
                     <p className="text-sm italic text-muted-foreground">

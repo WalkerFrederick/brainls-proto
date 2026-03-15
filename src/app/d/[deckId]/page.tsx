@@ -126,7 +126,7 @@ export default async function PublicDeckPage({ params }: Props) {
                       <p className="text-xs font-medium text-muted-foreground">Prompt</p>
                       <MarkdownRenderer content={String(content.prompt ?? "")} />
                       <p className="text-xs font-medium text-muted-foreground mt-2">Shortcut</p>
-                      {content.shortcut && (
+                      {content.shortcut ? (
                         <ShortcutDisplay
                           shortcut={
                             content.shortcut as {
@@ -138,8 +138,8 @@ export default async function PublicDeckPage({ params }: Props) {
                             }
                           }
                         />
-                      )}
-                      {content.explanation && (
+                      ) : null}
+                      {content.explanation ? (
                         <>
                           <p className="text-xs font-medium text-muted-foreground mt-2">
                             Explanation
@@ -149,7 +149,7 @@ export default async function PublicDeckPage({ params }: Props) {
                             className="text-sm"
                           />
                         </>
-                      )}
+                      ) : null}
                     </div>
                   ) : (
                     <p className="text-sm italic text-muted-foreground">

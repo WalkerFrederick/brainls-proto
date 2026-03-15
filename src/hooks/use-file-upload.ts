@@ -72,10 +72,17 @@ export function useFileUpload<T extends keyof AppFileRouter>({
         return;
       }
 
-      const result = await startUpload(files);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (startUpload as any)(files);
 
       if (result) {
-        onSuccess?.(result.map((f) => ({ name: f.name, url: f.ufsUrl, key: f.key })));
+        onSuccess?.(
+          result.map((f: { name: string; ufsUrl: string; key: string }) => ({
+            name: f.name,
+            url: f.ufsUrl,
+            key: f.key,
+          })),
+        );
       }
 
       setUploading(false);

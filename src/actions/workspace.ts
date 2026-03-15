@@ -111,7 +111,9 @@ export async function listWorkspacesWithDecks(): Promise<
         title: string;
         description: string | null;
         viewPolicy: string;
-        cardCount?: number;
+        linkedDeckDefinitionId: string | null;
+        forkedFromDeckDefinitionId: string | null;
+        isAbandoned: boolean;
       }>;
     }>
   >
@@ -133,15 +135,33 @@ export async function listWorkspacesWithDecks(): Promise<
 
   const result = await Promise.all(
     memberRows.map(async (ws) => {
-      const decks = await db
+      const rawDecks = await db
         .select({
           id: deckDefinitions.id,
           title: deckDefinitions.title,
           description: deckDefinitions.description,
           viewPolicy: deckDefinitions.viewPolicy,
+          linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
+          forkedFromDeckDefinitionId: deckDefinitions.forkedFromDeckDefinitionId,
         })
         .from(deckDefinitions)
         .where(and(eq(deckDefinitions.workspaceId, ws.id), isNull(deckDefinitions.archivedAt)));
+
+      const decks = await Promise.all(
+        rawDecks.map(async (deck) => {
+          if (!deck.linkedDeckDefinitionId) {
+            return { ...deck, isAbandoned: false };
+          }
+          const [source] = await db
+            .select({ archivedAt: deckDefinitions.archivedAt })
+            .from(deckDefinitions)
+            .where(eq(deckDefinitions.id, deck.linkedDeckDefinitionId));
+          return {
+            ...deck,
+            isAbandoned: source?.archivedAt !== null && source?.archivedAt !== undefined,
+          };
+        }),
+      );
 
       return { ...ws, decks };
     }),

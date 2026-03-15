@@ -11,6 +11,7 @@ import { canEditDeck, canViewDeck } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
 import { cleanupRemovedAssets } from "@/lib/asset-cleanup";
 import { getUniqueClozeIndices } from "@/lib/cloze";
+import { resolveSourceDeck } from "@/lib/deck-resolver";
 
 export async function createCard(input: unknown): Promise<Result<{ id: string }>> {
   const session = await requireSession();
@@ -268,6 +269,8 @@ export async function listCards(
   const canView = await canViewDeck(deckDefinitionId, session.user.id);
   if (!canView) return err("Permission denied");
 
+  const { sourceDeckId } = await resolveSourceDeck(deckDefinitionId);
+
   const limit = opts?.limit ?? 100;
   const offset = opts?.offset ?? 0;
 
@@ -276,7 +279,7 @@ export async function listCards(
     .from(cardDefinitions)
     .where(
       and(
-        eq(cardDefinitions.deckDefinitionId, deckDefinitionId),
+        eq(cardDefinitions.deckDefinitionId, sourceDeckId),
         isNull(cardDefinitions.archivedAt),
         isNull(cardDefinitions.parentCardId),
       ),

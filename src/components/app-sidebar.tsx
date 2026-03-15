@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Home, Library, GraduationCap, Settings, LogIn } from "lucide-react";
+import { Brain, Home, Library, GraduationCap, Settings, LogIn, Globe } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ const navItems = [
   { href: "/", label: "Home", icon: Home },
   { href: "/library", label: "Library", icon: Library },
   { href: "/study", label: "Study", icon: GraduationCap },
+  { href: "/browse", label: "Browse", icon: Globe },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

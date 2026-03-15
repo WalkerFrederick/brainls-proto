@@ -18,7 +18,7 @@ export function TagInput({ value, onChange, placeholder = "Add tag...", max = 10
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const addTag = useCallback(
     (tag: string) => {

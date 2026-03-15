@@ -224,7 +224,6 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
             showAnswer={showAnswer}
             shortcutCorrect={shortcutCorrect}
             shakeKey={shakeKey}
-            onReveal={() => setShowAnswer(true)}
             onCorrect={() => {
               setShortcutCorrect(true);
               setShowAnswer(true);

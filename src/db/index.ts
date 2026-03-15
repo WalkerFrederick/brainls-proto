@@ -1,14 +1,15 @@
 import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
-import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
+import { drizzle as drizzlePg, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
 
 const connectionString = process.env.DATABASE_URL!;
-const isProduction = process.env.NODE_ENV === "production";
 
-function createDb() {
-  if (isProduction) {
-    return drizzleHttp(connectionString, { schema });
+type Database = PostgresJsDatabase<typeof schema>;
+
+function createDb(): Database {
+  if (process.env.NODE_ENV === "production") {
+    return drizzleHttp(connectionString, { schema }) as unknown as Database;
   }
 
   const globalForDb = globalThis as unknown as {

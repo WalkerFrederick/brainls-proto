@@ -489,7 +489,7 @@ async function ensureLibraryForTags(userId: string, tagNames: string[]) {
       AND cd.id IN ${taggedCardFilter}
   `);
 
-  const allDecks = [...accessibleResult.rows, ...linkedResult.rows] as DeckRow[];
+  const allDecks = [...accessibleResult, ...linkedResult] as DeckRow[];
   const seen = new Set<string>();
   const uniqueDecks = allDecks.filter((d) => {
     if (seen.has(d.deckId)) return false;

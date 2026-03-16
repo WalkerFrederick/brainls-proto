@@ -113,7 +113,11 @@ export async function linkDeckToWorkspace(
         cards.map((c) => ({
           userDeckId: ud.id,
           cardDefinitionId: c.id,
-          ...defaultState,
+          srsState: defaultState.srsState,
+          stability: String(defaultState.stability),
+          difficulty: String(defaultState.difficulty),
+          reps: 0,
+          lapses: 0,
         })),
       );
     }

@@ -17,7 +17,14 @@ import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { SubmitReviewSchema, CustomStudySchema } from "@/lib/schemas";
 import { canViewDeck } from "@/lib/permissions";
-import { processReview, getDefaultCardState, type Rating, type CardState } from "@/lib/srs";
+import {
+  processReview,
+  getDefaultCardState,
+  nextInterval,
+  DEFAULT_PARAMETERS,
+  type Rating,
+  type CardState,
+} from "@/lib/srs";
 import { isValidUuid } from "@/lib/validate-uuid";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
 
@@ -75,7 +82,8 @@ export async function addDeckToLibrary(deckDefinitionId: string): Promise<Result
         userDeckId: userDeck.id,
         cardDefinitionId: card.id,
         srsState: defaultState.srsState,
-        easeFactor: String(defaultState.easeFactor),
+        stability: String(defaultState.stability),
+        difficulty: String(defaultState.difficulty),
         reps: 0,
         lapses: 0,
       })),
@@ -99,9 +107,11 @@ export async function getStudySession(
       contentJson: unknown;
       srsState: string;
       intervalDays: number | null;
-      easeFactor: string | null;
+      stability: string | null;
+      difficulty: string | null;
       reps: number | null;
       lapses: number | null;
+      learningStep: number | null;
     }>;
     totalDue: number;
   }>
@@ -132,31 +142,73 @@ export async function getStudySession(
   await syncNewCards(userDeckId, userDeck.deckDefinitionId);
 
   const limit = opts?.limit ?? 20;
-  const nowIso = new Date().toISOString();
+  const effectiveNow = new Date();
+  const nowIso = effectiveNow.toISOString();
+
+  const cardFields = {
+    userCardStateId: userCardStates.id,
+    cardDefinitionId: userCardStates.cardDefinitionId,
+    cardType: cardDefinitions.cardType,
+    contentJson: cardDefinitions.contentJson,
+    srsState: userCardStates.srsState,
+    intervalDays: userCardStates.intervalDays,
+    stability: userCardStates.stability,
+    difficulty: userCardStates.difficulty,
+    reps: userCardStates.reps,
+    lapses: userCardStates.lapses,
+    learningStep: userCardStates.learningStep,
+  };
 
   const dueCards = await db
-    .select({
-      userCardStateId: userCardStates.id,
-      cardDefinitionId: userCardStates.cardDefinitionId,
-      cardType: cardDefinitions.cardType,
-      contentJson: cardDefinitions.contentJson,
-      srsState: userCardStates.srsState,
-      intervalDays: userCardStates.intervalDays,
-      easeFactor: userCardStates.easeFactor,
-      reps: userCardStates.reps,
-      lapses: userCardStates.lapses,
-    })
+    .select(cardFields)
     .from(userCardStates)
     .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
     .where(
       and(
         eq(userCardStates.userDeckId, userDeckId),
-        sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
+        sql`${userCardStates.dueAt} <= ${nowIso}`,
         isNull(cardDefinitions.archivedAt),
       ),
     )
     .orderBy(asc(userCardStates.dueAt))
     .limit(limit);
+
+  const startOfToday = new Date(effectiveNow);
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const [newStudiedTodayResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(reviewLogs)
+    .where(
+      and(
+        eq(reviewLogs.userDeckId, userDeckId),
+        sql`${reviewLogs.reviewedAt} >= ${startOfToday.toISOString()}`,
+        eq(reviewLogs.srsStateBefore, "new"),
+      ),
+    );
+
+  const newCardsStudiedToday = newStudiedTodayResult?.count ?? 0;
+  const newCardBudget = Math.max(0, userDeck.newCardsPerDay - newCardsStudiedToday);
+
+  let newCards: typeof dueCards = [];
+  if (newCardBudget > 0) {
+    newCards = await db
+      .select(cardFields)
+      .from(userCardStates)
+      .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+      .where(
+        and(
+          eq(userCardStates.userDeckId, userDeckId),
+          eq(userCardStates.srsState, "new"),
+          isNull(userCardStates.dueAt),
+          isNull(cardDefinitions.archivedAt),
+        ),
+      )
+      .orderBy(asc(userCardStates.createdAt))
+      .limit(newCardBudget);
+  }
+
+  const allCards = [...dueCards, ...newCards];
 
   const [countResult] = await db
     .select({ count: sql<number>`count(*)` })
@@ -171,7 +223,7 @@ export async function getStudySession(
   return ok({
     userDeckId,
     deckTitle: deck.title,
-    cards: dueCards,
+    cards: allCards,
     totalDue: Number(countResult.count),
   });
 }
@@ -213,13 +265,16 @@ export async function submitReview(
 
   const currentState: CardState = {
     srsState: (cardState.srsState as CardState["srsState"]) ?? "new",
-    intervalDays: cardState.intervalDays ?? 0,
-    easeFactor: Number(cardState.easeFactor) || 2.5,
+    stability: Number(cardState.stability) || 0,
+    difficulty: Number(cardState.difficulty) || 0,
     reps: cardState.reps ?? 0,
     lapses: cardState.lapses ?? 0,
+    learningStep: cardState.learningStep ?? 0,
+    lastReview: cardState.lastReviewedAt ?? undefined,
   };
 
-  const result = processReview(currentState, rating as Rating);
+  const effectiveNow = new Date();
+  const result = processReview(currentState, rating as Rating, DEFAULT_PARAMETERS, effectiveNow);
 
   if (!skipSrsUpdate) {
     await db
@@ -227,11 +282,13 @@ export async function submitReview(
       .set({
         srsState: result.nextState.srsState,
         dueAt: result.nextDueAt,
-        intervalDays: result.nextState.intervalDays,
-        easeFactor: String(result.nextState.easeFactor),
+        intervalDays: nextInterval(result.nextState.stability, DEFAULT_PARAMETERS.desiredRetention),
+        stability: String(result.nextState.stability),
+        difficulty: String(result.nextState.difficulty),
         reps: result.nextState.reps,
         lapses: result.nextState.lapses,
-        lastReviewedAt: new Date(),
+        learningStep: result.nextState.learningStep,
+        lastReviewedAt: effectiveNow,
         updatedAt: new Date(),
       })
       .where(eq(userCardStates.id, userCardStateId));
@@ -245,19 +302,25 @@ export async function submitReview(
     rating,
     wasCorrect: rating !== "again",
     responseMs: responseMs ?? null,
+    reviewedAt: effectiveNow,
     srsStateBefore: currentState.srsState,
     srsStateAfter: result.nextState.srsState,
-    intervalDaysBefore: currentState.intervalDays,
-    intervalDaysAfter: result.nextState.intervalDays,
-    easeFactorBefore: String(currentState.easeFactor),
-    easeFactorAfter: String(result.nextState.easeFactor),
+    intervalDaysBefore: cardState.intervalDays,
+    intervalDaysAfter: nextInterval(
+      result.nextState.stability,
+      DEFAULT_PARAMETERS.desiredRetention,
+    ),
+    stabilityBefore: String(currentState.stability),
+    stabilityAfter: String(result.nextState.stability),
+    difficultyBefore: String(currentState.difficulty),
+    difficultyAfter: String(result.nextState.difficulty),
     srsVersionUsed: userDeck.srsConfigVersion,
   });
 
   if (!skipSrsUpdate) {
     await db
       .update(userDecks)
-      .set({ lastStudiedAt: new Date(), updatedAt: new Date() })
+      .set({ lastStudiedAt: effectiveNow, updatedAt: new Date() })
       .where(eq(userDecks.id, cardState.userDeckId));
   }
 
@@ -588,6 +651,7 @@ export async function getDeckStudyStats(deckDefinitionId: string): Promise<
       case "relearning":
         learningCount++;
         totalStudied++;
+        if (row.isDue) dueCount++;
         break;
       case "review":
         totalStudied++;
@@ -597,6 +661,50 @@ export async function getDeckStudyStats(deckDefinitionId: string): Promise<
   }
 
   return ok({ inLibrary: true, newCount, learningCount, dueCount, totalStudied });
+}
+
+export type CardStudyState = {
+  cardDefinitionId: string;
+  parentCardId: string | null;
+  srsState: string;
+  dueAt: Date | null;
+  contentJson: unknown;
+};
+
+export async function getCardStudyStates(
+  deckDefinitionId: string,
+): Promise<Result<CardStudyState[]>> {
+  if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
+  const session = await requireSession();
+
+  const { sourceDeckId } = await resolveSourceDeck(deckDefinitionId);
+
+  const [userDeck] = await db
+    .select({ id: userDecks.id })
+    .from(userDecks)
+    .where(
+      and(
+        eq(userDecks.userId, session.user.id),
+        eq(userDecks.deckDefinitionId, sourceDeckId),
+        isNull(userDecks.archivedAt),
+      ),
+    );
+
+  if (!userDeck) return ok([]);
+
+  const rows = await db
+    .select({
+      cardDefinitionId: userCardStates.cardDefinitionId,
+      parentCardId: cardDefinitions.parentCardId,
+      srsState: userCardStates.srsState,
+      dueAt: userCardStates.dueAt,
+      contentJson: cardDefinitions.contentJson,
+    })
+    .from(userCardStates)
+    .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+    .where(eq(userCardStates.userDeckId, userDeck.id));
+
+  return ok(rows);
 }
 
 async function syncNewCards(userDeckId: string, deckDefinitionId: string) {
@@ -628,7 +736,8 @@ async function syncNewCards(userDeckId: string, deckDefinitionId: string) {
       userDeckId,
       cardDefinitionId: card.id,
       srsState: defaultState.srsState,
-      easeFactor: String(defaultState.easeFactor),
+      stability: String(defaultState.stability),
+      difficulty: String(defaultState.difficulty),
       reps: 0,
       lapses: 0,
     })),
@@ -753,7 +862,8 @@ async function ensureLibraryForTags(userId: string, tagNames: string[]) {
           userDeckId: userDeck.id,
           cardDefinitionId: card.id,
           srsState: defaultState.srsState,
-          easeFactor: String(defaultState.easeFactor),
+          stability: String(defaultState.stability),
+          difficulty: String(defaultState.difficulty),
           reps: 0,
           lapses: 0,
         })),
@@ -772,9 +882,11 @@ export async function getCustomStudySession(input: unknown): Promise<
       contentJson: unknown;
       srsState: string;
       intervalDays: number | null;
-      easeFactor: string | null;
+      stability: string | null;
+      difficulty: string | null;
       reps: number | null;
       lapses: number | null;
+      learningStep: number | null;
     }>;
     totalDue: number;
   }>
@@ -821,9 +933,11 @@ export async function getCustomStudySession(input: unknown): Promise<
       contentJson: cardDefinitions.contentJson,
       srsState: userCardStates.srsState,
       intervalDays: userCardStates.intervalDays,
-      easeFactor: userCardStates.easeFactor,
+      stability: userCardStates.stability,
+      difficulty: userCardStates.difficulty,
       reps: userCardStates.reps,
       lapses: userCardStates.lapses,
+      learningStep: userCardStates.learningStep,
       dueAt: userCardStates.dueAt,
     })
     .from(userCardStates)
@@ -918,4 +1032,86 @@ export async function countCustomStudyCards(
     cardCount: rows[0]?.cardCount ?? 0,
     deckCount: rows[0]?.deckCount ?? 0,
   });
+}
+
+export async function advanceTime(
+  userDeckId: string,
+  minutes: number,
+): Promise<Result<{ updated: number }>> {
+  if (process.env.NODE_ENV === "production") return err("Not available in production");
+  if (!isValidUuid(userDeckId)) return err("Invalid user deck ID");
+  if (minutes <= 0 || minutes > 525600) return err("Minutes must be between 1 and 525600");
+  const session = await requireSession();
+
+  const [userDeck] = await db
+    .select({ id: userDecks.id })
+    .from(userDecks)
+    .where(and(eq(userDecks.id, userDeckId), eq(userDecks.userId, session.user.id)));
+
+  if (!userDeck) return err("Permission denied");
+
+  const intervalStr = `${minutes} minutes`;
+  const updated = await db
+    .update(userCardStates)
+    .set({
+      dueAt: sql`${userCardStates.dueAt} - ${intervalStr}::interval`,
+      lastReviewedAt: sql`${userCardStates.lastReviewedAt} - ${intervalStr}::interval`,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(userCardStates.userDeckId, userDeckId), isNotNull(userCardStates.dueAt)));
+
+  return ok({ updated: updated.rowCount ?? 0 });
+}
+
+export async function getNewCardsPerDay(deckDefinitionId: string): Promise<Result<number>> {
+  if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
+  const session = await requireSession();
+
+  const { sourceDeckId } = await resolveSourceDeck(deckDefinitionId);
+
+  const [row] = await db
+    .select({ newCardsPerDay: userDecks.newCardsPerDay })
+    .from(userDecks)
+    .where(
+      and(
+        eq(userDecks.userId, session.user.id),
+        eq(userDecks.deckDefinitionId, sourceDeckId),
+        isNull(userDecks.archivedAt),
+      ),
+    );
+
+  return ok(row?.newCardsPerDay ?? 20);
+}
+
+export async function updateNewCardsPerDay(
+  deckDefinitionId: string,
+  value: number,
+): Promise<Result<{ updated: boolean }>> {
+  if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
+  if (!Number.isInteger(value) || value < 0 || value > 9999) {
+    return err("New cards per day must be an integer between 0 and 9999");
+  }
+  const session = await requireSession();
+
+  const { sourceDeckId } = await resolveSourceDeck(deckDefinitionId);
+
+  const [userDeck] = await db
+    .select({ id: userDecks.id })
+    .from(userDecks)
+    .where(
+      and(
+        eq(userDecks.userId, session.user.id),
+        eq(userDecks.deckDefinitionId, sourceDeckId),
+        isNull(userDecks.archivedAt),
+      ),
+    );
+
+  if (!userDeck) return err("Deck not in your library");
+
+  await db
+    .update(userDecks)
+    .set({ newCardsPerDay: value, updatedAt: new Date() })
+    .where(eq(userDecks.id, userDeck.id));
+
+  return ok({ updated: true });
 }

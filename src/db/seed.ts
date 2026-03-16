@@ -4,6 +4,30 @@ import postgres from "postgres";
 import { eq, and } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
 import * as schema from "./schema";
+import {
+  BIOLOGY_FRONT_BACK,
+  BIOLOGY_CLOZE,
+  WORLD_CAPITALS_MC,
+  JS_FRONT_BACK,
+  JS_CLOZE,
+  JS_KEYBOARD_SHORTCUTS,
+  DATA_STRUCTURES_MC,
+  DATA_STRUCTURES_FRONT_BACK,
+  CHEMISTRY_FRONT_BACK,
+  PHYSICS_MC,
+  ART_HISTORY_FRONT_BACK,
+  SPANISH_MC,
+  SPANISH_FRONT_BACK,
+  WORLD_CAPITALS_FRONT_BACK,
+  ENGLISH_IDIOMS_FRONT_BACK,
+  PROGRAMMING_FUNDAMENTALS_MC,
+  PROGRAMMING_FUNDAMENTALS_CLOZE,
+  PROGRAMMING_FUNDAMENTALS_SHORTCUTS,
+  MUSIC_THEORY_FRONT_BACK,
+  CS101_FRONT_BACK,
+  CS101_MC,
+  CS101_CLOZE,
+} from "./seed-data";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -355,7 +379,8 @@ async function seed() {
         userDeckId: userDeck.id,
         cardDefinitionId: cardId,
         srsState: "new",
-        easeFactor: "2.500",
+        stability: "0.0000",
+        difficulty: "0.000",
         reps: 0,
         lapses: 0,
       })),
@@ -377,65 +402,43 @@ async function seed() {
 
   console.log("  Scratch Pad (default deck) created for all 5 users");
 
-  // ── Allison's Personal Workspace — 2 decks ────────────────────
+  // ── Allison's Personal Workspace — decks ───────────────────────
   const bioDeck = await createDeck(
     allisonPersonal.id,
     "Biology 101",
     "biology-101",
     users.allison.id,
-    {
-      description: "Fundamental biology concepts",
-    },
+    { description: "Fundamental biology concepts" },
   );
-  await createCards(bioDeck.id, users.allison.id, "front_back", [
-    { front: "What is the powerhouse of the cell?", back: "The mitochondria" },
-    { front: "What is DNA?", back: "Deoxyribonucleic acid — carries genetic instructions" },
-    { front: "What is osmosis?", back: "Movement of water through a semipermeable membrane" },
-  ]);
-  const bioClozeIds = await createCards(bioDeck.id, users.allison.id, "cloze", [
-    { text: "The {{c1::mitochondria}} is the powerhouse of the {{c2::cell}}." },
-    {
-      text: "{{c1::Photosynthesis}} converts {{c2::light energy}} into {{c3::chemical energy}} in plants.",
-    },
-    {
-      text: "The four nucleotide bases are {{c1::Adenine}}, {{c1::Thymine}}, {{c1::Guanine}}, and {{c1::Cytosine}}.",
-    },
-  ]);
+  await createCards(bioDeck.id, users.allison.id, "front_back", BIOLOGY_FRONT_BACK);
+  const bioClozeIds = await createCards(bioDeck.id, users.allison.id, "cloze", BIOLOGY_CLOZE);
 
   const capitalsDeck = await createDeck(
     allisonPersonal.id,
     "World Capitals (MC)",
     "world-capitals-mc",
     users.allison.id,
+    { description: "Test your knowledge of world capitals with multiple choice" },
+  );
+  await createCards(capitalsDeck.id, users.allison.id, "multiple_choice", WORLD_CAPITALS_MC);
+
+  // ── CS 101 — big deck (100 cards) ─────────────────────────────
+  const cs101Deck = await createDeck(
+    allisonPersonal.id,
+    "Computer Science 101",
+    "cs-101",
+    users.allison.id,
     {
-      description: "Test your knowledge of world capitals with multiple choice",
+      description:
+        "Comprehensive CS fundamentals — algorithms, data structures, networking, databases, and more",
     },
   );
-  await createCards(capitalsDeck.id, users.allison.id, "multiple_choice", [
-    {
-      question: "What is the capital of France?",
-      choices: ["Lyon", "Marseille", "Paris", "Nice"],
-      correctChoiceIndexes: [2],
-    },
-    {
-      question: "What is the capital of Japan?",
-      choices: ["Osaka", "Tokyo", "Kyoto", "Nagoya"],
-      correctChoiceIndexes: [1],
-    },
-    {
-      question: "What is the capital of Brazil?",
-      choices: ["Rio de Janeiro", "São Paulo", "Brasília", "Salvador"],
-      correctChoiceIndexes: [2],
-    },
-    {
-      question: "What is the capital of Australia?",
-      choices: ["Sydney", "Melbourne", "Canberra", "Perth"],
-      correctChoiceIndexes: [2],
-    },
-  ]);
+  await createCards(cs101Deck.id, users.allison.id, "front_back", CS101_FRONT_BACK);
+  await createCards(cs101Deck.id, users.allison.id, "multiple_choice", CS101_MC);
+  await createCards(cs101Deck.id, users.allison.id, "cloze", CS101_CLOZE);
 
   console.log(
-    "  Allison's Personal: Biology 101 (6 cards: 3 front/back, 3 cloze), World Capitals MC (4 cards)",
+    "  Allison's Personal: Biology 101 (6 cards), World Capitals MC (4 cards), CS 101 (100 cards)",
   );
 
   // ── Allison's Shared Workspace (Owner) — Bob is editor ────────
@@ -452,82 +455,24 @@ async function seed() {
     "JavaScript Fundamentals",
     "js-fundamentals",
     users.allison.id,
-    {
-      description: "Core JS concepts for interviews",
-      viewPolicy: "workspace",
-    },
+    { description: "Core JS concepts for interviews", viewPolicy: "workspace" },
   );
-  const jsCardIds = await createCards(jsDeck.id, users.allison.id, "front_back", [
-    {
-      front: "What is a closure?",
-      back: "A function that retains access to its lexical scope even when called outside that scope",
-    },
-    {
-      front: "Difference between == and ===?",
-      back: "== performs type coercion, === checks value and type (strict equality)",
-    },
-  ]);
-  const jsClozeIds = await createCards(jsDeck.id, users.allison.id, "cloze", [
-    {
-      text: "The {{c1::event loop}} processes the {{c2::callback queue}} after the {{c2::call stack}} is empty.",
-    },
-    {
-      text: "{{c1::Hoisting}} moves {{c2::variable}} and {{c2::function}} declarations to the top of their scope.",
-    },
-  ]);
-  await createCards(jsDeck.id, users.allison.id, "keyboard_shortcut", [
-    {
-      prompt: "Open the browser dev tools console",
-      shortcut: { key: "j", ctrl: true, shift: true, alt: false, meta: false },
-      explanation: "Ctrl+Shift+J opens the console directly in Chrome",
-    },
-    {
-      prompt: "Comment out the selected lines in VS Code",
-      shortcut: { key: "/", ctrl: true, shift: false, alt: false, meta: false },
-      explanation: "Ctrl+/ toggles line comments in most editors",
-    },
-  ]);
+  const jsCardIds = await createCards(jsDeck.id, users.allison.id, "front_back", JS_FRONT_BACK);
+  const jsClozeIds = await createCards(jsDeck.id, users.allison.id, "cloze", JS_CLOZE);
+  await createCards(jsDeck.id, users.allison.id, "keyboard_shortcut", JS_KEYBOARD_SHORTCUTS);
 
   const dsDeck = await createDeck(
     allisonShared.id,
     "Data Structures",
     "data-structures",
     users.allison.id,
-    {
-      description: "Common data structures and their trade-offs",
-      viewPolicy: "workspace",
-    },
+    { description: "Common data structures and their trade-offs", viewPolicy: "workspace" },
   );
-  await createCards(dsDeck.id, users.allison.id, "multiple_choice", [
-    {
-      question: "Which data structure uses FIFO ordering?",
-      choices: ["Stack", "Queue", "Tree", "Graph"],
-      correctChoiceIndexes: [1],
-    },
-    {
-      question: "What is the average time complexity of hash table lookup?",
-      choices: ["O(n)", "O(log n)", "O(1)", "O(n log n)"],
-      correctChoiceIndexes: [2],
-    },
-    {
-      question: "Which traversal visits the root node first?",
-      choices: ["Inorder", "Preorder", "Postorder", "Level-order"],
-      correctChoiceIndexes: [1],
-    },
-  ]);
-  await createCards(dsDeck.id, users.allison.id, "front_back", [
-    {
-      front: "What is a linked list?",
-      back: "A linear data structure where each element points to the next",
-    },
-    {
-      front: "Stack vs Queue?",
-      back: "Stack is LIFO (last in, first out); Queue is FIFO (first in, first out)",
-    },
-  ]);
+  await createCards(dsDeck.id, users.allison.id, "multiple_choice", DATA_STRUCTURES_MC);
+  await createCards(dsDeck.id, users.allison.id, "front_back", DATA_STRUCTURES_FRONT_BACK);
 
   console.log(
-    "  Allison's Team — Owner Role: JS Fundamentals (6: 2 f/b, 2 cloze, 2 shortcuts), Data Structures (5) — Bob is editor",
+    "  Allison's Team — Owner Role: JS Fundamentals (6), Data Structures (5) — Bob is editor",
   );
 
   // ── Bob's Shared Workspace — Allison is VIEWER ────────────────
@@ -545,39 +490,20 @@ async function seed() {
     "Chemistry Basics",
     "chemistry-basics",
     users.bob.id,
-    {
-      description: "Intro chemistry review",
-      viewPolicy: "workspace",
-    },
+    { description: "Intro chemistry review", viewPolicy: "workspace" },
   );
-  const chemCardIds = await createCards(chemDeck.id, users.bob.id, "front_back", [
-    {
-      front: "What is Avogadro's number?",
-      back: "6.022 × 10²³ — the number of particles in one mole",
-    },
-    { front: "What is pH?", back: "A measure of hydrogen ion concentration; scale 0–14" },
-    {
-      front: "What is an isotope?",
-      back: "Atoms of the same element with different numbers of neutrons",
-    },
-  ]);
+  const chemCardIds = await createCards(
+    chemDeck.id,
+    users.bob.id,
+    "front_back",
+    CHEMISTRY_FRONT_BACK,
+  );
 
   const physicsDeck = await createDeck(bobShared.id, "Physics 101", "physics-101", users.bob.id, {
     description: "Newtonian mechanics fundamentals",
     viewPolicy: "workspace",
   });
-  await createCards(physicsDeck.id, users.bob.id, "multiple_choice", [
-    {
-      question: "What is Newton's second law?",
-      choices: ["F = ma", "E = mc²", "F = mv", "a = v/t"],
-      correctChoiceIndexes: [0],
-    },
-    {
-      question: "What unit measures force?",
-      choices: ["Joule", "Watt", "Newton", "Pascal"],
-      correctChoiceIndexes: [2],
-    },
-  ]);
+  await createCards(physicsDeck.id, users.bob.id, "multiple_choice", PHYSICS_MC);
 
   console.log(
     "  Bob's Lab — Allison Viewer: Chemistry Basics (3), Physics 101 (2) — Dave is editor",
@@ -597,48 +523,17 @@ async function seed() {
     description: "Major art movements and artists",
     viewPolicy: "workspace",
   });
-  await createCards(artDeck.id, users.carol.id, "front_back", [
-    { front: "Who painted the Mona Lisa?", back: "Leonardo da Vinci (c. 1503–1519)" },
-    { front: "What art movement did Monet belong to?", back: "Impressionism" },
-    { front: "Who painted 'The Starry Night'?", back: "Vincent van Gogh (1889)" },
-    {
-      front: "What is Baroque art known for?",
-      back: "Dramatic lighting, rich colors, grandeur, and emotional intensity",
-    },
-  ]);
+  await createCards(artDeck.id, users.carol.id, "front_back", ART_HISTORY_FRONT_BACK);
 
   const spanishDeck = await createDeck(
     carolShared.id,
     "Spanish Vocabulary",
     "spanish-vocab",
     users.carol.id,
-    {
-      description: "Common Spanish words and phrases",
-      viewPolicy: "workspace",
-    },
+    { description: "Common Spanish words and phrases", viewPolicy: "workspace" },
   );
-  await createCards(spanishDeck.id, users.carol.id, "multiple_choice", [
-    {
-      question: "What does 'hola' mean?",
-      choices: ["Goodbye", "Hello", "Please", "Thank you"],
-      correctChoiceIndexes: [1],
-    },
-    {
-      question: "What does 'gracias' mean?",
-      choices: ["Sorry", "Hello", "Thank you", "Please"],
-      correctChoiceIndexes: [2],
-    },
-    {
-      question: "What is the Spanish word for 'water'?",
-      choices: ["Fuego", "Agua", "Tierra", "Aire"],
-      correctChoiceIndexes: [1],
-    },
-  ]);
-  await createCards(spanishDeck.id, users.carol.id, "front_back", [
-    { front: "Buenos días", back: "Good morning" },
-    { front: "¿Cómo estás?", back: "How are you?" },
-    { front: "Por favor", back: "Please" },
-  ]);
+  await createCards(spanishDeck.id, users.carol.id, "multiple_choice", SPANISH_MC);
+  await createCards(spanishDeck.id, users.carol.id, "front_back", SPANISH_FRONT_BACK);
 
   console.log(
     "  Carol's Studio — Allison Editor: Art History (4), Spanish Vocab (6) — Eve is viewer",
@@ -684,88 +579,47 @@ async function seed() {
     "World Capitals",
     "world-capitals",
     users.bob.id,
-    {
-      description: "Test your knowledge of world capitals",
-      viewPolicy: "public",
-    },
+    { description: "Test your knowledge of world capitals", viewPolicy: "public" },
   );
-  await createCards(bobPublicDeck.id, users.bob.id, "front_back", [
-    { front: "What is the capital of Japan?", back: "Tokyo" },
-    { front: "What is the capital of Australia?", back: "Canberra" },
-    { front: "What is the capital of Brazil?", back: "Brasília" },
-    { front: "What is the capital of Canada?", back: "Ottawa" },
-    { front: "What is the capital of Egypt?", back: "Cairo" },
-  ]);
+  await createCards(bobPublicDeck.id, users.bob.id, "front_back", WORLD_CAPITALS_FRONT_BACK);
 
   const carolPublicDeck = await createDeck(
     carolPersonal.id,
     "Common English Idioms",
     "english-idioms",
     users.carol.id,
-    {
-      description: "Popular English idioms and their meanings",
-      viewPolicy: "public",
-    },
+    { description: "Popular English idioms and their meanings", viewPolicy: "public" },
   );
-  await createCards(carolPublicDeck.id, users.carol.id, "front_back", [
-    { front: "Break the ice", back: "To initiate conversation in a social setting" },
-    { front: "Hit the nail on the head", back: "To be exactly right about something" },
-    { front: "Piece of cake", back: "Something very easy to do" },
-    { front: "Under the weather", back: "Feeling ill or sick" },
-  ]);
+  await createCards(carolPublicDeck.id, users.carol.id, "front_back", ENGLISH_IDIOMS_FRONT_BACK);
 
   const davePublicDeck = await createDeck(
     davePersonal.id,
     "Programming Fundamentals",
     "programming-fundamentals",
     users.dave.id,
-    {
-      description: "Core programming concepts for beginners",
-      viewPolicy: "public",
-    },
+    { description: "Core programming concepts for beginners", viewPolicy: "public" },
   );
-  await createCards(davePublicDeck.id, users.dave.id, "multiple_choice", [
-    {
-      question: "Which data structure uses FIFO ordering?",
-      choices: ["Stack", "Queue", "Tree", "Graph"],
-      correctChoiceIndexes: [1],
-    },
-    {
-      question: "What does HTML stand for?",
-      choices: [
-        "Hyper Text Markup Language",
-        "High Tech Modern Language",
-        "Hyper Transfer Markup Language",
-        "Home Tool Markup Language",
-      ],
-      correctChoiceIndexes: [0],
-    },
-  ]);
-  await createCards(davePublicDeck.id, users.dave.id, "cloze", [
-    { text: "The time complexity of {{c1::binary search}} is {{c2::O(log n)}}." },
-    {
-      text: "In Git, {{c1::git commit}} saves staged changes and {{c2::git push}} uploads them to the remote.",
-    },
-  ]);
-  await createCards(davePublicDeck.id, users.dave.id, "keyboard_shortcut", [
-    {
-      prompt: "Save the current file",
-      shortcut: { key: "s", ctrl: true, shift: false, alt: false, meta: false },
-    },
-    {
-      prompt: "Undo the last action",
-      shortcut: { key: "z", ctrl: true, shift: false, alt: false, meta: false },
-    },
-  ]);
+  await createCards(
+    davePublicDeck.id,
+    users.dave.id,
+    "multiple_choice",
+    PROGRAMMING_FUNDAMENTALS_MC,
+  );
+  await createCards(davePublicDeck.id, users.dave.id, "cloze", PROGRAMMING_FUNDAMENTALS_CLOZE);
+  await createCards(
+    davePublicDeck.id,
+    users.dave.id,
+    "keyboard_shortcut",
+    PROGRAMMING_FUNDAMENTALS_SHORTCUTS,
+  );
 
   console.log(
-    "  Public decks: World Capitals (5), English Idioms (4), Programming Fundamentals (6: 2 mc, 2 cloze, 2 shortcuts)",
+    "  Public decks: World Capitals (5), English Idioms (4), Programming Fundamentals (6)",
   );
 
   // ── Linked Decks ──────────────────────────────────────────────
   console.log("\nCreating linked decks...");
 
-  // Link Bob's World Capitals into Allison's personal workspace
   const [linkedWorldCapitals] = await db
     .insert(schema.deckDefinitions)
     .values({
@@ -781,7 +635,6 @@ async function seed() {
     .returning();
   console.log(`  Linked "World Capitals" into Allison's Personal (${linkedWorldCapitals.id})`);
 
-  // Link Carol's English Idioms into Allison's shared workspace
   const [linkedIdioms] = await db
     .insert(schema.deckDefinitions)
     .values({
@@ -797,21 +650,14 @@ async function seed() {
     .returning();
   console.log(`  Linked "English Idioms" into Allison's Team (${linkedIdioms.id})`);
 
-  // Create an Eve deck, link it to Allison, then archive it (abandoned)
   const eveAbandonedDeck = await createDeck(
     evePersonal.id,
     "Eve's Music Theory",
     "eve-music-theory",
     users.eve.id,
-    {
-      description: "Music theory basics — now abandoned",
-      viewPolicy: "public",
-    },
+    { description: "Music theory basics — now abandoned", viewPolicy: "public" },
   );
-  await createCards(eveAbandonedDeck.id, users.eve.id, "front_back", [
-    { front: "How many semitones in an octave?", back: "12" },
-    { front: "What does 'forte' mean?", back: "Play loudly" },
-  ]);
+  await createCards(eveAbandonedDeck.id, users.eve.id, "front_back", MUSIC_THEORY_FRONT_BACK);
   const [linkedAbandoned] = await db
     .insert(schema.deckDefinitions)
     .values({
@@ -825,7 +671,6 @@ async function seed() {
       updatedByUserId: users.allison.id,
     })
     .returning();
-  // Archive the source to simulate abandonment
   await db
     .update(schema.deckDefinitions)
     .set({ archivedAt: new Date() })
@@ -876,7 +721,8 @@ async function seed() {
           userDeckId: userDeck.id,
           cardDefinitionId: c.id,
           srsState: "new",
-          easeFactor: "2.500",
+          stability: "0.0000",
+          difficulty: "0.000",
           reps: 0,
           lapses: 0,
         })),
@@ -888,10 +734,10 @@ async function seed() {
   // Allison's own decks
   await addToLibrary(users.allison.id, bioDeck.id);
   await addToLibrary(users.allison.id, capitalsDeck.id);
+  await addToLibrary(users.allison.id, cs101Deck.id);
   await addToLibrary(users.allison.id, jsDeck.id);
   await addToLibrary(users.allison.id, dsDeck.id);
-  // Linked decks: study state is keyed to the SOURCE deck, not the linked copy.
-  // addToLibrary deduplicates, so if a source was already added above it's a no-op.
+  // Linked decks: study state is keyed to the SOURCE deck
   await addToLibrary(users.allison.id, bobPublicDeck.id);
   await addToLibrary(users.allison.id, carolPublicDeck.id);
   await addToLibrary(users.allison.id, eveAbandonedDeck.id);
@@ -901,7 +747,7 @@ async function seed() {
   await addToLibrary(users.allison.id, artDeck.id);
   await addToLibrary(users.allison.id, spanishDeck.id);
 
-  console.log("  Added 10 decks to Allison's library with userCardStates");
+  console.log("  Added 12 decks to Allison's library with userCardStates");
 
   // ── Tags ────────────────────────────────────────────────────────
   console.log("\nSeeding tags...");
@@ -942,6 +788,13 @@ async function seed() {
 
   await tagDeck(bioDeck.id, ["biology", "science", "intro"]);
   await tagDeck(capitalsDeck.id, ["geography", "trivia"]);
+  await tagDeck(cs101Deck.id, [
+    "computer-science",
+    "programming",
+    "algorithms",
+    "networking",
+    "databases",
+  ]);
   await tagDeck(jsDeck.id, ["javascript", "programming", "interviews"]);
   await tagDeck(dsDeck.id, ["data-structures", "programming", "computer-science"]);
   await tagDeck(chemDeck.id, ["chemistry", "science", "intro", "chem101"]);
@@ -966,7 +819,7 @@ async function seed() {
     await tagCard(cardId, ["chem101", "chemistry"]);
   }
 
-  console.log("  Tagged 12 decks and sample cards");
+  console.log("  Tagged 13 decks and sample cards");
 
   // ── Summary ────────────────────────────────────────────────────
   console.log(`
@@ -983,7 +836,7 @@ Seed complete!
     eve.martinez@example.com      — Eve Martinez
 
   Allison's workspace membership:
-    ✦ Allison's Personal              → owner   (2 decks + 2 linked + Scratch Pad)
+    ✦ Allison's Personal              → owner   (3 decks + 2 linked + Scratch Pad)
     ✦ Allison's Team — Owner Role     → owner   (2 decks + 1 linked)
     ✦ Bob's Lab — Allison Viewer      → viewer  (2 decks)
     ✦ Carol's Studio — Allison Editor → editor  (2 decks)
@@ -993,15 +846,14 @@ Seed complete!
     ✉ Eve's Book Club — Pending Invite  → invited as viewer
 
   Allison's library (userDecks + userCardStates seeded):
-    📚 Biology 101, World Capitals MC (own), JS Fundamentals, Data Structures
+    📚 Biology 101, World Capitals MC, CS 101 (100 cards!), JS Fundamentals, Data Structures
     📚 World Capitals (Bob's, via link), English Idioms (Carol's, via link), Music Theory (Eve's, abandoned)
     👀 Chemistry Basics, Physics 101 (Bob's Lab), Art History, Spanish Vocab (Carol's Studio)
-    Note: linked decks share study state with source — userDecks points to the source deck ID
 
   Public decks (visible on /browse):
     🌐 World Capitals (Bob)               → 5 cards
     🌐 Common English Idioms (Carol)      → 4 cards
-    🌐 Programming Fundamentals (Dave)    → 3 cards
+    🌐 Programming Fundamentals (Dave)    → 6 cards
     🌐 Eve's Music Theory (Eve)           → 2 cards (archived)
 
   Linked decks in Allison's workspaces:

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getDeck } from "@/actions/deck";
 import { getWorkspace } from "@/actions/workspace";
 import { listCards } from "@/actions/card";
-import { getDeckStudyStats } from "@/actions/study";
+import { getDeckStudyStats, getCardStudyStates, getNewCardsPerDay } from "@/actions/study";
 import { getDeckTags } from "@/actions/tag";
 import { BookOpen, AlertTriangle, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -44,22 +44,57 @@ export default async function DeckPage({ params, searchParams }: Props) {
   const deck = deckResult.data;
   const isDefaultDeck = session.user.defaultDeckId === deckId;
 
-  const [isEditor, member, resolved, wsResult, cardsResult, statsResult, deckTagNames] =
-    await Promise.all([
-      canEditDeckInWorkspace(deck.workspaceId, session.user.id),
-      getWorkspaceMember(deck.workspaceId, session.user.id),
-      resolveSourceDeckFromData(deckId, deck.linkedDeckDefinitionId),
-      getWorkspace(deck.workspaceId),
-      listCards(deckId, { tag: tagFilter }),
-      getDeckStudyStats(deckId),
-      getDeckTags(deckId),
-    ]);
+  const [
+    isEditor,
+    member,
+    resolved,
+    wsResult,
+    cardsResult,
+    statsResult,
+    deckTagNames,
+    studyStatesResult,
+    newCardsPerDayResult,
+  ] = await Promise.all([
+    canEditDeckInWorkspace(deck.workspaceId, session.user.id),
+    getWorkspaceMember(deck.workspaceId, session.user.id),
+    resolveSourceDeckFromData(deckId, deck.linkedDeckDefinitionId),
+    getWorkspace(deck.workspaceId),
+    listCards(deckId, { tag: tagFilter }),
+    getDeckStudyStats(deckId),
+    getDeckTags(deckId),
+    getCardStudyStates(deckId),
+    getNewCardsPerDay(deckId),
+  ]);
 
   const canArchive = member !== null && ["owner", "admin"].includes(member.role);
   const canChangeVisibility = canArchive;
   const workspaceKind = wsResult.success ? wsResult.data.kind : "shared";
   const cards = cardsResult.success ? cardsResult.data : [];
   const stats = statsResult.success ? statsResult.data : null;
+
+  const studyStateMap = new Map<string, { srsState: string; dueAt: Date | null }>();
+  const childStudyStateMap = new Map<
+    string,
+    { clozeIndex: number; srsState: string; dueAt: Date | null }[]
+  >();
+  if (studyStatesResult.success) {
+    for (const s of studyStatesResult.data) {
+      studyStateMap.set(s.cardDefinitionId, { srsState: s.srsState, dueAt: s.dueAt });
+      if (s.parentCardId) {
+        const cj = s.contentJson as Record<string, unknown>;
+        const clozeIndex = Number(cj.clozeIndex ?? 0);
+        const existing = childStudyStateMap.get(s.parentCardId) ?? [];
+        existing.push({ clozeIndex, srsState: s.srsState, dueAt: s.dueAt });
+        childStudyStateMap.set(s.parentCardId, existing);
+      }
+    }
+    for (const [key, children] of childStudyStateMap) {
+      childStudyStateMap.set(
+        key,
+        children.sort((a, b) => a.clozeIndex - b.clozeIndex),
+      );
+    }
+  }
 
   const allCardTags = [...new Set(cards.flatMap((c) => c.tags))].sort();
 
@@ -129,6 +164,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
               workspaceKind={workspaceKind}
               initialTags={deckTagNames}
               isDefaultDeck={isDefaultDeck}
+              initialNewCardsPerDay={newCardsPerDayResult.success ? newCardsPerDayResult.data : 20}
             />
           )}
           <AddToWorkspaceButtons
@@ -184,6 +220,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
         <div className="space-y-3">
           {cards.map((card) => {
             const content = card.contentJson as Record<string, unknown>;
+            const studyState = studyStateMap.get(card.id);
             return (
               <DeckCardItem
                 key={card.id}
@@ -192,6 +229,9 @@ export default async function DeckPage({ params, searchParams }: Props) {
                 contentJson={content}
                 tags={card.tags}
                 version={card.version}
+                srsState={studyState?.srsState}
+                dueAt={studyState?.dueAt ?? undefined}
+                childStudyStates={childStudyStateMap.get(card.id)}
                 editSlot={
                   isEditor && !resolved.isLinked ? (
                     <EditCardDialog

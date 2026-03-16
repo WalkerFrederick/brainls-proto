@@ -1,5 +1,5 @@
 {
-  "id": "44532530-7a02-434d-b74f-76f784a49464",
+  "id": "de008299-9f07-403a-ab85-a5ebd41d4d6e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1222,14 +1222,26 @@
           "primaryKey": false,
           "notNull": false
         },
-        "ease_factor_before": {
-          "name": "ease_factor_before",
+        "stability_before": {
+          "name": "stability_before",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stability_after": {
+          "name": "stability_after",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "difficulty_before": {
+          "name": "difficulty_before",
           "type": "numeric(5, 3)",
           "primaryKey": false,
           "notNull": false
         },
-        "ease_factor_after": {
-          "name": "ease_factor_after",
+        "difficulty_after": {
+          "name": "difficulty_after",
           "type": "numeric(5, 3)",
           "primaryKey": false,
           "notNull": false
@@ -1332,8 +1344,14 @@
           "primaryKey": false,
           "notNull": false
         },
-        "ease_factor": {
-          "name": "ease_factor",
+        "stability": {
+          "name": "stability",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "difficulty": {
+          "name": "difficulty",
           "type": "numeric(5, 3)",
           "primaryKey": false,
           "notNull": false
@@ -1441,6 +1459,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 1
+        },
+        "new_cards_per_day": {
+          "name": "new_cards_per_day",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 20
         },
         "last_studied_at": {
           "name": "last_studied_at",

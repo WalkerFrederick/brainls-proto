@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LayoutProvider } from "@/components/layout-provider";
 import { AppShell } from "@/components/main-content";
 import { listPendingInvites } from "@/actions/workspace";
+import { DevTimeTravelFab } from "@/components/dev-time-travel-fab";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const [cookieStore, invitesResult] = await Promise.all([
@@ -26,6 +27,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
             <main className="flex-1 p-6">{children}</main>
           </div>
         </AppShell>
+        {process.env.NODE_ENV !== "production" && <DevTimeTravelFab />}
       </LayoutProvider>
     </TooltipProvider>
   );

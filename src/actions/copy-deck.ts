@@ -136,6 +136,7 @@ export async function copyDeck(
           userDeckId: ud.id,
           cardDefinitionId: sourceToNewCardId.get(c.id)!,
           ...defaultState,
+          easeFactor: String(defaultState.easeFactor),
         })),
       );
     }

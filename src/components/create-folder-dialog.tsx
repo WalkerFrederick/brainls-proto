@@ -24,7 +24,7 @@ export function CreateFolderDialog({
 }: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
 } = {}) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -56,7 +56,7 @@ export function CreateFolderDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger ? (
-        trigger
+        <DialogTrigger render={trigger} />
       ) : (
         <DialogTrigger render={<Button size="sm" />}>
           <Plus className="mr-2 h-4 w-4" />

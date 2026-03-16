@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Menu, X, Plus, FilePlus, FolderPlus } from "lucide-react";
+import { useHotkey } from "@tanstack/react-hotkeys";
+import { Bell, Menu, X, Plus, FilePlus, FolderPlus, Search } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -32,8 +33,25 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   const pathname = usePathname();
   const prevPathname = useRef(pathname);
 
+  const fabRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!fabOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+        setFabOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [fabOpen]);
+
   const contextFolderId = pathname.startsWith("/folder/") ? pathname.split("/")[2] : undefined;
   const contextDeckId = pathname.startsWith("/deck/") ? pathname.split("/")[2] : undefined;
+
+  useHotkey("Shift+C", () => setCardDialogOpen(true));
+  useHotkey("Shift+D", () => setDeckDialogOpen(true));
+  useHotkey("Shift+F", () => setFolderDialogOpen(true));
 
   useEffect(() => {
     if (prevPathname.current !== pathname) {
@@ -79,6 +97,94 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
               <Menu className="h-5 w-5" />
             </button>
 
+            {/* Desktop create menu - left aligned */}
+            <div ref={fabRef} className="relative hidden lg:block">
+              <button
+                type="button"
+                onClick={() => setFabOpen((prev) => !prev)}
+                className={cn(
+                  "flex h-9 items-center gap-1.5 rounded-full bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90",
+                )}
+                aria-label={fabOpen ? "Close actions" : "Create new"}
+              >
+                Create New <Plus className="h-4 w-4" />
+              </button>
+              <AnimatePresence>
+                {fabOpen && (
+                  <motion.div
+                    key="desktop-fab-menu"
+                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-lg border bg-popover p-1 shadow-lg"
+                  >
+                    <CreateCardDialog
+                      deckDefinitionId={contextDeckId}
+                      open={cardDialogOpen}
+                      onOpenChange={(v) => {
+                        setCardDialogOpen(v);
+                        if (!v) setFabOpen(false);
+                      }}
+                      trigger={
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                        >
+                          <FilePlus className="h-4 w-4" />
+                          Add Card
+                          <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + C</kbd>
+                        </button>
+                      }
+                    />
+                    <CreateDeckDialog
+                      folderId={contextFolderId}
+                      open={deckDialogOpen}
+                      onOpenChange={(v) => {
+                        setDeckDialogOpen(v);
+                        if (!v) setFabOpen(false);
+                      }}
+                      trigger={
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                        >
+                          <Plus className="h-4 w-4" />
+                          New Deck
+                          <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + D</kbd>
+                        </button>
+                      }
+                    />
+                    <CreateFolderDialog
+                      open={folderDialogOpen}
+                      onOpenChange={(v) => {
+                        setFolderDialogOpen(v);
+                        if (!v) setFabOpen(false);
+                      }}
+                      trigger={
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                        >
+                          <FolderPlus className="h-4 w-4" />
+                          New Folder
+                          <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + F</kbd>
+                        </button>
+                      }
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Desktop search bar */}
+            <div className="flex flex-1 mx-3 max-w-md">
+              <div className="flex h-9 w-full items-center gap-2 rounded-full border bg-muted/50 px-4 text-sm text-muted-foreground">
+                <Search className="h-4 w-4" />
+                <span>Search...</span>
+              </div>
+            </div>
+
             <div className="flex items-center gap-3 ml-auto">
               <Link
                 href="/notifications"
@@ -94,7 +200,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
               {session ? (
                 <Link
                   href="/settings/account"
-                  className="flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium transition-colors hover:bg-accent"
+                  className="flex items-center gap-2 rounded-full transition-colors hover:bg-accent sm:border sm:px-3 sm:py-1 sm:text-sm sm:font-medium"
                 >
                   <span className="hidden text-sm font-medium sm:inline">
                     {session.user.name ?? session.user.email}
@@ -156,7 +262,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
       </AnimatePresence>
 
       {/* FAB for mobile */}
-      <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3 md:hidden">
+      <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3 lg:hidden">
         <AnimatePresence>
           {fabOpen && (
             <>

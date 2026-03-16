@@ -1,28 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Brain,
-  Home,
-  Settings,
-  LogIn,
-  Globe,
-  FolderOpen,
-  Plus,
-  FilePlus,
-  FolderPlus,
-} from "lucide-react";
+import { Brain, Home, Settings, LogIn, Globe, FolderOpen } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useHotkey } from "@tanstack/react-hotkeys";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
 import { UserAvatar } from "@/components/user-avatar";
-import { CreateDeckDialog } from "@/components/create-deck-dialog";
-import { CreateCardDialog } from "@/components/create-card-dialog";
-import { CreateFolderDialog } from "@/components/create-folder-dialog";
 
 const navItems = [
   { href: "/home", label: "Home", icon: Home },
@@ -34,17 +19,6 @@ const navItems = [
 export function SidebarNav({ showProfile = true }: { showProfile?: boolean }) {
   const pathname = usePathname();
   const { data: session, isPending } = useSession();
-
-  const [deckDialogOpen, setDeckDialogOpen] = useState(false);
-  const [cardDialogOpen, setCardDialogOpen] = useState(false);
-  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-
-  const contextFolderId = pathname.startsWith("/folder/") ? pathname.split("/")[2] : undefined;
-  const contextDeckId = pathname.startsWith("/deck/") ? pathname.split("/")[2] : undefined;
-
-  useHotkey("Shift+D", () => setDeckDialogOpen(true));
-  useHotkey("Shift+C", () => setCardDialogOpen(true));
-  useHotkey("Shift+F", () => setFolderDialogOpen(true));
 
   return (
     <>
@@ -77,44 +51,6 @@ export function SidebarNav({ showProfile = true }: { showProfile?: boolean }) {
         </div>
       )}
       {showProfile && <Separator />}
-      <div className="space-y-1 px-2 py-3">
-        <CreateCardDialog
-          deckDefinitionId={contextDeckId}
-          open={cardDialogOpen}
-          onOpenChange={setCardDialogOpen}
-          trigger={
-            <Button size="sm" className="w-full justify-start gap-3">
-              <FilePlus className="h-4 w-4" />
-              Add Card
-              <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + C</kbd>
-            </Button>
-          }
-        />
-        <CreateDeckDialog
-          folderId={contextFolderId}
-          open={deckDialogOpen}
-          onOpenChange={setDeckDialogOpen}
-          trigger={
-            <Button size="sm" className="w-full justify-start gap-3">
-              <Plus className="h-4 w-4" />
-              New Deck
-              <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + D</kbd>
-            </Button>
-          }
-        />
-        <CreateFolderDialog
-          open={folderDialogOpen}
-          onOpenChange={setFolderDialogOpen}
-          trigger={
-            <Button size="sm" className="w-full justify-start gap-3">
-              <FolderPlus className="h-4 w-4" />
-              New Folder
-              <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + F</kbd>
-            </Button>
-          }
-        />
-      </div>
-      <Separator />
       <nav className="flex-1 space-y-1 px-2 py-3">
         {navItems.map((item) => {
           const isActive = pathname === item.href;

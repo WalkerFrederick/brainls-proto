@@ -116,7 +116,7 @@ export function MarkdownEditor({
           placeholder={placeholder ?? "Supports **Markdown**. Click the paperclip to attach files."}
           required={required}
           rows={minRows}
-          className={cn("font-mono text-sm", uploading && "opacity-50")}
+          className={cn("font-mono text-base md:text-sm", uploading && "opacity-50")}
         />
       ) : (
         <div className="min-h-[100px] rounded-md border bg-background p-3">

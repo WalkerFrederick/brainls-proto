@@ -23,7 +23,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           <AppSidebar />
           <div className="flex flex-1 flex-col overflow-auto">
             <Quickbar pendingInviteCount={pendingInviteCount} />
-            <main className="flex-1 p-6">{children}</main>
+            <main className="flex-1 p-6 pb-24 lg:pb-6">{children}</main>
           </div>
         </AppShell>
       </LayoutProvider>

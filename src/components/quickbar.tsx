@@ -38,7 +38,14 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   useEffect(() => {
     if (!fabOpen) return;
     function handleClick(e: MouseEvent) {
-      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      if (
+        fabRef.current &&
+        !fabRef.current.contains(target) &&
+        !target.closest(
+          "[data-slot*='dialog'],[data-slot*='select'],[data-radix-popper-content-wrapper]",
+        )
+      ) {
         setFabOpen(false);
       }
     }
@@ -52,6 +59,17 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   useHotkey("Shift+C", () => setCardDialogOpen(true));
   useHotkey("Shift+D", () => setDeckDialogOpen(true));
   useHotkey("Shift+F", () => setFolderDialogOpen(true));
+
+  useEffect(() => {
+    if (drawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [drawerOpen]);
 
   useEffect(() => {
     if (prevPathname.current !== pathname) {
@@ -91,7 +109,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
-              className="text-muted-foreground hover:text-foreground md:hidden"
+              className="-ml-2 flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:text-foreground md:hidden"
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />

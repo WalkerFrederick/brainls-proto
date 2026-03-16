@@ -19,6 +19,7 @@ export async function getPublicDeck(
   const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
 
   if (!deck) return err("Deck not found");
+  if (deck.archivedAt) return err("The author has archived this deck");
   if (!PUBLIC_VIEW_POLICIES.has(deck.viewPolicy)) {
     return err("This deck is not publicly viewable");
   }

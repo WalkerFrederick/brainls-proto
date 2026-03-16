@@ -1,0 +1,95 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Play, Plus, Loader2, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { addDeckToLibrary, type LibraryDeck } from "@/actions/study";
+
+interface DeckRowProps {
+  deck: LibraryDeck;
+  showFolders?: boolean;
+}
+
+export function DeckRow({ deck, showFolders = true }: DeckRowProps) {
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+
+  async function handleAddToLibrary() {
+    setAdding(true);
+    const result = await addDeckToLibrary(deck.deckDefinitionId);
+    if (result.success) {
+      router.refresh();
+    }
+    setAdding(false);
+  }
+
+  const inLibrary = deck.userDeckId !== null;
+
+  return (
+    <div className="flex items-center gap-4 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/deck/${deck.deckDefinitionId}`}
+            className="truncate font-medium hover:underline"
+          >
+            {deck.title}
+          </Link>
+          {deck.linkedDeckDefinitionId && (
+            <Badge
+              variant="secondary"
+              className={
+                deck.isAbandoned
+                  ? "shrink-0 text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  : "shrink-0 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              }
+            >
+              {deck.isAbandoned && <AlertTriangle className="mr-1 h-3 w-3" />}
+              linked copy
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {inLibrary ? (
+        <div className="flex shrink-0 items-center gap-4">
+          <div className="hidden items-center gap-3 text-sm sm:flex">
+            <span
+              className={`tabular-nums font-medium ${deck.dueCards > 0 ? "text-primary" : "text-muted-foreground"}`}
+            >
+              {deck.dueCards} due
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="tabular-nums text-muted-foreground">{deck.totalCards} cards</span>
+            {deck.lastStudiedAt && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-xs text-muted-foreground" suppressHydrationWarning>
+                  {new Date(deck.lastStudiedAt).toLocaleDateString()}
+                </span>
+              </>
+            )}
+          </div>
+          <Link href={`/study/${deck.userDeckId}`}>
+            <Button size="sm" variant={deck.dueCards > 0 ? "default" : "outline"}>
+              <Play className="mr-1.5 h-3.5 w-3.5" />
+              Study
+            </Button>
+          </Link>
+        </div>
+      ) : (
+        <Button size="sm" variant="outline" onClick={handleAddToLibrary} disabled={adding}>
+          {adding ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+          )}
+          Add
+        </Button>
+      )}
+    </div>
+  );
+}

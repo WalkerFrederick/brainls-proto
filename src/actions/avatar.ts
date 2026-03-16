@@ -2,25 +2,25 @@
 
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { assets, users, workspaces } from "@/db/schema";
+import { assets, users, folders } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { utapi } from "@/lib/uploadthing";
-import { requireWorkspaceRole } from "@/lib/permissions";
+import { requireFolderRole } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
 
 export async function removeAvatar(): Promise<Result<null>> {
   const session = await requireSession();
-  const { id: userId, personalWorkspaceId } = session.user;
+  const { id: userId, personalFolderId } = session.user;
 
-  if (!personalWorkspaceId) {
-    return err("No personal workspace found");
+  if (!personalFolderId) {
+    return err("No personal folder found");
   }
 
   const avatarAssets = await db
     .select({ id: assets.id, storageKey: assets.storageKey })
     .from(assets)
-    .where(and(eq(assets.workspaceId, personalWorkspaceId), eq(assets.kind, "avatar")));
+    .where(and(eq(assets.folderId, personalFolderId), eq(assets.kind, "avatar")));
 
   if (avatarAssets.length > 0) {
     const keys = avatarAssets.map((a) => a.storageKey);
@@ -28,7 +28,7 @@ export async function removeAvatar(): Promise<Result<null>> {
 
     await db
       .delete(assets)
-      .where(and(eq(assets.workspaceId, personalWorkspaceId), eq(assets.kind, "avatar")));
+      .where(and(eq(assets.folderId, personalFolderId), eq(assets.kind, "avatar")));
   }
 
   await db.update(users).set({ image: null }).where(eq(users.id, userId));
@@ -36,17 +36,17 @@ export async function removeAvatar(): Promise<Result<null>> {
   return ok(null);
 }
 
-export async function removeWorkspaceAvatar(workspaceId: string): Promise<Result<null>> {
-  if (!isValidUuid(workspaceId)) return err("Invalid workspace ID");
+export async function removeFolderAvatar(folderId: string): Promise<Result<null>> {
+  if (!isValidUuid(folderId)) return err("Invalid folder ID");
   const session = await requireSession();
 
-  const perm = await requireWorkspaceRole(workspaceId, session.user.id, "admin");
+  const perm = await requireFolderRole(folderId, session.user.id, "admin");
   if (!perm.allowed) return err(perm.error);
 
   const avatarAssets = await db
     .select({ id: assets.id, storageKey: assets.storageKey })
     .from(assets)
-    .where(and(eq(assets.workspaceId, workspaceId), eq(assets.kind, "workspace_avatar")));
+    .where(and(eq(assets.folderId, folderId), eq(assets.kind, "folder_avatar")));
 
   if (avatarAssets.length > 0) {
     const keys = avatarAssets.map((a) => a.storageKey);
@@ -54,13 +54,13 @@ export async function removeWorkspaceAvatar(workspaceId: string): Promise<Result
 
     await db
       .delete(assets)
-      .where(and(eq(assets.workspaceId, workspaceId), eq(assets.kind, "workspace_avatar")));
+      .where(and(eq(assets.folderId, folderId), eq(assets.kind, "folder_avatar")));
   }
 
   await db
-    .update(workspaces)
+    .update(folders)
     .set({ avatarUrl: null, updatedAt: new Date() })
-    .where(eq(workspaces.id, workspaceId));
+    .where(eq(folders.id, folderId));
 
   return ok(null);
 }

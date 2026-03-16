@@ -31,7 +31,7 @@ export default async function StudyPage({ params }: Props) {
           <p className="text-muted-foreground">
             No cards are due for review in &quot;{deckTitle}&quot;.
           </p>
-          <Link href="/library">
+          <Link href="/folders">
             <Button variant="outline">Back to Library</Button>
           </Link>
         </div>

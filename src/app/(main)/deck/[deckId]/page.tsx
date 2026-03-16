@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { getDeck } from "@/actions/deck";
-import { getWorkspace } from "@/actions/workspace";
+import { getFolder } from "@/actions/folder";
 import { listCards } from "@/actions/card";
 import { getDeckStudyStats } from "@/actions/study";
 import { getDeckTags } from "@/actions/tag";
-import { BookOpen, AlertTriangle } from "lucide-react";
+import { BookOpen, AlertTriangle, ExternalLink, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import { ShareDeckButton } from "@/components/share-deck-button";
-import { AddToWorkspaceButtons } from "@/components/add-to-workspace-dialog";
+import { AddToFolderButtons } from "@/components/add-to-folder-dialog";
 import { DeckCardItem } from "@/components/deck-card-item";
 import { PlatformBadge } from "@/components/platform-badge";
 import { TagFilter } from "@/components/tag-filter";
-import { canEditDeckInWorkspace, getWorkspaceMember } from "@/lib/permissions";
+import { canEditDeckInFolder, getFolderMember } from "@/lib/permissions";
 import { resolveSourceDeckFromData } from "@/lib/deck-resolver";
 import { requireSession } from "@/lib/auth-server";
 
@@ -37,26 +39,52 @@ export default async function DeckPage({ params, searchParams }: Props) {
   const deckResult = await getDeck(deckId);
 
   if (!deckResult.success) {
-    return <div className="text-destructive">Error: {deckResult.error}</div>;
+    const isArchived = deckResult.error.toLowerCase().includes("archived");
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
+        {isArchived ? (
+          <>
+            <Archive className="h-12 w-12 text-muted-foreground" />
+            <div className="space-y-1">
+              <h2 className="text-xl font-semibold">Deck Archived</h2>
+              <p className="text-sm text-muted-foreground">
+                The author has archived this deck and it is no longer available.
+              </p>
+            </div>
+            <Link
+              href="/browse"
+              className="mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              Browse public decks
+            </Link>
+          </>
+        ) : (
+          <>
+            <BookOpen className="h-12 w-12 text-muted-foreground" />
+            <div className="space-y-1">
+              <h2 className="text-xl font-semibold">Deck Not Available</h2>
+              <p className="text-sm text-muted-foreground">{deckResult.error}</p>
+            </div>
+          </>
+        )}
+      </div>
+    );
   }
 
   const deck = deckResult.data;
   const isDefaultDeck = session.user.defaultDeckId === deckId;
 
-  const [isEditor, member, resolved, wsResult, cardsResult, statsResult, deckTagNames] =
-    await Promise.all([
-      canEditDeckInWorkspace(deck.workspaceId, session.user.id),
-      getWorkspaceMember(deck.workspaceId, session.user.id),
-      resolveSourceDeckFromData(deckId, deck.linkedDeckDefinitionId),
-      getWorkspace(deck.workspaceId),
-      listCards(deckId, { tag: tagFilter }),
-      getDeckStudyStats(deckId),
-      getDeckTags(deckId),
-    ]);
+  const [isEditor, member, resolved, cardsResult, statsResult, deckTagNames] = await Promise.all([
+    canEditDeckInFolder(deck.folderId, session.user.id),
+    getFolderMember(deck.folderId, session.user.id),
+    resolveSourceDeckFromData(deckId, deck.linkedDeckDefinitionId),
+    listCards(deckId, { tag: tagFilter }),
+    getDeckStudyStats(deckId),
+    getDeckTags(deckId),
+  ]);
 
   const canArchive = member !== null && ["owner", "admin"].includes(member.role);
   const canChangeVisibility = canArchive;
-  const workspaceKind = wsResult.success ? wsResult.data.kind : "shared";
   const cards = cardsResult.success ? cardsResult.data : [];
   const stats = statsResult.success ? statsResult.data : null;
 
@@ -73,7 +101,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
             </p>
             <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
               Your existing cards are still available, but no new cards will be added. Copy it to
-              your workspace to keep an independent version you can update.
+              your folder to keep an independent version you can update.
             </p>
           </div>
         </div>
@@ -82,6 +110,24 @@ export default async function DeckPage({ params, searchParams }: Props) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <PlatformBadge createdByUserId={deck.createdByUserId} showPill />
+          {resolved.isLinked && (
+            <Link
+              href={`/deck/${resolved.sourceDeckId}`}
+              className={cn(
+                "mb-2 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium underline transition-colors",
+                resolved.isAbandoned
+                  ? "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
+                  : "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400",
+              )}
+            >
+              {resolved.isAbandoned ? (
+                <AlertTriangle className="h-3 w-3" />
+              ) : (
+                <ExternalLink className="h-3 w-3" />
+              )}
+              {resolved.isAbandoned ? "Source Deck Archived" : "View Source Deck"}
+            </Link>
+          )}
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{deck.title}</h1>
             <PlatformBadge createdByUserId={deck.createdByUserId} showCheck />
@@ -90,30 +136,6 @@ export default async function DeckPage({ params, searchParams }: Props) {
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge variant="outline">{cards.length} cards</Badge>
             <Badge variant="secondary">{deck.viewPolicy}</Badge>
-            {resolved.isLinked && !resolved.isAbandoned && (
-              <Badge
-                variant="secondary"
-                className="bg-blue-500/10 text-blue-600 dark:text-blue-400"
-              >
-                linked
-              </Badge>
-            )}
-            {resolved.isLinked && resolved.isAbandoned && (
-              <Badge
-                variant="secondary"
-                className="bg-amber-500/10 text-amber-600 dark:text-amber-400"
-              >
-                abandoned
-              </Badge>
-            )}
-            {deck.copiedFromDeckDefinitionId && (
-              <Badge
-                variant="secondary"
-                className="bg-violet-500/10 text-violet-600 dark:text-violet-400"
-              >
-                copied
-              </Badge>
-            )}
           </div>
           {deckTagNames.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
@@ -140,12 +162,12 @@ export default async function DeckPage({ params, searchParams }: Props) {
               viewPolicy={deck.viewPolicy}
               canArchive={canArchive}
               canChangeVisibility={canChangeVisibility}
-              workspaceKind={workspaceKind}
               initialTags={deckTagNames}
               isDefaultDeck={isDefaultDeck}
+              isLinked={resolved.isLinked}
             />
           )}
-          <AddToWorkspaceButtons
+          <AddToFolderButtons
             deckId={resolved.isLinked ? resolved.sourceDeckId : deckId}
             sourceArchived={resolved.isAbandoned || !!deck.archivedAt}
           />

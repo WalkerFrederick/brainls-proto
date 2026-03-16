@@ -136,7 +136,7 @@ export function ReviewHeatmap({ data }: Props) {
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold">Review Activity</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground" suppressHydrationWarning>
             {totalReviews.toLocaleString()} reviews in {new Date().getFullYear()}
             {activeDays > 0 && ` · ${activeDays} active day${activeDays !== 1 ? "s" : ""}`}
           </p>

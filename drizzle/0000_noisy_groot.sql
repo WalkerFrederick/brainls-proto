@@ -34,7 +34,7 @@ CREATE TABLE "users" (
 	"image" varchar(2048),
 	"username" varchar(63),
 	"status" varchar(31) DEFAULT 'active' NOT NULL,
-	"personal_workspace_id" uuid,
+	"personal_folder_id" uuid,
 	"default_deck_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -52,9 +52,9 @@ CREATE TABLE "verifications" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "workspace_members" (
+CREATE TABLE "folder_members" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"workspace_id" uuid NOT NULL,
+	"folder_id" uuid NOT NULL,
 	"user_id" uuid,
 	"invited_email" varchar(255),
 	"role" varchar(31) DEFAULT 'viewer' NOT NULL,
@@ -64,8 +64,8 @@ CREATE TABLE "workspace_members" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "workspace_settings" (
-	"workspace_id" uuid PRIMARY KEY NOT NULL,
+CREATE TABLE "folder_settings" (
+	"folder_id" uuid PRIMARY KEY NOT NULL,
 	"allow_public_publishing" boolean DEFAULT false NOT NULL,
 	"allow_member_invites" boolean DEFAULT true NOT NULL,
 	"allow_viewer_deck_use" boolean DEFAULT true NOT NULL,
@@ -73,23 +73,22 @@ CREATE TABLE "workspace_settings" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "workspaces" (
+CREATE TABLE "folders" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(255) NOT NULL,
 	"slug" varchar(255),
 	"description" varchar(2048),
 	"avatar_url" varchar(2048),
-	"kind" varchar(31) DEFAULT 'personal' NOT NULL,
 	"created_by_user_id" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"archived_at" timestamp with time zone,
-	CONSTRAINT "workspaces_slug_unique" UNIQUE("slug")
+	CONSTRAINT "folders_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
 CREATE TABLE "assets" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"workspace_id" uuid NOT NULL,
+	"folder_id" uuid NOT NULL,
 	"kind" varchar(63) NOT NULL,
 	"storage_key" varchar(1024) NOT NULL,
 	"mime_type" varchar(255) NOT NULL,
@@ -123,7 +122,7 @@ CREATE TABLE "card_tags" (
 --> statement-breakpoint
 CREATE TABLE "deck_definitions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"workspace_id" uuid NOT NULL,
+	"folder_id" uuid NOT NULL,
 	"title" varchar(500) NOT NULL,
 	"slug" varchar(500),
 	"description" varchar(5000),
@@ -207,17 +206,17 @@ CREATE TABLE "user_decks" (
 --> statement-breakpoint
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_settings" ADD CONSTRAINT "workspace_settings_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspaces" ADD CONSTRAINT "workspaces_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "assets" ADD CONSTRAINT "assets_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "folder_members" ADD CONSTRAINT "folder_members_folder_id_folders_id_fk" FOREIGN KEY ("folder_id") REFERENCES "public"."folders"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "folder_members" ADD CONSTRAINT "folder_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "folder_settings" ADD CONSTRAINT "folder_settings_folder_id_folders_id_fk" FOREIGN KEY ("folder_id") REFERENCES "public"."folders"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "folders" ADD CONSTRAINT "folders_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "assets" ADD CONSTRAINT "assets_folder_id_folders_id_fk" FOREIGN KEY ("folder_id") REFERENCES "public"."folders"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "card_definitions" ADD CONSTRAINT "card_definitions_deck_definition_id_deck_definitions_id_fk" FOREIGN KEY ("deck_definition_id") REFERENCES "public"."deck_definitions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "card_definitions" ADD CONSTRAINT "card_definitions_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "card_definitions" ADD CONSTRAINT "card_definitions_updated_by_user_id_users_id_fk" FOREIGN KEY ("updated_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "card_tags" ADD CONSTRAINT "card_tags_card_definition_id_card_definitions_id_fk" FOREIGN KEY ("card_definition_id") REFERENCES "public"."card_definitions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "card_tags" ADD CONSTRAINT "card_tags_tag_id_tags_id_fk" FOREIGN KEY ("tag_id") REFERENCES "public"."tags"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "deck_definitions" ADD CONSTRAINT "deck_definitions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "deck_definitions" ADD CONSTRAINT "deck_definitions_folder_id_folders_id_fk" FOREIGN KEY ("folder_id") REFERENCES "public"."folders"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "deck_definitions" ADD CONSTRAINT "deck_definitions_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "deck_definitions" ADD CONSTRAINT "deck_definitions_updated_by_user_id_users_id_fk" FOREIGN KEY ("updated_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "deck_tags" ADD CONSTRAINT "deck_tags_deck_definition_id_deck_definitions_id_fk" FOREIGN KEY ("deck_definition_id") REFERENCES "public"."deck_definitions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

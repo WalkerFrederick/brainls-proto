@@ -19,16 +19,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import {
-  linkDeckToWorkspace,
-  listWorkspacesForPicker,
-  type WorkspacePickerItem,
-} from "@/actions/link-deck";
+import { linkDeckToFolder, listFoldersForPicker, type FolderPickerItem } from "@/actions/link-deck";
 import { copyDeck } from "@/actions/copy-deck";
 
 type CopyMode = "link" | "copy";
 
-interface AddToWorkspaceDialogProps {
+interface AddToFolderDialogProps {
   deckId: string;
   initialMode: CopyMode;
   open: boolean;
@@ -38,17 +34,17 @@ interface AddToWorkspaceDialogProps {
 
 const MODE_CONFIG = {
   link: {
-    title: "Add to Workspace",
+    title: "Link to Folder",
     description:
-      "Adds this deck to your workspace. Stays in sync with the original — when the author updates cards, yours update too. Study progress is shared across all workspaces.",
+      "Adds this deck to your folder. Stays in sync with the original — when the author updates cards, yours update too. Study progress is shared across all folders.",
     icon: Link2,
     iconBg: "bg-blue-500/10",
     iconColor: "text-blue-600",
     activeRing: "ring-blue-500/40",
-    successMessage: "Deck added to workspace",
+    successMessage: "Deck added to folder",
   },
   copy: {
-    title: "Copy Deck",
+    title: "Create a Copy",
     description:
       "Makes an independent copy you own. You can add, edit, and remove cards freely. Future changes to the original won\u2019t affect your copy.",
     icon: Copy,
@@ -59,21 +55,21 @@ const MODE_CONFIG = {
   },
 } as const;
 
-export function AddToWorkspaceDialog({
+export function AddToFolderDialog({
   deckId,
   initialMode,
   open,
   onOpenChange,
   sourceArchived,
-}: AddToWorkspaceDialogProps) {
+}: AddToFolderDialogProps) {
   const router = useRouter();
   const [mode, setMode] = useState<CopyMode>(initialMode);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [workspaces, setWorkspaces] = useState<WorkspacePickerItem[]>([]);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState("");
+  const [folders, setFolders] = useState<FolderPickerItem[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState("");
   const [retainSrs, setRetainSrs] = useState(true);
 
   useEffect(() => {
@@ -81,12 +77,12 @@ export function AddToWorkspaceDialog({
     let cancelled = false;
     async function load() {
       setLoading(true);
-      const result = await listWorkspacesForPicker(deckId);
+      const result = await listFoldersForPicker(deckId);
       if (cancelled) return;
       if (result.success) {
-        setWorkspaces(result.data);
+        setFolders(result.data);
         if (result.data.length > 0) {
-          setSelectedWorkspaceId(result.data[0].id);
+          setSelectedFolderId(result.data[0].id);
         }
       } else {
         setError(result.error);
@@ -99,18 +95,18 @@ export function AddToWorkspaceDialog({
     };
   }, [open, deckId]);
 
-  const selectedWorkspace = workspaces.find((w) => w.id === selectedWorkspaceId);
+  const selectedFolder = folders.find((f) => f.id === selectedFolderId);
   const config = MODE_CONFIG[mode];
-  const showRetainSrs = mode === "copy" && selectedWorkspace?.hasExistingSrsData;
+  const showRetainSrs = mode === "copy" && selectedFolder?.hasExistingSrsData;
 
   async function handleSubmit() {
-    if (!selectedWorkspaceId) return;
+    if (!selectedFolderId) return;
     setSubmitting(true);
     setError("");
     setSuccess("");
 
     if (mode === "link") {
-      const result = await linkDeckToWorkspace(deckId, selectedWorkspaceId);
+      const result = await linkDeckToFolder(deckId, selectedFolderId);
       if (result.success) {
         setSuccess(config.successMessage);
         router.refresh();
@@ -119,7 +115,7 @@ export function AddToWorkspaceDialog({
         setError(result.error);
       }
     } else {
-      const result = await copyDeck(deckId, selectedWorkspaceId, showRetainSrs ? retainSrs : false);
+      const result = await copyDeck(deckId, selectedFolderId, showRetainSrs ? retainSrs : false);
       if (result.success) {
         setSuccess(config.successMessage);
         router.push(`/deck/${result.data.id}`);
@@ -134,9 +130,9 @@ export function AddToWorkspaceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add to Workspace</DialogTitle>
+          <DialogTitle>Add to Folder</DialogTitle>
           <DialogDescription>
-            Choose how to add this deck, pick a workspace, then confirm.
+            Choose how to add this deck, pick a folder, then confirm.
           </DialogDescription>
         </DialogHeader>
 
@@ -188,62 +184,48 @@ export function AddToWorkspaceDialog({
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : workspaces.length === 0 ? (
+          ) : folders.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-4">
-              You don&apos;t have editor access to any workspaces.
+              You don&apos;t have editor access to any folders.
             </p>
           ) : (
             <>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Target Workspace</label>
+                <label className="text-sm font-medium">Target Folder</label>
                 <Select
-                  value={selectedWorkspaceId}
-                  onValueChange={(v) => setSelectedWorkspaceId(v ?? "")}
+                  value={selectedFolderId}
+                  onValueChange={(v) => setSelectedFolderId(v ?? "")}
                 >
                   <SelectTrigger className="w-full">
-                    {selectedWorkspace ? (
-                      <span className="truncate">
-                        {selectedWorkspace.name}
-                        {selectedWorkspace.kind === "personal" && (
-                          <span className="ml-1.5 text-xs text-muted-foreground">(personal)</span>
-                        )}
-                      </span>
+                    {selectedFolder ? (
+                      <span className="truncate">{selectedFolder.name}</span>
                     ) : (
-                      <SelectValue placeholder="Select workspace" />
+                      <SelectValue placeholder="Select folder" />
                     )}
                   </SelectTrigger>
                   <SelectContent>
-                    {workspaces.map((ws) => (
-                      <SelectItem key={ws.id} value={ws.id}>
-                        <span className="flex items-center gap-2">
-                          {ws.name}
-                          {ws.kind === "personal" && (
-                            <Badge variant="outline" className="text-[10px] py-0">
-                              personal
-                            </Badge>
-                          )}
-                        </span>
+                    {folders.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        <span className="flex items-center gap-2">{f.name}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {selectedWorkspace && (
+              {selectedFolder && (
                 <div className="space-y-2 text-xs text-muted-foreground">
                   <div className="flex flex-wrap gap-2">
-                    {selectedWorkspace.isSource && mode === "link" && (
+                    {selectedFolder.isSource && mode === "link" && (
                       <Badge variant="secondary">
-                        This workspace already contains the original deck
+                        This folder already contains the original deck
                       </Badge>
                     )}
-                    {selectedWorkspace.hasLink &&
-                      mode === "link" &&
-                      !selectedWorkspace.isSource && (
-                        <Badge variant="secondary">Already linked in this workspace</Badge>
-                      )}
-                    {selectedWorkspace.hasCopy && mode === "copy" && (
-                      <Badge variant="secondary">Already copied to this workspace</Badge>
+                    {selectedFolder.hasLink && mode === "link" && !selectedFolder.isSource && (
+                      <Badge variant="secondary">Already linked in this folder</Badge>
+                    )}
+                    {selectedFolder.hasCopy && mode === "copy" && (
+                      <Badge variant="secondary">Already copied to this folder</Badge>
                     )}
                   </div>
 
@@ -273,9 +255,9 @@ export function AddToWorkspaceDialog({
                 onClick={handleSubmit}
                 disabled={
                   submitting ||
-                  !selectedWorkspaceId ||
-                  (mode === "link" && !!selectedWorkspace?.hasLink) ||
-                  (mode === "link" && !!selectedWorkspace?.isSource)
+                  !selectedFolderId ||
+                  (mode === "link" && !!selectedFolder?.hasLink) ||
+                  (mode === "link" && !!selectedFolder?.isSource)
                 }
                 className="w-full"
               >
@@ -290,12 +272,12 @@ export function AddToWorkspaceDialog({
   );
 }
 
-interface AddToWorkspaceButtonsProps {
+interface AddToFolderButtonsProps {
   deckId: string;
   sourceArchived?: boolean;
 }
 
-export function AddToWorkspaceButtons({ deckId, sourceArchived }: AddToWorkspaceButtonsProps) {
+export function AddToFolderButtons({ deckId, sourceArchived }: AddToFolderButtonsProps) {
   const [dialogMode, setDialogMode] = useState<CopyMode>("link");
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -311,7 +293,7 @@ export function AddToWorkspaceButtons({ deckId, sourceArchived }: AddToWorkspace
           }}
         >
           <Link2 className="mr-2 h-4 w-4" />
-          Add to Workspace
+          Link to Folder
         </Button>
       )}
       <Button
@@ -325,7 +307,7 @@ export function AddToWorkspaceButtons({ deckId, sourceArchived }: AddToWorkspace
         <Copy className="mr-2 h-4 w-4" />
         Copy Deck
       </Button>
-      <AddToWorkspaceDialog
+      <AddToFolderDialog
         key={`${dialogMode}-${dialogOpen}`}
         deckId={deckId}
         initialMode={dialogMode}

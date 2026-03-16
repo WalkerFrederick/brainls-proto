@@ -1,5 +1,5 @@
 {
-  "id": "44532530-7a02-434d-b74f-76f784a49464",
+  "id": "c56f24cb-94bd-48d0-bba8-caa493a91d79",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -237,8 +237,8 @@
           "notNull": true,
           "default": "'active'"
         },
-        "personal_workspace_id": {
-          "name": "personal_workspace_id",
+        "personal_folder_id": {
+          "name": "personal_folder_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -341,8 +341,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.workspace_members": {
-      "name": "workspace_members",
+    "public.folder_members": {
+      "name": "folder_members",
       "schema": "",
       "columns": {
         "id": {
@@ -352,8 +352,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "workspace_id": {
-          "name": "workspace_id",
+        "folder_id": {
+          "name": "folder_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -407,18 +407,18 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "workspace_members_workspace_id_workspaces_id_fk": {
-          "name": "workspace_members_workspace_id_workspaces_id_fk",
-          "tableFrom": "workspace_members",
-          "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
+        "folder_members_folder_id_folders_id_fk": {
+          "name": "folder_members_folder_id_folders_id_fk",
+          "tableFrom": "folder_members",
+          "tableTo": "folders",
+          "columnsFrom": ["folder_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "workspace_members_user_id_users_id_fk": {
-          "name": "workspace_members_user_id_users_id_fk",
-          "tableFrom": "workspace_members",
+        "folder_members_user_id_users_id_fk": {
+          "name": "folder_members_user_id_users_id_fk",
+          "tableFrom": "folder_members",
           "tableTo": "users",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
@@ -432,12 +432,12 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.workspace_settings": {
-      "name": "workspace_settings",
+    "public.folder_settings": {
+      "name": "folder_settings",
       "schema": "",
       "columns": {
-        "workspace_id": {
-          "name": "workspace_id",
+        "folder_id": {
+          "name": "folder_id",
           "type": "uuid",
           "primaryKey": true,
           "notNull": true
@@ -479,11 +479,11 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "workspace_settings_workspace_id_workspaces_id_fk": {
-          "name": "workspace_settings_workspace_id_workspaces_id_fk",
-          "tableFrom": "workspace_settings",
-          "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
+        "folder_settings_folder_id_folders_id_fk": {
+          "name": "folder_settings_folder_id_folders_id_fk",
+          "tableFrom": "folder_settings",
+          "tableTo": "folders",
+          "columnsFrom": ["folder_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -495,8 +495,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.workspaces": {
-      "name": "workspaces",
+    "public.folders": {
+      "name": "folders",
       "schema": "",
       "columns": {
         "id": {
@@ -530,13 +530,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "kind": {
-          "name": "kind",
-          "type": "varchar(31)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'personal'"
-        },
         "created_by_user_id": {
           "name": "created_by_user_id",
           "type": "uuid",
@@ -566,9 +559,9 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "workspaces_created_by_user_id_users_id_fk": {
-          "name": "workspaces_created_by_user_id_users_id_fk",
-          "tableFrom": "workspaces",
+        "folders_created_by_user_id_users_id_fk": {
+          "name": "folders_created_by_user_id_users_id_fk",
+          "tableFrom": "folders",
           "tableTo": "users",
           "columnsFrom": ["created_by_user_id"],
           "columnsTo": ["id"],
@@ -578,8 +571,8 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "workspaces_slug_unique": {
-          "name": "workspaces_slug_unique",
+        "folders_slug_unique": {
+          "name": "folders_slug_unique",
           "nullsNotDistinct": false,
           "columns": ["slug"]
         }
@@ -599,8 +592,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "workspace_id": {
-          "name": "workspace_id",
+        "folder_id": {
+          "name": "folder_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -645,11 +638,11 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "assets_workspace_id_workspaces_id_fk": {
-          "name": "assets_workspace_id_workspaces_id_fk",
+        "assets_folder_id_folders_id_fk": {
+          "name": "assets_folder_id_folders_id_fk",
           "tableFrom": "assets",
-          "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
+          "tableTo": "folders",
+          "columnsFrom": ["folder_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -876,8 +869,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "workspace_id": {
-          "name": "workspace_id",
+        "folder_id": {
+          "name": "folder_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -979,11 +972,11 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "deck_definitions_workspace_id_workspaces_id_fk": {
-          "name": "deck_definitions_workspace_id_workspaces_id_fk",
+        "deck_definitions_folder_id_folders_id_fk": {
+          "name": "deck_definitions_folder_id_folders_id_fk",
           "tableFrom": "deck_definitions",
-          "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
+          "tableTo": "folders",
+          "columnsFrom": ["folder_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"

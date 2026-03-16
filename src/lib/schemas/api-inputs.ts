@@ -15,20 +15,19 @@ const titleField = z
   .max(500)
   .regex(/[a-zA-Z0-9]/, "Title must contain at least one letter or number");
 
-export const CreateWorkspaceSchema = z.object({
+export const CreateFolderSchema = z.object({
   name: nameField,
   description: z.string().trim().max(2048).optional(),
-  kind: z.enum(["personal", "shared"]).default("shared"),
 });
 
-export const UpdateWorkspaceSchema = z.object({
-  workspaceId: z.string().uuid(),
+export const UpdateFolderSchema = z.object({
+  folderId: z.string().uuid(),
   name: nameField.optional(),
   description: z.string().trim().max(2048).optional(),
 });
 
-export const InviteWorkspaceMemberSchema = z.object({
-  workspaceId: z.string().uuid(),
+export const InviteFolderMemberSchema = z.object({
+  folderId: z.string().uuid(),
   email: z.string().email("Valid email required"),
   role: z.enum(["admin", "editor", "viewer"]).default("viewer"),
 });
@@ -39,12 +38,12 @@ export const UpdateMemberRoleSchema = z.object({
 });
 
 export const CreateDeckSchema = z.object({
-  workspaceId: z.string().uuid(),
+  folderId: z.string().uuid(),
   title: titleField,
   description: z.string().trim().max(5000).optional(),
 });
 
-const viewPolicyEnum = z.enum(["private", "workspace", "link", "public"]);
+const viewPolicyEnum = z.enum(["private", "folder", "link", "public"]);
 
 export const UpdateDeckSchema = z.object({
   deckId: z.string().uuid(),
@@ -73,9 +72,9 @@ export const SubmitReviewSchema = z.object({
   skipSrsUpdate: z.boolean().optional(),
 });
 
-export type CreateWorkspaceInput = z.infer<typeof CreateWorkspaceSchema>;
-export type UpdateWorkspaceInput = z.infer<typeof UpdateWorkspaceSchema>;
-export type InviteWorkspaceMemberInput = z.infer<typeof InviteWorkspaceMemberSchema>;
+export type CreateFolderInput = z.infer<typeof CreateFolderSchema>;
+export type UpdateFolderInput = z.infer<typeof UpdateFolderSchema>;
+export type InviteFolderMemberInput = z.infer<typeof InviteFolderMemberSchema>;
 export type UpdateMemberRoleInput = z.infer<typeof UpdateMemberRoleSchema>;
 export type CreateDeckInput = z.infer<typeof CreateDeckSchema>;
 export type UpdateDeckInput = z.infer<typeof UpdateDeckSchema>;

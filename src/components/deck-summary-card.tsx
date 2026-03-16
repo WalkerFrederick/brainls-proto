@@ -1,4 +1,4 @@
-import { BookOpen, User } from "lucide-react";
+import { BookOpen, User, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlatformBadge } from "@/components/platform-badge";
@@ -11,8 +11,7 @@ interface DeckSummaryCardProps {
   authorName?: string;
   createdByUserId?: string;
   viewPolicy?: string;
-  linkedDeckDefinitionId?: string | null;
-  copiedFromDeckDefinitionId?: string | null;
+  isLinked?: boolean;
   isAbandoned?: boolean;
 }
 
@@ -24,16 +23,10 @@ export function DeckSummaryCard({
   authorName,
   createdByUserId,
   viewPolicy,
-  linkedDeckDefinitionId,
-  copiedFromDeckDefinitionId,
+  isLinked,
   isAbandoned,
 }: DeckSummaryCardProps) {
   const hasTags = tags && tags.length > 0;
-  const hasBadges =
-    viewPolicy ||
-    (linkedDeckDefinitionId && !isAbandoned) ||
-    (linkedDeckDefinitionId && isAbandoned) ||
-    copiedFromDeckDefinitionId;
 
   return (
     <Card className="h-full transition-colors hover:border-primary/50 hover:bg-muted/30">
@@ -64,30 +57,19 @@ export function DeckSummaryCard({
             )}
           </div>
         )}
-        {hasBadges && (
+        {(viewPolicy || isLinked) && (
           <div className="mt-2 flex flex-wrap gap-1">
-            {linkedDeckDefinitionId && !isAbandoned && (
+            {isLinked && (
               <Badge
                 variant="secondary"
-                className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                className={
+                  isAbandoned
+                    ? "text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    : "text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                }
               >
+                {isAbandoned && <AlertTriangle className="mr-1 h-3 w-3" />}
                 linked
-              </Badge>
-            )}
-            {linkedDeckDefinitionId && isAbandoned && (
-              <Badge
-                variant="secondary"
-                className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400"
-              >
-                abandoned
-              </Badge>
-            )}
-            {copiedFromDeckDefinitionId && (
-              <Badge
-                variant="secondary"
-                className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400"
-              >
-                copied
               </Badge>
             )}
             {viewPolicy && <Badge variant="outline">{viewPolicy}</Badge>}

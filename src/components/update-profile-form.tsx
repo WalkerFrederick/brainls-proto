@@ -6,7 +6,7 @@ import { Loader2, Camera, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { authClient } from "@/lib/auth-client";
+import { authClient, useSession } from "@/lib/auth-client";
 import { removeAvatar } from "@/actions/avatar";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { UserAvatar } from "@/components/user-avatar";
@@ -22,6 +22,7 @@ interface Props {
 
 export function UpdateProfileForm({ name: initialName, email, image: initialImage }: Props) {
   const router = useRouter();
+  const { refetch } = useSession();
   const [name, setName] = useState(initialName);
   const [image, setImage] = useState(initialImage);
   const [loading, setLoading] = useState(false);
@@ -41,6 +42,7 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
       if (files[0]) {
         setImage(files[0].url);
         setMessage("Avatar updated.");
+        refetch();
         router.refresh();
       }
     },
@@ -57,11 +59,12 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
     } else {
       setImage(null);
       setMessage("Avatar removed.");
+      refetch();
       router.refresh();
     }
 
     setLoading(false);
-  }, [router]);
+  }, [router, refetch]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,6 +77,7 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
       setMessage(result.error.message ?? "Update failed");
     } else {
       setMessage("Profile updated.");
+      refetch();
       router.refresh();
     }
 

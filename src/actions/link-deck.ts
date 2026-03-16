@@ -114,6 +114,7 @@ export async function linkDeckToFolder(
           userDeckId: ud.id,
           cardDefinitionId: c.id,
           ...defaultState,
+          easeFactor: String(defaultState.easeFactor),
         })),
       );
     }

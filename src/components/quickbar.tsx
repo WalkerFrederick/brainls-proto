@@ -3,17 +3,18 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, Bell, Menu, X, FilePlus } from "lucide-react";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { Bell, Menu, X, Plus, FilePlus, FolderPlus } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
-import { CreateDeckDialog } from "@/components/create-deck-dialog";
-import { CreateCardDialog } from "@/components/create-card-dialog";
 import { useSession } from "@/lib/auth-client";
 import { Brain } from "lucide-react";
 import { SidebarNav } from "@/components/app-sidebar";
+import { CreateDeckDialog } from "@/components/create-deck-dialog";
+import { CreateCardDialog } from "@/components/create-card-dialog";
+import { CreateFolderDialog } from "@/components/create-folder-dialog";
 
 interface QuickbarProps {
   pendingInviteCount: number;
@@ -23,16 +24,15 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   const { data: session } = useSession();
   const [isSticky, setIsSticky] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [deckDialogOpen, setDeckDialogOpen] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
   const [cardDialogOpen, setCardDialogOpen] = useState(false);
+  const [deckDialogOpen, setDeckDialogOpen] = useState(false);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const prevPathname = useRef(pathname);
 
-  const contextWorkspaceId = pathname.startsWith("/workspace/")
-    ? pathname.split("/")[2]
-    : undefined;
-
+  const contextFolderId = pathname.startsWith("/folder/") ? pathname.split("/")[2] : undefined;
   const contextDeckId = pathname.startsWith("/deck/") ? pathname.split("/")[2] : undefined;
 
   useEffect(() => {
@@ -41,14 +41,6 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
       setTimeout(() => setDrawerOpen(false), 0);
     }
   }, [pathname]);
-
-  useHotkey("Shift+D", () => {
-    setDeckDialogOpen(true);
-  });
-
-  useHotkey("Shift+N", () => {
-    setCardDialogOpen(true);
-  });
 
   useEffect(() => {
     const el = wrapperRef.current;
@@ -69,8 +61,6 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
 
   return (
     <>
-      {/* Outer wrapper: always sticky, always same size in flow. 
-          Padding creates space around the pill on desktop. */}
       <div ref={wrapperRef} className="sticky top-0 z-30 px-0 py-0 md:px-4 md:py-3">
         <div
           className={cn(
@@ -79,141 +69,194 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
             isSticky ? "md:bg-background/80 md:shadow-lg md:backdrop-blur-md" : "md:shadow-sm",
           )}
         >
-          <QuickbarContent
-            session={session}
-            pendingInviteCount={pendingInviteCount}
-            onMenuClick={() => setDrawerOpen(true)}
-            deckDialogOpen={deckDialogOpen}
-            onDeckDialogOpenChange={setDeckDialogOpen}
-            cardDialogOpen={cardDialogOpen}
-            onCardDialogOpenChange={setCardDialogOpen}
-            contextWorkspaceId={contextWorkspaceId}
-            contextDeckId={contextDeckId}
-          />
+          <div className="flex items-center justify-between px-4 py-2 md:px-5 md:py-2.5">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="text-muted-foreground hover:text-foreground md:hidden"
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3 ml-auto">
+              <Link
+                href="/notifications"
+                className="relative flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                {pendingInviteCount > 0 && (
+                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" />
+                )}
+              </Link>
+
+              {session ? (
+                <Link
+                  href="/settings/account"
+                  className="flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium transition-colors hover:bg-accent"
+                >
+                  <span className="hidden text-sm font-medium sm:inline">
+                    {session.user.name ?? session.user.email}
+                  </span>
+                  <UserAvatar
+                    src={session.user.image}
+                    fallback={session.user.name ?? session.user.email}
+                    size="sm"
+                  />
+                </Link>
+              ) : (
+                <div className="h-8 w-8 rounded-full bg-muted" />
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {drawerOpen && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={closeDrawer} />
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-60 flex-col bg-sidebar text-sidebar-foreground shadow-lg md:hidden">
-            <div className="flex items-center justify-between px-4 py-4">
-              <div className="flex items-center gap-2">
-                <Brain className="h-6 w-6 text-primary" />
-                <span className="text-lg font-semibold">BrainLS</span>
-              </div>
-              <button
-                type="button"
-                onClick={closeDrawer}
-                className="text-sidebar-foreground"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <Separator />
-            <SidebarNav />
-          </aside>
-        </>
-      )}
-    </>
-  );
-}
-
-interface QuickbarContentProps {
-  session: ReturnType<typeof useSession>["data"];
-  pendingInviteCount: number;
-  onMenuClick: () => void;
-  deckDialogOpen: boolean;
-  onDeckDialogOpenChange: (open: boolean) => void;
-  cardDialogOpen: boolean;
-  onCardDialogOpenChange: (open: boolean) => void;
-  contextWorkspaceId?: string;
-  contextDeckId?: string;
-}
-
-function QuickbarContent({
-  session,
-  pendingInviteCount,
-  onMenuClick,
-  deckDialogOpen,
-  onDeckDialogOpenChange,
-  cardDialogOpen,
-  onCardDialogOpenChange,
-  contextWorkspaceId,
-  contextDeckId,
-}: QuickbarContentProps) {
-  return (
-    <div className="flex items-center justify-between px-4 py-2 md:px-5 md:py-2.5">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onMenuClick}
-          className="mr-1 text-muted-foreground hover:text-foreground md:hidden"
-          aria-label="Open menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        <CreateCardDialog
-          deckDefinitionId={contextDeckId}
-          open={cardDialogOpen}
-          onOpenChange={onCardDialogOpenChange}
-          trigger={
-            <Button size="sm" title="Add Card (Shift+N)">
-              <FilePlus className="mr-2 h-4 w-4" />
-              Add Card
-              <kbd className="ml-1.5 hidden sm:inline-flex h-5 items-center justify-center gap-0.5 rounded border border-current/20 px-1.5 font-mono text-[10px] font-medium opacity-60">
-                Shift + N
-              </kbd>
-            </Button>
-          }
-        />
-        <CreateDeckDialog
-          workspaceId={contextWorkspaceId}
-          open={deckDialogOpen}
-          onOpenChange={onDeckDialogOpenChange}
-          trigger={
-            <Button size="sm" title="New Deck (Shift+D)">
-              <Plus className="mr-2 h-4 w-4" />
-              New Deck
-              <kbd className="ml-1.5 hidden sm:inline-flex h-5 items-center justify-center gap-0.5 rounded border border-current/20 px-1.5 font-mono text-[10px] font-medium opacity-60">
-                Shift + D
-              </kbd>
-            </Button>
-          }
-        />
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Link
-          href="/notifications"
-          className="relative flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          {pendingInviteCount > 0 && (
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" />
-          )}
-        </Link>
-
-        {session ? (
-          <Link
-            href="/settings/account"
-            className="flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium transition-colors hover:bg-accent"
-          >
-            <span className="hidden text-sm font-medium sm:inline">
-              {session.user.name ?? session.user.email}
-            </span>
-            <UserAvatar
-              src={session.user.image}
-              fallback={session.user.name ?? session.user.email}
-              size="sm"
+      {/* Mobile sidebar drawer */}
+      <AnimatePresence>
+        {drawerOpen && (
+          <>
+            <motion.div
+              key="drawer-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black/50 md:hidden"
+              onClick={closeDrawer}
             />
-          </Link>
-        ) : (
-          <div className="h-8 w-8 rounded-full bg-muted" />
+            <motion.aside
+              key="drawer"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="fixed inset-y-0 left-0 z-50 flex w-[60%] flex-col bg-sidebar text-sidebar-foreground shadow-lg md:hidden"
+            >
+              <div className="flex items-center justify-between px-4 py-4">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-6 w-6 text-primary" />
+                  <span className="text-lg font-semibold">BrainLS</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeDrawer}
+                  className="text-sidebar-foreground"
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <Separator />
+              <SidebarNav />
+            </motion.aside>
+          </>
         )}
+      </AnimatePresence>
+
+      {/* FAB for mobile */}
+      <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3 md:hidden">
+        <AnimatePresence>
+          {fabOpen && (
+            <>
+              <motion.div
+                key="fab-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 -z-10 bg-black/40 backdrop-blur-sm"
+                onClick={() => setFabOpen(false)}
+              />
+              {[
+                {
+                  key: "folder",
+                  label: "New Folder",
+                  icon: <FolderPlus className="h-5 w-5" />,
+                  dialog: (trigger: React.ReactElement) => (
+                    <CreateFolderDialog
+                      open={folderDialogOpen}
+                      onOpenChange={(v) => {
+                        setFolderDialogOpen(v);
+                        if (!v) setFabOpen(false);
+                      }}
+                      trigger={trigger}
+                    />
+                  ),
+                  onOpen: () => setFolderDialogOpen(true),
+                  delay: 0,
+                },
+                {
+                  key: "deck",
+                  label: "New Deck",
+                  icon: <Plus className="h-5 w-5" />,
+                  dialog: (trigger: React.ReactElement) => (
+                    <CreateDeckDialog
+                      folderId={contextFolderId}
+                      open={deckDialogOpen}
+                      onOpenChange={(v) => {
+                        setDeckDialogOpen(v);
+                        if (!v) setFabOpen(false);
+                      }}
+                      trigger={trigger}
+                    />
+                  ),
+                  onOpen: () => setDeckDialogOpen(true),
+                  delay: 0.04,
+                },
+                {
+                  key: "card",
+                  label: "Add Card",
+                  icon: <FilePlus className="h-5 w-5" />,
+                  dialog: (trigger: React.ReactElement) => (
+                    <CreateCardDialog
+                      deckDefinitionId={contextDeckId}
+                      open={cardDialogOpen}
+                      onOpenChange={(v) => {
+                        setCardDialogOpen(v);
+                        if (!v) setFabOpen(false);
+                      }}
+                      trigger={trigger}
+                    />
+                  ),
+                  onOpen: () => setCardDialogOpen(true),
+                  delay: 0.08,
+                },
+              ].map((item) => (
+                <motion.div
+                  key={item.key}
+                  initial={{ opacity: 0, y: 16, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  transition={{ duration: 0.15, delay: item.delay }}
+                >
+                  {item.dialog(
+                    <button type="button" onClick={item.onOpen} className="flex items-center gap-3">
+                      <span className="rounded-lg bg-popover px-3 py-1.5 text-sm font-medium shadow-md">
+                        {item.label}
+                      </span>
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+                        {item.icon}
+                      </span>
+                    </button>,
+                  )}
+                </motion.div>
+              ))}
+            </>
+          )}
+        </AnimatePresence>
+        <Button
+          size="icon"
+          className={cn(
+            "h-14 w-14 rounded-full shadow-lg transition-transform duration-200",
+            fabOpen && "rotate-45",
+          )}
+          onClick={() => setFabOpen((prev) => !prev)}
+          aria-label={fabOpen ? "Close actions" : "Open actions"}
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
       </div>
-    </div>
+    </>
   );
 }

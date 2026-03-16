@@ -1,36 +1,36 @@
 import type { Metadata } from "next";
-import { getWorkspace, getWorkspaceRole } from "@/actions/workspace";
+import { getFolder, getFolderRole } from "@/actions/folder";
 import { listDecks } from "@/actions/deck";
 import { Layers } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
-import { WorkspaceSettingsDialog } from "@/components/workspace-settings-dialog";
+import { FolderSettingsDialog } from "@/components/folder-settings-dialog";
 import { UserAvatar } from "@/components/user-avatar";
 
 interface Props {
-  params: Promise<{ workspaceId: string }>;
+  params: Promise<{ folderId: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { workspaceId } = await params;
-  const result = await getWorkspace(workspaceId);
-  const title = result.success ? result.data.name : "Workspace";
+  const { folderId } = await params;
+  const result = await getFolder(folderId);
+  const title = result.success ? result.data.name : "Folder";
   return { title };
 }
 
-export default async function WorkspacePage({ params }: Props) {
-  const { workspaceId } = await params;
+export default async function FolderPage({ params }: Props) {
+  const { folderId } = await params;
 
-  const [wsResult, decksResult, roleResult] = await Promise.all([
-    getWorkspace(workspaceId),
-    listDecks(workspaceId),
-    getWorkspaceRole(workspaceId),
+  const [folderResult, decksResult, roleResult] = await Promise.all([
+    getFolder(folderId),
+    listDecks(folderId),
+    getFolderRole(folderId),
   ]);
 
-  if (!wsResult.success) {
-    return <div className="text-destructive">Error: {wsResult.error}</div>;
+  if (!folderResult.success) {
+    return <div className="text-destructive">Error: {folderResult.error}</div>;
   }
 
   const decks = decksResult.success ? decksResult.data : [];
@@ -40,24 +40,27 @@ export default async function WorkspacePage({ params }: Props) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <UserAvatar src={wsResult.data.avatarUrl} fallback={wsResult.data.name} size="md" />
+          <UserAvatar
+            src={folderResult.data.avatarUrl}
+            fallback={folderResult.data.name}
+            size="md"
+          />
           <div>
-            <h1 className="text-2xl font-bold">{wsResult.data.name}</h1>
-            {wsResult.data.description && (
-              <p className="text-sm text-muted-foreground">{wsResult.data.description}</p>
+            <h1 className="text-2xl font-bold">{folderResult.data.name}</h1>
+            {folderResult.data.description && (
+              <p className="text-sm text-muted-foreground">{folderResult.data.description}</p>
             )}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <WorkspaceSettingsDialog
-            workspaceId={workspaceId}
-            workspaceName={wsResult.data.name}
-            workspaceDescription={wsResult.data.description}
-            workspaceAvatarUrl={wsResult.data.avatarUrl}
-            workspaceKind={wsResult.data.kind}
+          <FolderSettingsDialog
+            folderId={folderId}
+            folderName={folderResult.data.name}
+            folderDescription={folderResult.data.description}
+            folderAvatarUrl={folderResult.data.avatarUrl}
             currentUserRole={currentRole}
           />
-          <CreateDeckDialog workspaceId={workspaceId} />
+          <CreateDeckDialog folderId={folderId} />
         </div>
       </div>
 

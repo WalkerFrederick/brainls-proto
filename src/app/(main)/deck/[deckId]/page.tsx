@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { getDeck } from "@/actions/deck";
-import { getWorkspace } from "@/actions/workspace";
+import { getFolder } from "@/actions/folder";
 import { listCards } from "@/actions/card";
 import { getDeckStudyStats } from "@/actions/study";
 import { getDeckTags } from "@/actions/tag";
@@ -12,11 +12,11 @@ import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import { ShareDeckButton } from "@/components/share-deck-button";
-import { AddToWorkspaceButtons } from "@/components/add-to-workspace-dialog";
+import { AddToFolderButtons } from "@/components/add-to-folder-dialog";
 import { DeckCardItem } from "@/components/deck-card-item";
 import { PlatformBadge } from "@/components/platform-badge";
 import { TagFilter } from "@/components/tag-filter";
-import { canEditDeckInWorkspace, getWorkspaceMember } from "@/lib/permissions";
+import { canEditDeckInFolder, getFolderMember } from "@/lib/permissions";
 import { resolveSourceDeckFromData } from "@/lib/deck-resolver";
 import { requireSession } from "@/lib/auth-server";
 
@@ -74,20 +74,17 @@ export default async function DeckPage({ params, searchParams }: Props) {
   const deck = deckResult.data;
   const isDefaultDeck = session.user.defaultDeckId === deckId;
 
-  const [isEditor, member, resolved, wsResult, cardsResult, statsResult, deckTagNames] =
-    await Promise.all([
-      canEditDeckInWorkspace(deck.workspaceId, session.user.id),
-      getWorkspaceMember(deck.workspaceId, session.user.id),
-      resolveSourceDeckFromData(deckId, deck.linkedDeckDefinitionId),
-      getWorkspace(deck.workspaceId),
-      listCards(deckId, { tag: tagFilter }),
-      getDeckStudyStats(deckId),
-      getDeckTags(deckId),
-    ]);
+  const [isEditor, member, resolved, cardsResult, statsResult, deckTagNames] = await Promise.all([
+    canEditDeckInFolder(deck.folderId, session.user.id),
+    getFolderMember(deck.folderId, session.user.id),
+    resolveSourceDeckFromData(deckId, deck.linkedDeckDefinitionId),
+    listCards(deckId, { tag: tagFilter }),
+    getDeckStudyStats(deckId),
+    getDeckTags(deckId),
+  ]);
 
   const canArchive = member !== null && ["owner", "admin"].includes(member.role);
   const canChangeVisibility = canArchive;
-  const workspaceKind = wsResult.success ? wsResult.data.kind : "shared";
   const cards = cardsResult.success ? cardsResult.data : [];
   const stats = statsResult.success ? statsResult.data : null;
 
@@ -104,7 +101,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
             </p>
             <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
               Your existing cards are still available, but no new cards will be added. Copy it to
-              your workspace to keep an independent version you can update.
+              your folder to keep an independent version you can update.
             </p>
           </div>
         </div>
@@ -165,13 +162,12 @@ export default async function DeckPage({ params, searchParams }: Props) {
               viewPolicy={deck.viewPolicy}
               canArchive={canArchive}
               canChangeVisibility={canChangeVisibility}
-              workspaceKind={workspaceKind}
               initialTags={deckTagNames}
               isDefaultDeck={isDefaultDeck}
               isLinked={resolved.isLinked}
             />
           )}
-          <AddToWorkspaceButtons
+          <AddToFolderButtons
             deckId={resolved.isLinked ? resolved.sourceDeckId : deckId}
             sourceArchived={resolved.isAbandoned || !!deck.archivedAt}
           />

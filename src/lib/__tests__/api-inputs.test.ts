@@ -1,44 +1,44 @@
 import { describe, it, expect } from "vitest";
 import {
-  CreateWorkspaceSchema,
+  CreateFolderSchema,
   CreateDeckSchema,
   CreateCardSchema,
   SubmitReviewSchema,
-  InviteWorkspaceMemberSchema,
+  InviteFolderMemberSchema,
   UpdateMemberRoleSchema,
 } from "@/lib/schemas/api-inputs";
 
-describe("CreateWorkspaceSchema", () => {
-  it("accepts valid workspace", () => {
-    const result = CreateWorkspaceSchema.safeParse({ name: "My Workspace" });
+describe("CreateFolderSchema", () => {
+  it("accepts valid folder", () => {
+    const result = CreateFolderSchema.safeParse({ name: "My Folder" });
     expect(result.success).toBe(true);
   });
 
   it("rejects empty name", () => {
-    const result = CreateWorkspaceSchema.safeParse({ name: "" });
+    const result = CreateFolderSchema.safeParse({ name: "" });
     expect(result.success).toBe(false);
   });
 
   it("rejects whitespace-only name", () => {
-    const result = CreateWorkspaceSchema.safeParse({ name: "   " });
+    const result = CreateFolderSchema.safeParse({ name: "   " });
     expect(result.success).toBe(false);
   });
 
   it("rejects single-character name", () => {
-    const result = CreateWorkspaceSchema.safeParse({ name: "A" });
+    const result = CreateFolderSchema.safeParse({ name: "A" });
     expect(result.success).toBe(false);
   });
 
   it("rejects name with no alphanumeric characters", () => {
-    const result = CreateWorkspaceSchema.safeParse({ name: "---" });
+    const result = CreateFolderSchema.safeParse({ name: "---" });
     expect(result.success).toBe(false);
   });
 
   it("trims whitespace from valid name", () => {
-    const result = CreateWorkspaceSchema.safeParse({ name: "  My Workspace  " });
+    const result = CreateFolderSchema.safeParse({ name: "  My Folder  " });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.name).toBe("My Workspace");
+      expect(result.data.name).toBe("My Folder");
     }
   });
 });
@@ -46,15 +46,15 @@ describe("CreateWorkspaceSchema", () => {
 describe("CreateDeckSchema", () => {
   it("accepts valid deck", () => {
     const result = CreateDeckSchema.safeParse({
-      workspaceId: "550e8400-e29b-41d4-a716-446655440000",
+      folderId: "550e8400-e29b-41d4-a716-446655440000",
       title: "Biology 101",
     });
     expect(result.success).toBe(true);
   });
 
-  it("rejects invalid workspaceId", () => {
+  it("rejects invalid folderId", () => {
     const result = CreateDeckSchema.safeParse({
-      workspaceId: "not-a-uuid",
+      folderId: "not-a-uuid",
       title: "Biology 101",
     });
     expect(result.success).toBe(false);
@@ -62,7 +62,7 @@ describe("CreateDeckSchema", () => {
 
   it("rejects whitespace-only title", () => {
     const result = CreateDeckSchema.safeParse({
-      workspaceId: "550e8400-e29b-41d4-a716-446655440000",
+      folderId: "550e8400-e29b-41d4-a716-446655440000",
       title: " ",
     });
     expect(result.success).toBe(false);
@@ -70,7 +70,7 @@ describe("CreateDeckSchema", () => {
 
   it("rejects title with no alphanumeric characters", () => {
     const result = CreateDeckSchema.safeParse({
-      workspaceId: "550e8400-e29b-41d4-a716-446655440000",
+      folderId: "550e8400-e29b-41d4-a716-446655440000",
       title: "!!??",
     });
     expect(result.success).toBe(false);
@@ -117,10 +117,10 @@ describe("SubmitReviewSchema", () => {
   });
 });
 
-describe("InviteWorkspaceMemberSchema", () => {
+describe("InviteFolderMemberSchema", () => {
   it("accepts valid invite", () => {
-    const result = InviteWorkspaceMemberSchema.safeParse({
-      workspaceId: "550e8400-e29b-41d4-a716-446655440000",
+    const result = InviteFolderMemberSchema.safeParse({
+      folderId: "550e8400-e29b-41d4-a716-446655440000",
       email: "test@example.com",
       role: "editor",
     });
@@ -128,8 +128,8 @@ describe("InviteWorkspaceMemberSchema", () => {
   });
 
   it("rejects invalid email", () => {
-    const result = InviteWorkspaceMemberSchema.safeParse({
-      workspaceId: "550e8400-e29b-41d4-a716-446655440000",
+    const result = InviteFolderMemberSchema.safeParse({
+      folderId: "550e8400-e29b-41d4-a716-446655440000",
       email: "not-an-email",
     });
     expect(result.success).toBe(false);

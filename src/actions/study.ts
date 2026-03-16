@@ -8,8 +8,8 @@ import {
   reviewLogs,
   cardDefinitions,
   deckDefinitions,
-  workspaceMembers,
-  workspaces,
+  folderMembers,
+  folders,
   deckTags,
   tags,
 } from "@/db/schema";
@@ -338,7 +338,7 @@ export type LibraryDeck = {
   copiedFromDeckDefinitionId: string | null;
   isAbandoned: boolean;
   tags: string[];
-  workspaces: Array<{ id: string; name: string; kind: string }>;
+  folders: Array<{ id: string; name: string }>;
   userDeckId: string | null;
   totalCards: number;
   dueCards: number;
@@ -351,20 +351,17 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
 
   const memberRows = await db
     .select({
-      workspaceId: workspaceMembers.workspaceId,
-      workspaceName: workspaces.name,
-      workspaceKind: workspaces.kind,
+      folderId: folderMembers.folderId,
+      folderName: folders.name,
     })
-    .from(workspaceMembers)
-    .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
-    .where(
-      and(eq(workspaceMembers.userId, session.user.id), eq(workspaceMembers.status, "active")),
-    );
+    .from(folderMembers)
+    .innerJoin(folders, eq(folderMembers.folderId, folders.id))
+    .where(and(eq(folderMembers.userId, session.user.id), eq(folderMembers.status, "active")));
 
   if (memberRows.length === 0) return ok([]);
 
-  const wsMap = new Map(memberRows.map((r) => [r.workspaceId, r]));
-  const wsIds = [...wsMap.keys()];
+  const fMap = new Map(memberRows.map((r) => [r.folderId, r]));
+  const fIds = [...fMap.keys()];
 
   const allDecks = await db
     .select({
@@ -373,10 +370,10 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
       description: deckDefinitions.description,
       linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
       copiedFromDeckDefinitionId: deckDefinitions.copiedFromDeckDefinitionId,
-      workspaceId: deckDefinitions.workspaceId,
+      folderId: deckDefinitions.folderId,
     })
     .from(deckDefinitions)
-    .where(and(inArray(deckDefinitions.workspaceId, wsIds), isNull(deckDefinitions.archivedAt)));
+    .where(and(inArray(deckDefinitions.folderId, fIds), isNull(deckDefinitions.archivedAt)));
 
   // Deduplicate: linked decks group under their source deck ID
   const grouped = new Map<
@@ -387,7 +384,7 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
       description: string | null;
       linkedDeckDefinitionId: string | null;
       copiedFromDeckDefinitionId: string | null;
-      workspaceIds: Set<string>;
+      folderIds: Set<string>;
       representativeDeckId: string;
     }
   >();
@@ -397,7 +394,7 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
 
     const existing = grouped.get(key);
     if (existing) {
-      existing.workspaceIds.add(deck.workspaceId);
+      existing.folderIds.add(deck.folderId);
     } else {
       grouped.set(key, {
         sourceDeckId: key,
@@ -405,7 +402,7 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
         description: deck.description,
         linkedDeckDefinitionId: deck.linkedDeckDefinitionId,
         copiedFromDeckDefinitionId: deck.copiedFromDeckDefinitionId,
-        workspaceIds: new Set([deck.workspaceId]),
+        folderIds: new Set([deck.folderId]),
         representativeDeckId: deck.id,
       });
     }
@@ -498,10 +495,10 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
 
   for (const group of grouped.values()) {
     const ud = userDeckMap.get(group.sourceDeckId);
-    const deckWorkspaces = [...group.workspaceIds]
-      .map((wsId) => wsMap.get(wsId))
+    const deckFolders = [...group.folderIds]
+      .map((fId) => fMap.get(fId))
       .filter(Boolean)
-      .map((ws) => ({ id: ws!.workspaceId, name: ws!.workspaceName, kind: ws!.workspaceKind }));
+      .map((f) => ({ id: f!.folderId, name: f!.folderName }));
 
     const tagSet = new Set<string>();
     for (const deck of allDecks) {
@@ -519,7 +516,7 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
       copiedFromDeckDefinitionId: group.copiedFromDeckDefinitionId,
       isAbandoned: abandonedSet.has(group.sourceDeckId),
       tags: [...tagSet].sort(),
-      workspaces: deckWorkspaces,
+      folders: deckFolders,
       userDeckId: ud?.id ?? null,
       totalCards: ud ? (totalCountMap.get(ud.id) ?? 0) : 0,
       dueCards: ud ? (dueCountMap.get(ud.id) ?? 0) : 0,
@@ -694,8 +691,8 @@ async function ensureLibraryForTags(userId: string, tagNames: string[]) {
   const accessibleResult = await db.execute<DeckRow>(sql`
     SELECT DISTINCT dd.id as "deckId", dd.linked_deck_definition_id as "linkedDeckDefinitionId"
     FROM deck_definitions dd
-    JOIN workspace_members wm ON wm.workspace_id = dd.workspace_id
-      AND wm.user_id = ${userId} AND wm.status = 'active'
+    JOIN folder_members fm ON fm.folder_id = dd.folder_id
+      AND fm.user_id = ${userId} AND fm.status = 'active'
     JOIN card_definitions cd ON cd.deck_definition_id = dd.id
     WHERE dd.archived_at IS NULL
       AND cd.id IN ${taggedCardFilter}
@@ -704,8 +701,8 @@ async function ensureLibraryForTags(userId: string, tagNames: string[]) {
   const linkedResult = await db.execute<DeckRow>(sql`
     SELECT DISTINCT dd.id as "deckId", dd.linked_deck_definition_id as "linkedDeckDefinitionId"
     FROM deck_definitions dd
-    JOIN workspace_members wm ON wm.workspace_id = dd.workspace_id
-      AND wm.user_id = ${userId} AND wm.status = 'active'
+    JOIN folder_members fm ON fm.folder_id = dd.folder_id
+      AND fm.user_id = ${userId} AND fm.status = 'active'
     JOIN card_definitions cd ON cd.deck_definition_id = dd.linked_deck_definition_id
     WHERE dd.archived_at IS NULL
       AND dd.linked_deck_definition_id IS NOT NULL

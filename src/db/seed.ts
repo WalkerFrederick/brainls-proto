@@ -55,35 +55,30 @@ async function seed() {
     console.log(`  User: ${u.name} <${u.email}>`);
   }
 
-  // ── Helper: create workspace + settings + owner membership ─────
-  async function createWorkspace(
-    name: string,
-    slug: string,
-    kind: "personal" | "shared",
-    ownerId: string,
-  ) {
-    const [ws] = await db
-      .insert(schema.workspaces)
-      .values({ name, slug, kind, createdByUserId: ownerId })
+  // ── Helper: create folder + settings + owner membership ─────
+  async function createFolder(name: string, slug: string, ownerId: string) {
+    const [folder] = await db
+      .insert(schema.folders)
+      .values({ name, slug, createdByUserId: ownerId })
       .returning();
 
-    await db.insert(schema.workspaceSettings).values({ workspaceId: ws.id });
+    await db.insert(schema.folderSettings).values({ folderId: folder.id });
 
-    await db.insert(schema.workspaceMembers).values({
-      workspaceId: ws.id,
+    await db.insert(schema.folderMembers).values({
+      folderId: folder.id,
       userId: ownerId,
       role: "owner",
       status: "active",
       joinedAt: new Date(),
     });
 
-    return ws;
+    return folder;
   }
 
-  // ── Helper: add member to workspace ────────────────────────────
-  async function addMember(workspaceId: string, userId: string, role: string) {
-    await db.insert(schema.workspaceMembers).values({
-      workspaceId,
+  // ── Helper: add member to folder ────────────────────────────
+  async function addMember(folderId: string, userId: string, role: string) {
+    await db.insert(schema.folderMembers).values({
+      folderId,
       userId,
       role,
       status: "active",
@@ -92,9 +87,9 @@ async function seed() {
   }
 
   // ── Helper: invite member (pending) ─────────────────────────────
-  async function inviteMember(workspaceId: string, userId: string, role: string) {
-    await db.insert(schema.workspaceMembers).values({
-      workspaceId,
+  async function inviteMember(folderId: string, userId: string, role: string) {
+    await db.insert(schema.folderMembers).values({
+      folderId,
       userId,
       role,
       status: "invited",
@@ -103,7 +98,7 @@ async function seed() {
 
   // ── Helper: create deck ────────────────────────────────────────
   async function createDeck(
-    workspaceId: string,
+    folderId: string,
     title: string,
     slug: string,
     userId: string,
@@ -112,7 +107,7 @@ async function seed() {
     const [deck] = await db
       .insert(schema.deckDefinitions)
       .values({
-        workspaceId,
+        folderId,
         title,
         slug,
         description: opts?.description,
@@ -187,67 +182,46 @@ async function seed() {
     return [...indices].sort((a, b) => a - b);
   }
 
-  // ── Personal Workspaces (all 5 users) ─────────────────────────
-  const allisonPersonal = await createWorkspace(
+  // ── Personal Folders (all 5 users) ─────────────────────────
+  const allisonPersonal = await createFolder(
     "Allison's Personal",
     "allison-personal",
-    "personal",
     users.allison.id,
   );
-  const bobPersonal = await createWorkspace(
-    "Bob's Personal",
-    "bob-personal",
-    "personal",
-    users.bob.id,
-  );
-  const carolPersonal = await createWorkspace(
-    "Carol's Personal",
-    "carol-personal",
-    "personal",
-    users.carol.id,
-  );
-  const davePersonal = await createWorkspace(
-    "Dave's Personal",
-    "dave-personal",
-    "personal",
-    users.dave.id,
-  );
-  const evePersonal = await createWorkspace(
-    "Eve's Personal",
-    "eve-personal",
-    "personal",
-    users.eve.id,
-  );
+  const bobPersonal = await createFolder("Bob's Personal", "bob-personal", users.bob.id);
+  const carolPersonal = await createFolder("Carol's Personal", "carol-personal", users.carol.id);
+  const davePersonal = await createFolder("Dave's Personal", "dave-personal", users.dave.id);
+  const evePersonal = await createFolder("Eve's Personal", "eve-personal", users.eve.id);
 
   await db
     .update(schema.users)
-    .set({ personalWorkspaceId: allisonPersonal.id })
+    .set({ personalFolderId: allisonPersonal.id })
     .where(eq(schema.users.id, users.allison.id));
   await db
     .update(schema.users)
-    .set({ personalWorkspaceId: bobPersonal.id })
+    .set({ personalFolderId: bobPersonal.id })
     .where(eq(schema.users.id, users.bob.id));
   await db
     .update(schema.users)
-    .set({ personalWorkspaceId: carolPersonal.id })
+    .set({ personalFolderId: carolPersonal.id })
     .where(eq(schema.users.id, users.carol.id));
   await db
     .update(schema.users)
-    .set({ personalWorkspaceId: davePersonal.id })
+    .set({ personalFolderId: davePersonal.id })
     .where(eq(schema.users.id, users.dave.id));
   await db
     .update(schema.users)
-    .set({ personalWorkspaceId: evePersonal.id })
+    .set({ personalFolderId: evePersonal.id })
     .where(eq(schema.users.id, users.eve.id));
 
-  console.log("\n  Personal workspaces created for all 5 users");
+  console.log("\n  Personal folders created for all 5 users");
 
   // ── Scratch Pad (default deck per user) ─────────────────────────
-  async function createScratchPad(wsId: string, userId: string) {
+  async function createScratchPad(folderId: string, userId: string) {
     const [deck] = await db
       .insert(schema.deckDefinitions)
       .values({
-        workspaceId: wsId,
+        folderId,
         title: "Scratch Pad",
         slug: `scratch-pad-${userId}`,
         description: "Your default deck — experiment with different card types here.",
@@ -377,7 +351,7 @@ async function seed() {
 
   console.log("  Scratch Pad (default deck) created for all 5 users");
 
-  // ── Allison's Personal Workspace — 2 decks ────────────────────
+  // ── Allison's Personal Folder — 2 decks ────────────────────
   const bioDeck = await createDeck(
     allisonPersonal.id,
     "Biology 101",
@@ -438,11 +412,10 @@ async function seed() {
     "  Allison's Personal: Biology 101 (6 cards: 3 front/back, 3 cloze), World Capitals MC (4 cards)",
   );
 
-  // ── Allison's Shared Workspace (Owner) — Bob is editor ────────
-  const allisonShared = await createWorkspace(
+  // ── Allison's Shared Folder (Owner) — Bob is editor ────────
+  const allisonShared = await createFolder(
     "Allison's Team — Owner Role",
     "allison-team-owner",
-    "shared",
     users.allison.id,
   );
   await addMember(allisonShared.id, users.bob.id, "editor");
@@ -454,7 +427,7 @@ async function seed() {
     users.allison.id,
     {
       description: "Core JS concepts for interviews",
-      viewPolicy: "workspace",
+      viewPolicy: "folder",
     },
   );
   const jsCardIds = await createCards(jsDeck.id, users.allison.id, "front_back", [
@@ -495,7 +468,7 @@ async function seed() {
     users.allison.id,
     {
       description: "Common data structures and their trade-offs",
-      viewPolicy: "workspace",
+      viewPolicy: "folder",
     },
   );
   await createCards(dsDeck.id, users.allison.id, "multiple_choice", [
@@ -530,11 +503,10 @@ async function seed() {
     "  Allison's Team — Owner Role: JS Fundamentals (6: 2 f/b, 2 cloze, 2 shortcuts), Data Structures (5) — Bob is editor",
   );
 
-  // ── Bob's Shared Workspace — Allison is VIEWER ────────────────
-  const bobShared = await createWorkspace(
+  // ── Bob's Shared Folder — Allison is VIEWER ────────────────
+  const bobShared = await createFolder(
     "Bob's Lab — Allison Viewer",
     "bob-lab-allison-viewer",
-    "shared",
     users.bob.id,
   );
   await addMember(bobShared.id, users.allison.id, "viewer");
@@ -547,7 +519,7 @@ async function seed() {
     users.bob.id,
     {
       description: "Intro chemistry review",
-      viewPolicy: "workspace",
+      viewPolicy: "folder",
     },
   );
   const chemCardIds = await createCards(chemDeck.id, users.bob.id, "front_back", [
@@ -564,7 +536,7 @@ async function seed() {
 
   const physicsDeck = await createDeck(bobShared.id, "Physics 101", "physics-101", users.bob.id, {
     description: "Newtonian mechanics fundamentals",
-    viewPolicy: "workspace",
+    viewPolicy: "folder",
   });
   await createCards(physicsDeck.id, users.bob.id, "multiple_choice", [
     {
@@ -583,11 +555,10 @@ async function seed() {
     "  Bob's Lab — Allison Viewer: Chemistry Basics (3), Physics 101 (2) — Dave is editor",
   );
 
-  // ── Carol's Shared Workspace — Allison is EDITOR ──────────────
-  const carolShared = await createWorkspace(
+  // ── Carol's Shared Folder — Allison is EDITOR ──────────────
+  const carolShared = await createFolder(
     "Carol's Studio — Allison Editor",
     "carol-studio-allison-editor",
-    "shared",
     users.carol.id,
   );
   await addMember(carolShared.id, users.allison.id, "editor");
@@ -595,7 +566,7 @@ async function seed() {
 
   const artDeck = await createDeck(carolShared.id, "Art History", "art-history", users.carol.id, {
     description: "Major art movements and artists",
-    viewPolicy: "workspace",
+    viewPolicy: "folder",
   });
   await createCards(artDeck.id, users.carol.id, "front_back", [
     { front: "Who painted the Mona Lisa?", back: "Leonardo da Vinci (c. 1503–1519)" },
@@ -614,7 +585,7 @@ async function seed() {
     users.carol.id,
     {
       description: "Common Spanish words and phrases",
-      viewPolicy: "workspace",
+      viewPolicy: "folder",
     },
   );
   await createCards(spanishDeck.id, users.carol.id, "multiple_choice", [
@@ -644,11 +615,10 @@ async function seed() {
     "  Carol's Studio — Allison Editor: Art History (4), Spanish Vocab (6) — Eve is viewer",
   );
 
-  // ── Dave's Shared Workspace — Allison INVITED as editor ───────
-  const daveShared = await createWorkspace(
+  // ── Dave's Shared Folder — Allison INVITED as editor ───────
+  const daveShared = await createFolder(
     "Dave's Research — Pending Invite",
     "dave-research-pending",
-    "shared",
     users.dave.id,
   );
   await addMember(daveShared.id, users.eve.id, "viewer");
@@ -656,16 +626,15 @@ async function seed() {
 
   await createDeck(daveShared.id, "Machine Learning Intro", "ml-intro", users.dave.id, {
     description: "Fundamentals of ML and neural networks",
-    viewPolicy: "workspace",
+    viewPolicy: "folder",
   });
 
   console.log("  Dave's Research — Pending Invite: Allison invited as editor");
 
-  // ── Eve's Shared Workspace — Allison INVITED as viewer ────────
-  const eveShared = await createWorkspace(
+  // ── Eve's Shared Folder — Allison INVITED as viewer ────────
+  const eveShared = await createFolder(
     "Eve's Book Club — Pending Invite",
     "eve-book-club-pending",
-    "shared",
     users.eve.id,
   );
   await addMember(eveShared.id, users.carol.id, "editor");
@@ -673,7 +642,7 @@ async function seed() {
 
   await createDeck(eveShared.id, "Classic Literature", "classic-lit", users.eve.id, {
     description: "Key themes and quotes from classic novels",
-    viewPolicy: "workspace",
+    viewPolicy: "folder",
   });
 
   console.log("  Eve's Book Club — Pending Invite: Allison invited as viewer");
@@ -765,11 +734,11 @@ async function seed() {
   // ── Linked Decks ──────────────────────────────────────────────
   console.log("\nCreating linked decks...");
 
-  // Link Bob's World Capitals into Allison's personal workspace
+  // Link Bob's World Capitals into Allison's personal folder
   const [linkedWorldCapitals] = await db
     .insert(schema.deckDefinitions)
     .values({
-      workspaceId: allisonPersonal.id,
+      folderId: allisonPersonal.id,
       title: bobPublicDeck.title,
       slug: `${bobPublicDeck.slug}-linked`,
       description: bobPublicDeck.description,
@@ -781,11 +750,11 @@ async function seed() {
     .returning();
   console.log(`  Linked "World Capitals" into Allison's Personal (${linkedWorldCapitals.id})`);
 
-  // Link Carol's English Idioms into Allison's shared workspace
+  // Link Carol's English Idioms into Allison's shared folder
   const [linkedIdioms] = await db
     .insert(schema.deckDefinitions)
     .values({
-      workspaceId: allisonShared.id,
+      folderId: allisonShared.id,
       title: carolPublicDeck.title,
       slug: `${carolPublicDeck.slug}-linked`,
       description: carolPublicDeck.description,
@@ -815,7 +784,7 @@ async function seed() {
   const [linkedAbandoned] = await db
     .insert(schema.deckDefinitions)
     .values({
-      workspaceId: allisonPersonal.id,
+      folderId: allisonPersonal.id,
       title: eveAbandonedDeck.title,
       slug: `${eveAbandonedDeck.slug}-linked`,
       description: eveAbandonedDeck.description,
@@ -895,7 +864,7 @@ async function seed() {
   await addToLibrary(users.allison.id, bobPublicDeck.id);
   await addToLibrary(users.allison.id, carolPublicDeck.id);
   await addToLibrary(users.allison.id, eveAbandonedDeck.id);
-  // Decks from workspaces Allison is a member of
+  // Decks from folders Allison is a member of
   await addToLibrary(users.allison.id, chemDeck.id);
   await addToLibrary(users.allison.id, physicsDeck.id);
   await addToLibrary(users.allison.id, artDeck.id);
@@ -982,7 +951,7 @@ Seed complete!
     dave.wilson@example.com       — Dave Wilson
     eve.martinez@example.com      — Eve Martinez
 
-  Allison's workspace membership:
+  Allison's folder membership:
     ✦ Allison's Personal              → owner   (2 decks + 2 linked + Scratch Pad)
     ✦ Allison's Team — Owner Role     → owner   (2 decks + 1 linked)
     ✦ Bob's Lab — Allison Viewer      → viewer  (2 decks)
@@ -1004,7 +973,7 @@ Seed complete!
     🌐 Programming Fundamentals (Dave)    → 3 cards
     🌐 Eve's Music Theory (Eve)           → 2 cards (archived)
 
-  Linked decks in Allison's workspaces:
+  Linked decks in Allison's folders:
     🔗 World Capitals → Allison's Personal
     🔗 Common English Idioms → Allison's Team
     ⚠️  Eve's Music Theory → Allison's Personal (ABANDONED)

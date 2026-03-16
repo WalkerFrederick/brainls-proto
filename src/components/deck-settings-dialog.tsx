@@ -33,7 +33,6 @@ interface DeckSettingsDialogProps {
   viewPolicy: string;
   canArchive?: boolean;
   canChangeVisibility?: boolean;
-  workspaceKind?: string;
   initialTags?: string[];
   isDefaultDeck?: boolean;
   isLinked?: boolean;
@@ -41,7 +40,7 @@ interface DeckSettingsDialogProps {
 
 const VIEW_POLICY_OPTIONS = [
   { value: "private", label: "Private", hint: "Only editors, admins, and owners" },
-  { value: "workspace", label: "Workspace", hint: "All workspace members, including viewers" },
+  { value: "folder", label: "Folder", hint: "All folder members, including viewers" },
   { value: "link", label: "Link", hint: "Anyone with the link" },
   { value: "public", label: "Public", hint: "Discoverable by everyone" },
 ] as const;
@@ -53,7 +52,6 @@ export function DeckSettingsDialog({
   viewPolicy: initialViewPolicy,
   canArchive = false,
   canChangeVisibility = false,
-  workspaceKind = "shared",
   initialTags = [],
   isDefaultDeck = false,
   isLinked = false,
@@ -172,11 +170,7 @@ export function DeckSettingsDialog({
                 hint="Who can see this deck"
                 value={viewPolicy}
                 onChange={setViewPolicy}
-                options={
-                  workspaceKind === "personal"
-                    ? VIEW_POLICY_OPTIONS.filter((o) => o.value !== "workspace")
-                    : VIEW_POLICY_OPTIONS
-                }
+                options={VIEW_POLICY_OPTIONS}
                 disabled={!canChangeVisibility}
               />
             </div>
@@ -227,7 +221,7 @@ export function DeckSettingsDialog({
                             setArchiving(true);
                             const result = await archiveDeck(deckId);
                             if (result.success) {
-                              window.location.href = "/library";
+                              window.location.href = "/folders";
                             } else {
                               setError(result.error);
                               setArchiving(false);

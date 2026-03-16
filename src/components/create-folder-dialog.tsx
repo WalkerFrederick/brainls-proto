@@ -15,20 +15,22 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { createWorkspace } from "@/actions/workspace";
+import { createFolder } from "@/actions/folder";
 
-export function CreateWorkspaceDialog() {
+export function CreateFolderDialog({
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  trigger,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
+} = {}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<"personal" | "shared">("shared");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,7 +39,7 @@ export function CreateWorkspaceDialog() {
     setError("");
     setLoading(true);
 
-    const result = await createWorkspace({ name, kind });
+    const result = await createFolder({ name });
 
     if (!result.success) {
       setError(result.error);
@@ -53,17 +55,19 @@ export function CreateWorkspaceDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" />}>
-        <Plus className="mr-2 h-4 w-4" />
-        New Workspace
-      </DialogTrigger>
+      {trigger ? (
+        trigger
+      ) : (
+        <DialogTrigger render={<Button size="sm" />}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Folder
+        </DialogTrigger>
+      )}
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Create Workspace</DialogTitle>
-            <DialogDescription>
-              A workspace organizes your decks and collaborators.
-            </DialogDescription>
+            <DialogTitle>Create Folder</DialogTitle>
+            <DialogDescription>A folder organizes your decks and collaborators.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {error && (
@@ -72,26 +76,14 @@ export function CreateWorkspaceDialog() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="ws-name">Name</Label>
+              <Label htmlFor="folder-name">Name</Label>
               <Input
-                id="ws-name"
+                id="folder-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="My Workspace"
+                placeholder="My Folder"
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ws-kind">Type</Label>
-              <Select value={kind} onValueChange={(v) => setKind(v as "personal" | "shared")}>
-                <SelectTrigger id="ws-kind">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="personal">Personal</SelectItem>
-                  <SelectItem value="shared">Shared</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>

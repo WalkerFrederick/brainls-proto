@@ -36,9 +36,8 @@ import { TagInput } from "@/components/tag-input";
 type SupportedCardType = "front_back" | "multiple_choice" | "keyboard_shortcut" | "cloze";
 
 interface EditableDeck {
-  workspaceId: string;
-  workspaceName: string;
-  workspaceKind: string;
+  folderId: string;
+  folderName: string;
   deckId: string;
   deckTitle: string;
 }
@@ -198,12 +197,12 @@ export function CreateCardDialog({
   }
 
   const groupedDecks = editableDecks.reduce<
-    Record<string, { name: string; kind: string; decks: EditableDeck[] }>
+    Record<string, { name: string; decks: EditableDeck[] }>
   >((acc, d) => {
-    if (!acc[d.workspaceId]) {
-      acc[d.workspaceId] = { name: d.workspaceName, kind: d.workspaceKind, decks: [] };
+    if (!acc[d.folderId]) {
+      acc[d.folderId] = { name: d.folderName, decks: [] };
     }
-    acc[d.workspaceId].decks.push(d);
+    acc[d.folderId].decks.push(d);
     return acc;
   }, {});
 
@@ -255,18 +254,17 @@ export function CreateCardDialog({
                   <SelectTrigger className="w-full">
                     <SelectValue>
                       {selectedDeckLabel
-                        ? `${selectedDeckLabel.deckTitle} — ${selectedDeckLabel.workspaceName}${selectedDeckLabel.workspaceKind === "personal" ? " (Personal)" : ""}`
+                        ? `${selectedDeckLabel.deckTitle} — ${selectedDeckLabel.folderName}`
                         : "Select a deck"}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(groupedDecks).map(([wsId, ws]) => (
-                      <div key={wsId}>
+                    {Object.entries(groupedDecks).map(([fId, folder]) => (
+                      <div key={fId}>
                         <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                          {ws.name}
-                          {ws.kind === "personal" ? " (Personal)" : ""}
+                          {folder.name}
                         </div>
-                        {ws.decks.map((d) => (
+                        {folder.decks.map((d) => (
                           <SelectItem key={d.deckId} value={d.deckId}>
                             {d.deckTitle}
                           </SelectItem>

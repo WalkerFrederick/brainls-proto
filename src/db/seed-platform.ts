@@ -6,10 +6,10 @@ import { hashPassword } from "better-auth/crypto";
 import * as schema from "./schema";
 import {
   PLATFORM_USER_ID,
-  PLATFORM_WORKSPACE_ID,
+  PLATFORM_FOLDER_ID,
   PLATFORM_USER_EMAIL,
   PLATFORM_USER_NAME,
-  PLATFORM_WORKSPACE_NAME,
+  PLATFORM_FOLDER_NAME,
 } from "../lib/platform";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -55,37 +55,36 @@ async function seedPlatform() {
     console.log("  Platform user already exists, skipping");
   }
 
-  // ── Platform Workspace ────────────────────────────────────────
-  const existingWs = await db
-    .select({ id: schema.workspaces.id })
-    .from(schema.workspaces)
-    .where(eq(schema.workspaces.id, PLATFORM_WORKSPACE_ID))
+  // ── Platform Folder ───────────────────────────────────────────
+  const existingFolder = await db
+    .select({ id: schema.folders.id })
+    .from(schema.folders)
+    .where(eq(schema.folders.id, PLATFORM_FOLDER_ID))
     .limit(1);
 
-  if (existingWs.length === 0) {
-    await db.insert(schema.workspaces).values({
-      id: PLATFORM_WORKSPACE_ID,
-      name: PLATFORM_WORKSPACE_NAME,
+  if (existingFolder.length === 0) {
+    await db.insert(schema.folders).values({
+      id: PLATFORM_FOLDER_ID,
+      name: PLATFORM_FOLDER_NAME,
       slug: "brainls-official",
-      kind: "shared",
       createdByUserId: PLATFORM_USER_ID,
     });
 
-    await db.insert(schema.workspaceSettings).values({
-      workspaceId: PLATFORM_WORKSPACE_ID,
+    await db.insert(schema.folderSettings).values({
+      folderId: PLATFORM_FOLDER_ID,
     });
 
-    await db.insert(schema.workspaceMembers).values({
-      workspaceId: PLATFORM_WORKSPACE_ID,
+    await db.insert(schema.folderMembers).values({
+      folderId: PLATFORM_FOLDER_ID,
       userId: PLATFORM_USER_ID,
       role: "owner",
       status: "active",
       joinedAt: new Date(),
     });
 
-    console.log(`  Created platform workspace: ${PLATFORM_WORKSPACE_NAME}`);
+    console.log(`  Created platform folder: ${PLATFORM_FOLDER_NAME}`);
   } else {
-    console.log("  Platform workspace already exists, skipping");
+    console.log("  Platform folder already exists, skipping");
   }
 
   // ── Helpers ───────────────────────────────────────────────────
@@ -108,7 +107,7 @@ async function seedPlatform() {
     const [deck] = await db
       .insert(schema.deckDefinitions)
       .values({
-        workspaceId: PLATFORM_WORKSPACE_ID,
+        folderId: PLATFORM_FOLDER_ID,
         title,
         slug,
         description,
@@ -180,8 +179,8 @@ async function seedPlatform() {
         back: "A card where part of the text is hidden (e.g. {{c1::answer}}) and you must recall the missing piece.",
       },
       {
-        front: "How do workspaces work in BrainLS?",
-        back: "Workspaces group decks together. You have a personal workspace and can create or join shared workspaces with other users.",
+        front: "How do folders work in BrainLS?",
+        back: "Folders group decks together. You have a personal folder and can create or join shared folders with other users.",
       },
       {
         front: "What is the difference between a linked deck and a copied deck?",
@@ -284,8 +283,8 @@ async function seedPlatform() {
   console.log(`
 Platform seed complete!
 
-  Platform user:      ${PLATFORM_USER_NAME} <${PLATFORM_USER_EMAIL}>
-  Platform workspace: ${PLATFORM_WORKSPACE_NAME}
+  Platform user:   ${PLATFORM_USER_NAME} <${PLATFORM_USER_EMAIL}>
+  Platform folder: ${PLATFORM_FOLDER_NAME}
 
   Decks (all public):
     - Getting Started with BrainLS  (6 front/back cards)    [brainls, tutorial]

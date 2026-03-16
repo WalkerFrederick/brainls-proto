@@ -8,7 +8,7 @@ export const users = pgTable("users", {
   image: varchar("image", { length: 2048 }),
   username: varchar("username", { length: 63 }).unique(),
   status: varchar("status", { length: 31 }).notNull().default("active"),
-  personalWorkspaceId: uuid("personal_workspace_id"),
+  personalFolderId: uuid("personal_folder_id"),
   defaultDeckId: uuid("default_deck_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

@@ -5,29 +5,29 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { assets, users, workspaces, workspaceMembers } from "@/db/schema";
+import { assets, users, folders, folderMembers } from "@/db/schema";
 import { getUserStorageBytes, getStorageLimitBytes } from "@/lib/storage";
 
 export const utapi = new UTApi();
 
 const f = createUploadthing();
 
-type UploadMeta = { userId: string; workspaceId: string };
+type UploadMeta = { userId: string; folderId: string };
 
 async function baseMiddleware(): Promise<UploadMeta> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Unauthorized");
 
   const { user } = session;
-  if (!user.personalWorkspaceId) {
-    throw new Error("User has no personal workspace");
+  if (!user.personalFolderId) {
+    throw new Error("User has no personal folder");
   }
 
   const used = await getUserStorageBytes(user.id);
   const limit = getStorageLimitBytes(user.id);
   if (used >= limit) throw new Error("Storage limit reached");
 
-  return { userId: user.id, workspaceId: user.personalWorkspaceId };
+  return { userId: user.id, folderId: user.personalFolderId };
 }
 
 function trackAsset(kind: string) {
@@ -41,7 +41,7 @@ function trackAsset(kind: string) {
     const [asset] = await db
       .insert(assets)
       .values({
-        workspaceId: metadata.workspaceId,
+        folderId: metadata.folderId,
         kind,
         storageKey: file.key,
         mimeType: file.type,
@@ -61,7 +61,7 @@ export const uploadRouter = {
       const oldAvatars = await db
         .select({ storageKey: assets.storageKey })
         .from(assets)
-        .where(and(eq(assets.workspaceId, metadata.workspaceId), eq(assets.kind, "avatar")));
+        .where(and(eq(assets.folderId, metadata.folderId), eq(assets.kind, "avatar")));
 
       if (oldAvatars.length > 0) {
         await utapi.deleteFiles(oldAvatars.map((a) => a.storageKey));
@@ -69,7 +69,7 @@ export const uploadRouter = {
 
       await db
         .delete(assets)
-        .where(and(eq(assets.workspaceId, metadata.workspaceId), eq(assets.kind, "avatar")));
+        .where(and(eq(assets.folderId, metadata.folderId), eq(assets.kind, "avatar")));
 
       const result = await trackAsset("avatar")({ metadata, file });
 
@@ -86,8 +86,8 @@ export const uploadRouter = {
     .middleware(baseMiddleware)
     .onUploadComplete(trackAsset("card_audio")),
 
-  workspaceAvatar: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
-    .input(z.object({ workspaceId: z.string().uuid() }))
+  folderAvatar: f({ image: { maxFileSize: "4MB", maxFileCount: 1 } })
+    .input(z.object({ folderId: z.string().uuid() }))
     .middleware(async ({ input }) => {
       const session = await auth.api.getSession({ headers: await headers() });
       if (!session) throw new Error("Unauthorized");
@@ -95,17 +95,17 @@ export const uploadRouter = {
       const { user } = session;
 
       const [member] = await db
-        .select({ role: workspaceMembers.role })
-        .from(workspaceMembers)
+        .select({ role: folderMembers.role })
+        .from(folderMembers)
         .where(
           and(
-            eq(workspaceMembers.workspaceId, input.workspaceId),
-            eq(workspaceMembers.userId, user.id),
-            eq(workspaceMembers.status, "active"),
+            eq(folderMembers.folderId, input.folderId),
+            eq(folderMembers.userId, user.id),
+            eq(folderMembers.status, "active"),
           ),
         );
 
-      if (!member) throw new Error("Not a member of this workspace");
+      if (!member) throw new Error("Not a member of this folder");
       const roleLevel = { owner: 40, admin: 30, editor: 20, viewer: 10 }[member.role] ?? 0;
       if (roleLevel < 30) throw new Error("Insufficient permissions");
 
@@ -113,15 +113,13 @@ export const uploadRouter = {
       const limit = getStorageLimitBytes(user.id);
       if (used >= limit) throw new Error("Storage limit reached");
 
-      return { userId: user.id, workspaceId: input.workspaceId };
+      return { userId: user.id, folderId: input.folderId };
     })
     .onUploadComplete(async ({ metadata, file }) => {
       const oldAvatars = await db
         .select({ storageKey: assets.storageKey })
         .from(assets)
-        .where(
-          and(eq(assets.workspaceId, metadata.workspaceId), eq(assets.kind, "workspace_avatar")),
-        );
+        .where(and(eq(assets.folderId, metadata.folderId), eq(assets.kind, "folder_avatar")));
 
       if (oldAvatars.length > 0) {
         await utapi.deleteFiles(oldAvatars.map((a) => a.storageKey));
@@ -129,16 +127,14 @@ export const uploadRouter = {
 
       await db
         .delete(assets)
-        .where(
-          and(eq(assets.workspaceId, metadata.workspaceId), eq(assets.kind, "workspace_avatar")),
-        );
+        .where(and(eq(assets.folderId, metadata.folderId), eq(assets.kind, "folder_avatar")));
 
-      const result = await trackAsset("workspace_avatar")({ metadata, file });
+      const result = await trackAsset("folder_avatar")({ metadata, file });
 
       await db
-        .update(workspaces)
+        .update(folders)
         .set({ avatarUrl: file.ufsUrl, updatedAt: new Date() })
-        .where(eq(workspaces.id, metadata.workspaceId));
+        .where(eq(folders.id, metadata.folderId));
 
       return result;
     }),

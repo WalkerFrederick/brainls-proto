@@ -20,11 +20,11 @@ import { Button } from "@/components/ui/button";
 export const metadata: Metadata = {
   title: "BrainLS — Remember Everything You Learn",
   description:
-    "Spaced repetition flashcards with markdown, images, cloze deletions, and collaborative workspaces. Study smarter, not harder.",
+    "Spaced repetition flashcards with markdown, images, cloze deletions, and collaborative folders. Study smarter, not harder.",
   openGraph: {
     title: "BrainLS — Remember Everything You Learn",
     description:
-      "Spaced repetition flashcards with markdown, images, cloze deletions, and collaborative workspaces. Study smarter, not harder.",
+      "Spaced repetition flashcards with markdown, images, cloze deletions, and collaborative folders. Study smarter, not harder.",
   },
 };
 
@@ -104,7 +104,7 @@ export default async function LandingPage() {
               />
               <FeatureCard
                 icon={<Users className="h-6 w-6 text-primary" />}
-                title="Workspaces"
+                title="Folders"
                 description="Collaborate with classmates or colleagues. Share decks and study together."
               />
               <FeatureCard

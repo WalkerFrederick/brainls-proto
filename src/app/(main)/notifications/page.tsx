@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { listPendingInvites } from "@/actions/workspace";
+import { listPendingInvites } from "@/actions/folder";
 import { Bell, BellOff } from "lucide-react";
 import { PendingInvites } from "@/components/pending-invites";
 
@@ -24,7 +24,7 @@ export default async function NotificationsPage() {
           <div className="text-center">
             <h3 className="text-lg font-semibold">No notifications</h3>
             <p className="text-sm text-muted-foreground">
-              Workspace invites and other updates will appear here.
+              Folder invites and other updates will appear here.
             </p>
           </div>
         </div>

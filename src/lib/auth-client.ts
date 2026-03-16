@@ -11,7 +11,7 @@ export const authClient = createAuthClient({
       user: {
         username: { type: "string", required: false },
         status: { type: "string", required: false },
-        personalWorkspaceId: { type: "string", required: false },
+        personalFolderId: { type: "string", required: false },
       },
     }),
   ],

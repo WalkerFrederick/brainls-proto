@@ -1,7 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { assets } from "@/db/schema";
-import { workspaces } from "@/db/schema";
+import { folders } from "@/db/schema";
 
 /**
  * Default storage cap per user in bytes.
@@ -11,19 +11,19 @@ export const DEFAULT_STORAGE_LIMIT_BYTES = 25 * 1024 * 1024; // 25 MB
 
 export async function getUserStorageBytes(userId: string): Promise<number> {
   try {
-    const userWorkspaces = await db
-      .select({ id: workspaces.id })
-      .from(workspaces)
-      .where(eq(workspaces.createdByUserId, userId));
+    const userFolders = await db
+      .select({ id: folders.id })
+      .from(folders)
+      .where(eq(folders.createdByUserId, userId));
 
-    if (userWorkspaces.length === 0) return 0;
+    if (userFolders.length === 0) return 0;
 
-    const wsIds = userWorkspaces.map((w) => w.id);
+    const fIds = userFolders.map((f) => f.id);
 
     const rows = await db
       .select({ size: assets.fileSizeBytes })
       .from(assets)
-      .where(inArray(assets.workspaceId, wsIds));
+      .where(inArray(assets.folderId, fIds));
 
     return rows.reduce((sum, r) => sum + (r.size ?? 0), 0);
   } catch (e) {

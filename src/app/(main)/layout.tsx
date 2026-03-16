@@ -4,7 +4,7 @@ import { Quickbar } from "@/components/quickbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LayoutProvider } from "@/components/layout-provider";
 import { AppShell } from "@/components/main-content";
-import { listPendingInvites } from "@/actions/workspace";
+import { listPendingInvites } from "@/actions/folder";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const [cookieStore, invitesResult] = await Promise.all([

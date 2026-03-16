@@ -21,9 +21,9 @@ export default async function FoldersPage() {
         <div>
           <div className="flex items-center gap-3">
             <FolderOpen className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Folders</h1>
+            <h1 className="text-2xl font-bold">Library</h1>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">Manage your folders.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Manage your library.</p>
         </div>
         <CreateFolderDialog />
       </div>

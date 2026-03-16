@@ -97,6 +97,34 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
 
   return (
     <>
+      {/* Always-mounted dialogs for hotkey access */}
+      <CreateCardDialog
+        deckDefinitionId={contextDeckId}
+        open={cardDialogOpen}
+        onOpenChange={(v) => {
+          setCardDialogOpen(v);
+          if (!v) setFabOpen(false);
+        }}
+        trigger={<button type="button" className="hidden" />}
+      />
+      <CreateDeckDialog
+        folderId={contextFolderId}
+        open={deckDialogOpen}
+        onOpenChange={(v) => {
+          setDeckDialogOpen(v);
+          if (!v) setFabOpen(false);
+        }}
+        trigger={<button type="button" className="hidden" />}
+      />
+      <CreateFolderDialog
+        open={folderDialogOpen}
+        onOpenChange={(v) => {
+          setFolderDialogOpen(v);
+          if (!v) setFabOpen(false);
+        }}
+        trigger={<button type="button" className="hidden" />}
+      />
+
       <div ref={wrapperRef} className="sticky top-0 z-30 px-0 py-0 md:px-4 md:py-3">
         <div
           className={cn(
@@ -121,7 +149,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
                 type="button"
                 onClick={() => setFabOpen((prev) => !prev)}
                 className={cn(
-                  "flex h-9 items-center gap-1.5 rounded-full bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90",
+                  "flex h-9 cursor-pointer items-center gap-1.5 rounded-full bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/80",
                 )}
                 aria-label={fabOpen ? "Close actions" : "Create new"}
               >
@@ -137,59 +165,33 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
                     transition={{ duration: 0.15 }}
                     className="absolute left-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-lg border bg-popover p-1 shadow-lg"
                   >
-                    <CreateCardDialog
-                      deckDefinitionId={contextDeckId}
-                      open={cardDialogOpen}
-                      onOpenChange={(v) => {
-                        setCardDialogOpen(v);
-                        if (!v) setFabOpen(false);
-                      }}
-                      trigger={
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
-                        >
-                          <FilePlus className="h-4 w-4" />
-                          Add Card
-                          <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + C</kbd>
-                        </button>
-                      }
-                    />
-                    <CreateDeckDialog
-                      folderId={contextFolderId}
-                      open={deckDialogOpen}
-                      onOpenChange={(v) => {
-                        setDeckDialogOpen(v);
-                        if (!v) setFabOpen(false);
-                      }}
-                      trigger={
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
-                        >
-                          <Plus className="h-4 w-4" />
-                          New Deck
-                          <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + D</kbd>
-                        </button>
-                      }
-                    />
-                    <CreateFolderDialog
-                      open={folderDialogOpen}
-                      onOpenChange={(v) => {
-                        setFolderDialogOpen(v);
-                        if (!v) setFabOpen(false);
-                      }}
-                      trigger={
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
-                        >
-                          <FolderPlus className="h-4 w-4" />
-                          New Folder
-                          <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + F</kbd>
-                        </button>
-                      }
-                    />
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                      onClick={() => setCardDialogOpen(true)}
+                    >
+                      <FilePlus className="h-4 w-4" />
+                      Add Card
+                      <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + C</kbd>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                      onClick={() => setDeckDialogOpen(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      New Deck
+                      <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + D</kbd>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                      onClick={() => setFolderDialogOpen(true)}
+                    >
+                      <FolderPlus className="h-4 w-4" />
+                      New Folder
+                      <kbd className="ml-auto text-[10px] font-mono opacity-60">Shift + F</kbd>
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -297,16 +299,6 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
                   key: "folder",
                   label: "New Folder",
                   icon: <FolderPlus className="h-5 w-5" />,
-                  dialog: (trigger: React.ReactElement) => (
-                    <CreateFolderDialog
-                      open={folderDialogOpen}
-                      onOpenChange={(v) => {
-                        setFolderDialogOpen(v);
-                        if (!v) setFabOpen(false);
-                      }}
-                      trigger={trigger}
-                    />
-                  ),
                   onOpen: () => setFolderDialogOpen(true),
                   delay: 0,
                 },
@@ -314,17 +306,6 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
                   key: "deck",
                   label: "New Deck",
                   icon: <Plus className="h-5 w-5" />,
-                  dialog: (trigger: React.ReactElement) => (
-                    <CreateDeckDialog
-                      folderId={contextFolderId}
-                      open={deckDialogOpen}
-                      onOpenChange={(v) => {
-                        setDeckDialogOpen(v);
-                        if (!v) setFabOpen(false);
-                      }}
-                      trigger={trigger}
-                    />
-                  ),
                   onOpen: () => setDeckDialogOpen(true),
                   delay: 0.04,
                 },
@@ -332,17 +313,6 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
                   key: "card",
                   label: "Add Card",
                   icon: <FilePlus className="h-5 w-5" />,
-                  dialog: (trigger: React.ReactElement) => (
-                    <CreateCardDialog
-                      deckDefinitionId={contextDeckId}
-                      open={cardDialogOpen}
-                      onOpenChange={(v) => {
-                        setCardDialogOpen(v);
-                        if (!v) setFabOpen(false);
-                      }}
-                      trigger={trigger}
-                    />
-                  ),
                   onOpen: () => setCardDialogOpen(true),
                   delay: 0.08,
                 },
@@ -354,16 +324,14 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
                   exit={{ opacity: 0, y: 8, scale: 0.95 }}
                   transition={{ duration: 0.15, delay: item.delay }}
                 >
-                  {item.dialog(
-                    <button type="button" onClick={item.onOpen} className="flex items-center gap-3">
-                      <span className="rounded-lg bg-popover px-3 py-1.5 text-sm font-medium shadow-md">
-                        {item.label}
-                      </span>
-                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
-                        {item.icon}
-                      </span>
-                    </button>,
-                  )}
+                  <button type="button" onClick={item.onOpen} className="flex items-center gap-3">
+                    <span className="rounded-lg bg-popover px-3 py-1.5 text-sm font-medium shadow-md">
+                      {item.label}
+                    </span>
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+                      {item.icon}
+                    </span>
+                  </button>
                 </motion.div>
               ))}
             </>

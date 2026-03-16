@@ -9,13 +9,13 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
-import { workspaces } from "./workspaces";
+import { folders } from "./folders";
 
 export const deckDefinitions = pgTable("deck_definitions", {
   id: uuid("id").defaultRandom().primaryKey(),
-  workspaceId: uuid("workspace_id")
+  folderId: uuid("folder_id")
     .notNull()
-    .references(() => workspaces.id),
+    .references(() => folders.id),
   title: varchar("title", { length: 500 }).notNull(),
   slug: varchar("slug", { length: 500 }),
   description: varchar("description", { length: 5000 }),
@@ -61,9 +61,9 @@ export const cardDefinitions = pgTable("card_definitions", {
 
 export const assets = pgTable("assets", {
   id: uuid("id").defaultRandom().primaryKey(),
-  workspaceId: uuid("workspace_id")
+  folderId: uuid("folder_id")
     .notNull()
-    .references(() => workspaces.id),
+    .references(() => folders.id),
   kind: varchar("kind", { length: 63 }).notNull(),
   storageKey: varchar("storage_key", { length: 1024 }).notNull(),
   mimeType: varchar("mime_type", { length: 255 }).notNull(),

@@ -27,24 +27,23 @@ import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user-avatar";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import {
-  updateWorkspace,
-  inviteWorkspaceMember,
-  listWorkspaceMembers,
+  updateFolder,
+  inviteFolderMember,
+  listFolderMembers,
   updateMemberRole,
   removeMember,
-  leaveWorkspace,
-} from "@/actions/workspace";
-import { removeWorkspaceAvatar } from "@/actions/avatar";
+  leaveFolder,
+} from "@/actions/folder";
+import { removeFolderAvatar } from "@/actions/avatar";
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-interface WorkspaceSettingsDialogProps {
-  workspaceId: string;
-  workspaceName: string;
-  workspaceDescription?: string | null;
-  workspaceAvatarUrl?: string | null;
-  workspaceKind: string;
+interface FolderSettingsDialogProps {
+  folderId: string;
+  folderName: string;
+  folderDescription?: string | null;
+  folderAvatarUrl?: string | null;
   currentUserRole: string;
 }
 
@@ -58,20 +57,19 @@ type Member = {
   joinedAt: Date | null;
 };
 
-export function WorkspaceSettingsDialog({
-  workspaceId,
-  workspaceName,
-  workspaceDescription,
-  workspaceAvatarUrl,
-  workspaceKind,
+export function FolderSettingsDialog({
+  folderId,
+  folderName,
+  folderDescription,
+  folderAvatarUrl,
   currentUserRole,
-}: WorkspaceSettingsDialogProps) {
+}: FolderSettingsDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  const [name, setName] = useState(workspaceName);
-  const [description, setDescription] = useState(workspaceDescription ?? "");
-  const [avatarUrl, setAvatarUrl] = useState(workspaceAvatarUrl ?? null);
+  const [name, setName] = useState(folderName);
+  const [description, setDescription] = useState(folderDescription ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(folderAvatarUrl ?? null);
   const [saving, setSaving] = useState(false);
   const [removingAvatar, setRemovingAvatar] = useState(false);
   const [generalError, setGeneralError] = useState("");
@@ -99,10 +97,10 @@ export function WorkspaceSettingsDialog({
     openPicker: openAvatarPicker,
     handleInputChange: handleAvatarInputChange,
   } = useFileUpload({
-    route: "workspaceAvatar",
+    route: "folderAvatar",
     maxFileBytes: MAX_AVATAR_BYTES,
     acceptedTypes: ACCEPTED_TYPES,
-    input: { workspaceId },
+    input: { folderId },
     onSuccess: (files) => {
       if (files[0]) {
         setAvatarUrl(files[0].url);
@@ -117,7 +115,7 @@ export function WorkspaceSettingsDialog({
     setGeneralError("");
     setGeneralSuccess("");
 
-    const result = await removeWorkspaceAvatar(workspaceId);
+    const result = await removeFolderAvatar(folderId);
 
     if (!result.success) {
       setGeneralError(result.error);
@@ -128,16 +126,16 @@ export function WorkspaceSettingsDialog({
     }
 
     setRemovingAvatar(false);
-  }, [workspaceId, router]);
+  }, [folderId, router]);
 
   const loadMembers = useCallback(async () => {
     setMembersLoading(true);
-    const result = await listWorkspaceMembers(workspaceId);
+    const result = await listFolderMembers(folderId);
     if (result.success) {
       setMembers(result.data);
     }
     setMembersLoading(false);
-  }, [workspaceId]);
+  }, [folderId]);
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -154,10 +152,10 @@ export function WorkspaceSettingsDialog({
     setGeneralSuccess("");
     setSaving(true);
 
-    const result = await updateWorkspace({
-      workspaceId,
-      name: name !== workspaceName ? name : undefined,
-      description: description !== (workspaceDescription ?? "") ? description : undefined,
+    const result = await updateFolder({
+      folderId,
+      name: name !== folderName ? name : undefined,
+      description: description !== (folderDescription ?? "") ? description : undefined,
     });
 
     if (!result.success) {
@@ -175,8 +173,8 @@ export function WorkspaceSettingsDialog({
     setInviteSuccess("");
     setInviting(true);
 
-    const result = await inviteWorkspaceMember({
-      workspaceId,
+    const result = await inviteFolderMember({
+      folderId,
       email: inviteEmail,
       role: inviteRole,
     });
@@ -193,10 +191,10 @@ export function WorkspaceSettingsDialog({
 
   async function handleLeave() {
     setLeaving(true);
-    const result = await leaveWorkspace(workspaceId);
+    const result = await leaveFolder(folderId);
     if (result.success) {
       setOpen(false);
-      router.push("/library");
+      router.push("/folders");
       router.refresh();
     } else {
       setGeneralError(result.error);
@@ -227,8 +225,8 @@ export function WorkspaceSettingsDialog({
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Workspace Settings</DialogTitle>
-          <DialogDescription>Manage workspace details and members.</DialogDescription>
+          <DialogTitle>Folder Settings</DialogTitle>
+          <DialogDescription>Manage folder details and members.</DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="general" className="mt-2">
@@ -316,30 +314,23 @@ export function WorkspaceSettingsDialog({
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="ws-settings-name">Name</Label>
+                <Label htmlFor="folder-settings-name">Name</Label>
                 <Input
-                  id="ws-settings-name"
+                  id="folder-settings-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={!canManage}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ws-settings-desc">Description</Label>
+                <Label htmlFor="folder-settings-desc">Description</Label>
                 <Input
-                  id="ws-settings-desc"
+                  id="folder-settings-desc"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Optional description"
                   disabled={!canManage}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <div className="text-sm text-muted-foreground">
-                  <Badge variant="outline">{workspaceKind}</Badge>
-                  <span className="ml-2">Cannot be changed after creation</span>
-                </div>
               </div>
               {canManage && (
                 <Button type="submit" disabled={saving} className="w-full">
@@ -353,11 +344,11 @@ export function WorkspaceSettingsDialog({
               <>
                 <Separator />
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium text-destructive">Leave Workspace</Label>
+                  <Label className="text-sm font-medium text-destructive">Leave Folder</Label>
                   {!confirmLeave ? (
                     <>
                       <p className="text-xs text-muted-foreground">
-                        You will lose access to all decks in this workspace.
+                        You will lose access to all decks in this folder.
                       </p>
                       <Button
                         variant="destructive"
@@ -366,14 +357,14 @@ export function WorkspaceSettingsDialog({
                         className="w-full"
                       >
                         <LogOut className="mr-2 h-4 w-4" />
-                        Leave Workspace
+                        Leave Folder
                       </Button>
                     </>
                   ) : (
                     <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 space-y-3">
                       <p className="text-sm font-medium">
                         Are you sure you want to leave{" "}
-                        <span className="font-bold">{workspaceName}</span>?
+                        <span className="font-bold">{folderName}</span>?
                       </p>
                       <p className="text-xs text-muted-foreground">
                         You&apos;ll need a new invite to rejoin.
@@ -411,7 +402,7 @@ export function WorkspaceSettingsDialog({
           </TabsContent>
 
           <TabsContent value="members" className="space-y-4 pt-4">
-            {canManage && workspaceKind === "shared" && (
+            {canManage && (
               <>
                 <form onSubmit={handleInvite} className="space-y-3">
                   <Label className="text-sm font-medium">Invite a member</Label>
@@ -458,12 +449,6 @@ export function WorkspaceSettingsDialog({
                 </form>
                 <Separator />
               </>
-            )}
-
-            {workspaceKind === "personal" && (
-              <div className="text-sm text-muted-foreground">
-                Personal workspaces cannot have additional members.
-              </div>
             )}
 
             <div className="space-y-1">

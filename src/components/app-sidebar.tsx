@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Home, Library, Settings, LogIn, Globe, Building2 } from "lucide-react";
+import { Brain, Home, Settings, LogIn, Globe, FolderOpen } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -11,8 +11,7 @@ import { UserAvatar } from "@/components/user-avatar";
 
 const navItems = [
   { href: "/home", label: "Home", icon: Home },
-  { href: "/library", label: "Library", icon: Library },
-  { href: "/workspaces", label: "Workspaces", icon: Building2 },
+  { href: "/folders", label: "Library", icon: FolderOpen },
   { href: "/browse", label: "Browse", icon: Globe },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

@@ -24,24 +24,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createDeck } from "@/actions/deck";
-import { listWorkspaces } from "@/actions/workspace";
+import { listFolders } from "@/actions/folder";
 
-interface Workspace {
+interface Folder {
   id: string;
   name: string;
-  kind: string;
   role: string;
 }
 
 interface Props {
-  workspaceId?: string;
+  folderId?: string;
   trigger?: React.ReactElement;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
 export function CreateDeckDialog({
-  workspaceId: initialWorkspaceId,
+  folderId: initialFolderId,
   trigger,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
@@ -52,68 +51,67 @@ export function CreateDeckDialog({
   const setOpen = controlledOnOpenChange ?? setUncontrolledOpen;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(initialWorkspaceId ?? "");
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId ?? "");
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [loadingFolders, setLoadingFolders] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [permissionNotice, setPermissionNotice] = useState(false);
   const prevOpenRef = useRef(false);
 
-  const fetchWorkspaces = useCallback(async () => {
-    setLoadingWorkspaces(true);
+  const fetchFolders = useCallback(async () => {
+    setLoadingFolders(true);
     setPermissionNotice(false);
-    const result = await listWorkspaces();
+    const result = await listFolders();
     if (result.success) {
       const editable = result.data.filter(
-        (ws) => ws.role === "owner" || ws.role === "admin" || ws.role === "editor",
+        (f) => f.role === "owner" || f.role === "admin" || f.role === "editor",
       );
-      setWorkspaces(editable);
+      setFolders(editable);
 
-      if (initialWorkspaceId && editable.some((ws) => ws.id === initialWorkspaceId)) {
-        setSelectedWorkspaceId(initialWorkspaceId);
+      if (initialFolderId && editable.some((f) => f.id === initialFolderId)) {
+        setSelectedFolderId(initialFolderId);
       } else {
-        const personal = editable.find((ws) => ws.kind === "personal");
-        setSelectedWorkspaceId(personal?.id ?? editable[0]?.id ?? "");
-        if (initialWorkspaceId) {
+        setSelectedFolderId(editable[0]?.id ?? "");
+        if (initialFolderId) {
           setPermissionNotice(true);
         }
       }
     }
-    setLoadingWorkspaces(false);
-  }, [initialWorkspaceId]);
+    setLoadingFolders(false);
+  }, [initialFolderId]);
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
-      setTimeout(() => fetchWorkspaces(), 0);
+      setTimeout(() => fetchFolders(), 0);
     }
     prevOpenRef.current = open;
-  }, [open, fetchWorkspaces]);
+  }, [open, fetchFolders]);
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (next) {
-      fetchWorkspaces();
+      fetchFolders();
     } else {
       setTitle("");
       setDescription("");
       setError("");
       setPermissionNotice(false);
-      setSelectedWorkspaceId(initialWorkspaceId ?? "");
+      setSelectedFolderId(initialFolderId ?? "");
     }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedWorkspaceId) {
-      setError("Please select a workspace.");
+    if (!selectedFolderId) {
+      setError("Please select a folder.");
       return;
     }
     setError("");
     setLoading(true);
 
     const result = await createDeck({
-      workspaceId: selectedWorkspaceId,
+      folderId: selectedFolderId,
       title,
       description: description || undefined,
     });
@@ -138,13 +136,13 @@ export function CreateDeckDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Create Deck</DialogTitle>
-            <DialogDescription>Add a new deck to a workspace.</DialogDescription>
+            <DialogDescription>Add a new deck to a folder.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {permissionNotice && (
               <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                Defaulting to personal workspace since you don&apos;t have permission to add decks
-                to this workspace.
+                Defaulting to another folder since you don&apos;t have permission to add decks to
+                this folder.
               </div>
             )}
             {error && (
@@ -153,35 +151,30 @@ export function CreateDeckDialog({
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="deck-workspace">Workspace</Label>
-              {loadingWorkspaces ? (
+              <Label htmlFor="deck-folder">Folder</Label>
+              {loadingFolders ? (
                 <div className="flex h-8 items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading workspaces...
+                  Loading folders...
                 </div>
-              ) : workspaces.length === 0 ? (
+              ) : folders.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No workspaces with editor access found.
+                  No folders with editor access found.
                 </p>
               ) : (
                 <Select
-                  value={selectedWorkspaceId}
-                  onValueChange={(v) => setSelectedWorkspaceId(v ?? "")}
+                  value={selectedFolderId}
+                  onValueChange={(v) => setSelectedFolderId(v ?? "")}
                 >
-                  <SelectTrigger id="deck-workspace" className="w-full">
+                  <SelectTrigger id="deck-folder" className="w-full">
                     <SelectValue>
-                      {workspaces.find((ws) => ws.id === selectedWorkspaceId)?.name ??
-                        "Select workspace"}
-                      {workspaces.find((ws) => ws.id === selectedWorkspaceId)?.kind === "personal"
-                        ? " (Personal)"
-                        : ""}
+                      {folders.find((f) => f.id === selectedFolderId)?.name ?? "Select folder"}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {workspaces.map((ws) => (
-                      <SelectItem key={ws.id} value={ws.id}>
-                        {ws.name}
-                        {ws.kind === "personal" ? " (Personal)" : ""}
+                    {folders.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -210,7 +203,7 @@ export function CreateDeckDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={loading || loadingWorkspaces || !selectedWorkspaceId}>
+            <Button type="submit" disabled={loading || loadingFolders || !selectedFolderId}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create
             </Button>

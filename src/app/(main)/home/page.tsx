@@ -29,7 +29,7 @@ export default async function Home() {
       {session ? (
         <p className="text-muted-foreground">
           Hello, {session.user.name ?? session.user.email}! Head to your{" "}
-          <a href="/library" className="text-primary hover:underline">
+          <a href="/folders" className="text-primary hover:underline">
             Library
           </a>{" "}
           to start studying.
@@ -50,7 +50,7 @@ export default async function Home() {
               <div className="text-center">
                 <h3 className="text-lg font-semibold">No decks in your library</h3>
                 <p className="text-sm text-muted-foreground">
-                  Add a deck from a workspace to start studying.
+                  Add a deck from a folder to start studying.
                 </p>
               </div>
             </div>

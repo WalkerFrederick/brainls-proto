@@ -21,21 +21,21 @@ export const metadata: Metadata = {
     template: "%s | BrainLS",
   },
   description:
-    "Remember everything you learn. BrainLS uses spaced repetition to help you master any subject with rich flashcards, collaborative workspaces, and smart scheduling.",
+    "Remember everything you learn. BrainLS uses spaced repetition to help you master any subject with rich flashcards, collaborative folders, and smart scheduling.",
   metadataBase: new URL("https://brainls.app"),
   openGraph: {
     type: "website",
     siteName: "BrainLS",
     title: "BrainLS — Remember Everything You Learn",
     description:
-      "Spaced repetition flashcards with markdown, images, cloze deletions, and collaborative workspaces. Study smarter, not harder.",
+      "Spaced repetition flashcards with markdown, images, cloze deletions, and collaborative folders. Study smarter, not harder.",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
     title: "BrainLS — Remember Everything You Learn",
     description:
-      "Spaced repetition flashcards with markdown, images, cloze deletions, and collaborative workspaces.",
+      "Spaced repetition flashcards with markdown, images, cloze deletions, and collaborative folders.",
   },
   applicationName: "BrainLS",
   keywords: [

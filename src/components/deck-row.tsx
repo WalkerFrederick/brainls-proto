@@ -3,40 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Play, Plus, Loader2, BookOpen } from "lucide-react";
+import { Play, Plus, Loader2, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { addDeckToLibrary, type LibraryDeck } from "@/actions/study";
 
-interface Props {
-  decks: LibraryDeck[];
+interface DeckRowProps {
+  deck: LibraryDeck;
+  showFolders?: boolean;
 }
 
-export function LibraryDeckList({ decks }: Props) {
-  if (decks.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
-        <BookOpen className="h-12 w-12 text-muted-foreground" />
-        <div className="text-center">
-          <h3 className="text-lg font-semibold">No decks yet</h3>
-          <p className="text-sm text-muted-foreground">
-            Create a workspace and add decks to start studying.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="divide-y rounded-lg border">
-      {decks.map((deck) => (
-        <DeckRow key={deck.deckDefinitionId} deck={deck} />
-      ))}
-    </div>
-  );
-}
-
-function DeckRow({ deck }: { deck: LibraryDeck }) {
+export function DeckRow({ deck, showFolders = true }: DeckRowProps) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
 
@@ -64,42 +41,17 @@ function DeckRow({ deck }: { deck: LibraryDeck }) {
           {deck.linkedDeckDefinitionId && (
             <Badge
               variant="secondary"
-              className="shrink-0 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              className={
+                deck.isAbandoned
+                  ? "shrink-0 text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  : "shrink-0 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              }
             >
-              linked
+              {deck.isAbandoned && <AlertTriangle className="mr-1 h-3 w-3" />}
+              linked copy
             </Badge>
           )}
         </div>
-
-        {deck.description && (
-          <p className="mt-0.5 truncate text-sm text-muted-foreground">{deck.description}</p>
-        )}
-
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          {deck.workspaces.map((ws) => (
-            <Link key={ws.id} href={`/workspace/${ws.id}`}>
-              <Badge
-                variant="outline"
-                className="text-[10px] font-normal hover:bg-accent/50 transition-colors"
-              >
-                {ws.name}
-              </Badge>
-            </Link>
-          ))}
-        </div>
-
-        {deck.tags.length > 0 && (
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {deck.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       {inLibrary ? (

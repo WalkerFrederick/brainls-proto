@@ -93,7 +93,7 @@ export async function setDeckTags(input: unknown): Promise<Result<string[]>> {
   if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
 
   const [deck] = await db
-    .select({ workspaceId: deckDefinitions.workspaceId })
+    .select({ folderId: deckDefinitions.folderId })
     .from(deckDefinitions)
     .where(eq(deckDefinitions.id, deckDefinitionId));
   if (!deck) return err("Deck not found");

@@ -180,7 +180,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
         <p className="text-muted-foreground">
           You reviewed {reviewed} card{reviewed !== 1 ? "s" : ""} from &quot;{deckTitle}&quot;.
         </p>
-        <Button variant="outline" onClick={() => router.push("/library")}>
+        <Button variant="outline" onClick={() => router.push("/folders")}>
           Back to Library
         </Button>
       </div>

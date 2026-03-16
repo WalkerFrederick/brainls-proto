@@ -7,7 +7,7 @@ import { archiveStudyDataIfOrphaned } from "@/actions/link-deck";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { CreateDeckSchema, UpdateDeckSchema } from "@/lib/schemas";
-import { requireWorkspaceRole, canViewDeck, canEditDeck } from "@/lib/permissions";
+import { requireFolderRole, canViewDeck, canEditDeck } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
 
 export async function createDeck(input: unknown): Promise<Result<{ id: string }>> {
@@ -22,8 +22,8 @@ export async function createDeck(input: unknown): Promise<Result<{ id: string }>
     );
   }
 
-  const { workspaceId, title, description } = parsed.data;
-  const perm = await requireWorkspaceRole(workspaceId, session.user.id, "editor");
+  const { folderId, title, description } = parsed.data;
+  const perm = await requireFolderRole(folderId, session.user.id, "editor");
   if (!perm.allowed) return err(perm.error);
 
   const slug = title
@@ -34,7 +34,7 @@ export async function createDeck(input: unknown): Promise<Result<{ id: string }>
   const [deck] = await db
     .insert(deckDefinitions)
     .values({
-      workspaceId,
+      folderId,
       title,
       slug,
       description,
@@ -62,10 +62,18 @@ export async function updateDeck(input: unknown): Promise<Result<{ id: string }>
 
   if (updates.viewPolicy !== undefined) {
     const [deck] = await db
-      .select({ workspaceId: deckDefinitions.workspaceId })
+      .select({
+        folderId: deckDefinitions.folderId,
+        linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
+      })
       .from(deckDefinitions)
       .where(eq(deckDefinitions.id, deckId));
-    const perm = await requireWorkspaceRole(deck.workspaceId, session.user.id, "admin");
+
+    if (deck.linkedDeckDefinitionId) {
+      return err("Linked decks cannot change visibility — only the source deck owner can do that");
+    }
+
+    const perm = await requireFolderRole(deck.folderId, session.user.id, "admin");
     if (!perm.allowed) return err("Only admins and owners can change deck visibility");
   }
 
@@ -87,22 +95,28 @@ export async function getDeck(
 ): Promise<Result<typeof deckDefinitions.$inferSelect>> {
   if (!isValidUuid(deckId)) return err("Invalid deck ID");
   const session = await requireSession();
-  const canView = await canViewDeck(deckId, session.user.id);
-  if (!canView) return err("Permission denied");
 
   const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
-
   if (!deck) return err("Deck not found");
+
+  if (deck.archivedAt) {
+    const canView = await canViewDeck(deckId, session.user.id);
+    if (!canView) return err("The author has archived this deck");
+  } else {
+    const canView = await canViewDeck(deckId, session.user.id);
+    if (!canView) return err("Permission denied");
+  }
+
   return ok(deck);
 }
 
 export async function listDecks(
-  workspaceId: string,
+  folderId: string,
   opts?: { limit?: number; offset?: number },
 ): Promise<Result<Array<typeof deckDefinitions.$inferSelect>>> {
-  if (!isValidUuid(workspaceId)) return err("Invalid workspace ID");
+  if (!isValidUuid(folderId)) return err("Invalid folder ID");
   const session = await requireSession();
-  const perm = await requireWorkspaceRole(workspaceId, session.user.id, "viewer");
+  const perm = await requireFolderRole(folderId, session.user.id, "viewer");
   if (!perm.allowed) return err(perm.error);
 
   const limit = opts?.limit ?? 50;
@@ -111,7 +125,7 @@ export async function listDecks(
   const rows = await db
     .select()
     .from(deckDefinitions)
-    .where(and(eq(deckDefinitions.workspaceId, workspaceId), isNull(deckDefinitions.archivedAt)))
+    .where(and(eq(deckDefinitions.folderId, folderId), isNull(deckDefinitions.archivedAt)))
     .limit(limit)
     .offset(offset);
 
@@ -129,8 +143,8 @@ export async function archiveDeck(deckId: string): Promise<Result<{ id: string }
   const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
   if (!deck) return err("Deck not found");
 
-  const perm = await requireWorkspaceRole(deck.workspaceId, session.user.id, "admin");
-  if (!perm.allowed) return err("Only workspace owners and admins can archive decks");
+  const perm = await requireFolderRole(deck.folderId, session.user.id, "admin");
+  if (!perm.allowed) return err("Only folder owners and admins can archive decks");
 
   await db
     .update(deckDefinitions)
@@ -147,9 +161,8 @@ export async function archiveDeck(deckId: string): Promise<Result<{ id: string }
 export async function listEditableDecks(): Promise<
   Result<
     Array<{
-      workspaceId: string;
-      workspaceName: string;
-      workspaceKind: string;
+      folderId: string;
+      folderName: string;
       deckId: string;
       deckTitle: string;
     }>
@@ -157,34 +170,30 @@ export async function listEditableDecks(): Promise<
 > {
   const session = await requireSession();
 
-  const { workspaceMembers, workspaces } = await import("@/db/schema");
+  const { folderMembers, folders } = await import("@/db/schema");
 
   const memberRows = await db
     .select({
-      workspaceId: workspaces.id,
-      workspaceName: workspaces.name,
-      workspaceKind: workspaces.kind,
-      role: workspaceMembers.role,
+      folderId: folders.id,
+      folderName: folders.name,
+      role: folderMembers.role,
     })
-    .from(workspaceMembers)
-    .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
-    .where(
-      and(eq(workspaceMembers.userId, session.user.id), eq(workspaceMembers.status, "active")),
-    );
+    .from(folderMembers)
+    .innerJoin(folders, eq(folderMembers.folderId, folders.id))
+    .where(and(eq(folderMembers.userId, session.user.id), eq(folderMembers.status, "active")));
 
   const editable = memberRows.filter(
-    (ws) => ws.role === "owner" || ws.role === "admin" || ws.role === "editor",
+    (f) => f.role === "owner" || f.role === "admin" || f.role === "editor",
   );
 
   const rows: Array<{
-    workspaceId: string;
-    workspaceName: string;
-    workspaceKind: string;
+    folderId: string;
+    folderName: string;
     deckId: string;
     deckTitle: string;
   }> = [];
 
-  for (const ws of editable) {
+  for (const f of editable) {
     const decks = await db
       .select({
         id: deckDefinitions.id,
@@ -192,16 +201,13 @@ export async function listEditableDecks(): Promise<
         linked: deckDefinitions.linkedDeckDefinitionId,
       })
       .from(deckDefinitions)
-      .where(
-        and(eq(deckDefinitions.workspaceId, ws.workspaceId), isNull(deckDefinitions.archivedAt)),
-      );
+      .where(and(eq(deckDefinitions.folderId, f.folderId), isNull(deckDefinitions.archivedAt)));
 
     for (const d of decks) {
       if (d.linked) continue;
       rows.push({
-        workspaceId: ws.workspaceId,
-        workspaceName: ws.workspaceName,
-        workspaceKind: ws.workspaceKind,
+        folderId: f.folderId,
+        folderName: f.folderName,
         deckId: d.id,
         deckTitle: d.title,
       });

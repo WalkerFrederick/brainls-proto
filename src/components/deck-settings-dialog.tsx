@@ -34,15 +34,15 @@ interface DeckSettingsDialogProps {
   viewPolicy: string;
   canArchive?: boolean;
   canChangeVisibility?: boolean;
-  workspaceKind?: string;
   initialTags?: string[];
   isDefaultDeck?: boolean;
   initialNewCardsPerDay?: number;
+  isLinked?: boolean;
 }
 
 const VIEW_POLICY_OPTIONS = [
   { value: "private", label: "Private", hint: "Only editors, admins, and owners" },
-  { value: "workspace", label: "Workspace", hint: "All workspace members, including viewers" },
+  { value: "folder", label: "Folder", hint: "All folder members, including viewers" },
   { value: "link", label: "Link", hint: "Anyone with the link" },
   { value: "public", label: "Public", hint: "Discoverable by everyone" },
 ] as const;
@@ -54,10 +54,10 @@ export function DeckSettingsDialog({
   viewPolicy: initialViewPolicy,
   canArchive = false,
   canChangeVisibility = false,
-  workspaceKind = "shared",
   initialTags = [],
   isDefaultDeck = false,
   initialNewCardsPerDay = 20,
+  isLinked = false,
 }: DeckSettingsDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -164,23 +164,30 @@ export function DeckSettingsDialog({
 
           <Separator />
 
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Sharing</h3>
+          {isLinked ? (
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Sharing</h3>
+              <p className="text-sm text-muted-foreground">
+                Linked decks inherit visibility from the source deck. Only the source deck owner can
+                change sharing settings.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold">Sharing</h3>
 
-            <PolicySelect
-              id="view-policy"
-              label="View Policy"
-              hint="Who can see this deck"
-              value={viewPolicy}
-              onChange={setViewPolicy}
-              options={
-                workspaceKind === "personal"
-                  ? VIEW_POLICY_OPTIONS.filter((o) => o.value !== "workspace")
-                  : VIEW_POLICY_OPTIONS
-              }
-              disabled={!canChangeVisibility}
-            />
-          </div>
+              <PolicySelect
+                id="view-policy"
+                label="View Policy"
+                hint="Who can see this deck"
+                value={viewPolicy}
+                onChange={setViewPolicy}
+                options={VIEW_POLICY_OPTIONS}
+                disabled={!canChangeVisibility}
+              />
+            </div>
+          )}
+          <Separator />
 
           <Separator />
 
@@ -213,8 +220,6 @@ export function DeckSettingsDialog({
 
         {canArchive && (
           <>
-            <Separator />
-
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
               {isDefaultDeck ? (
@@ -251,7 +256,7 @@ export function DeckSettingsDialog({
                             setArchiving(true);
                             const result = await archiveDeck(deckId);
                             if (result.success) {
-                              window.location.href = "/library";
+                              window.location.href = "/folders";
                             } else {
                               setError(result.error);
                               setArchiving(false);

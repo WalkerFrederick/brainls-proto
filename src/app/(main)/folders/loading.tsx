@@ -1,11 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeaderSkeleton } from "@/components/skeletons";
-import { Building2 } from "lucide-react";
+import { FolderOpen } from "lucide-react";
 
 export default function Loading() {
   return (
     <div className="space-y-6">
-      <PageHeaderSkeleton icon={Building2} title="Workspaces" showButton buttonWidth="w-40" />
+      <PageHeaderSkeleton icon={FolderOpen} title="Folders" showButton buttonWidth="w-40" />
 
       <div className="space-y-3">
         {Array.from({ length: 3 }).map((_, i) => (

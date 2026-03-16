@@ -2,11 +2,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users, deckDefinitions, cardDefinitions, userDecks, userCardStates } from "@/db/schema";
 
-export async function createScratchPad(workspaceId: string, userId: string): Promise<string> {
+export async function createScratchPad(folderId: string, userId: string): Promise<string> {
   const [deck] = await db
     .insert(deckDefinitions)
     .values({
-      workspaceId,
+      folderId,
       title: "Scratch Pad",
       slug: `scratch-pad-${userId}`,
       description: "Your default deck — experiment with different card types here.",

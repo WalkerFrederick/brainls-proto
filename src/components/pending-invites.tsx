@@ -5,13 +5,12 @@ import { useRouter } from "next/navigation";
 import { Check, X, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { acceptInvite, declineInvite } from "@/actions/workspace";
+import { acceptInvite, declineInvite } from "@/actions/folder";
 
 interface Invite {
   memberId: string;
-  workspaceId: string;
-  workspaceName: string;
-  workspaceKind: string;
+  folderId: string;
+  folderName: string;
   role: string;
   invitedAt: Date;
 }
@@ -57,9 +56,8 @@ export function PendingInvites({ invites: initial }: { invites: Invite[] }) {
               className="flex items-center justify-between rounded-lg border border-dashed p-4"
             >
               <div>
-                <p className="font-medium">{invite.workspaceName}</p>
+                <p className="font-medium">{invite.folderName}</p>
                 <div className="mt-1 flex gap-2">
-                  <Badge variant="outline">{invite.workspaceKind}</Badge>
                   <Badge variant="secondary">as {invite.role}</Badge>
                 </div>
               </div>

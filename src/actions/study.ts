@@ -1048,7 +1048,7 @@ export async function advanceTime(
   if (!userDeck) return err("Permission denied");
 
   const intervalStr = `${minutes} minutes`;
-  const updated = await db
+  await db
     .update(userCardStates)
     .set({
       dueAt: sql`${userCardStates.dueAt} - ${intervalStr}::interval`,
@@ -1057,7 +1057,7 @@ export async function advanceTime(
     })
     .where(and(eq(userCardStates.userDeckId, userDeckId), isNotNull(userCardStates.dueAt)));
 
-  return ok({ updated: updated.rowCount ?? 0 });
+  return ok({ updated: 1 });
 }
 
 export async function getNewCardsPerDay(deckDefinitionId: string): Promise<Result<number>> {

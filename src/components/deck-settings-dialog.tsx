@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { updateDeck, archiveDeck } from "@/actions/deck";
+import { updateNewCardsPerDay } from "@/actions/study";
 import { setDeckTags } from "@/actions/tag";
 import { TagInput } from "@/components/tag-input";
 
@@ -35,6 +36,7 @@ interface DeckSettingsDialogProps {
   canChangeVisibility?: boolean;
   initialTags?: string[];
   isDefaultDeck?: boolean;
+  initialNewCardsPerDay?: number;
   isLinked?: boolean;
 }
 
@@ -54,6 +56,7 @@ export function DeckSettingsDialog({
   canChangeVisibility = false,
   initialTags = [],
   isDefaultDeck = false,
+  initialNewCardsPerDay = 20,
   isLinked = false,
 }: DeckSettingsDialogProps) {
   const router = useRouter();
@@ -68,6 +71,7 @@ export function DeckSettingsDialog({
   const [description, setDescription] = useState(initialDescription ?? "");
   const [viewPolicy, setViewPolicy] = useState(initialViewPolicy);
   const [deckTagsList, setDeckTagsList] = useState<string[]>(initialTags);
+  const [newCardsPerDay, setNewCardsPerDay] = useState(initialNewCardsPerDay);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -95,6 +99,14 @@ export function DeckSettingsDialog({
         });
         if (!tagResult.success) {
           setError(tagResult.error);
+          setSaving(false);
+          return;
+        }
+      }
+      if (newCardsPerDay !== initialNewCardsPerDay) {
+        const nResult = await updateNewCardsPerDay(deckId, newCardsPerDay);
+        if (!nResult.success) {
+          setError(nResult.error);
           setSaving(false);
           return;
         }
@@ -176,6 +188,29 @@ export function DeckSettingsDialog({
             </div>
           )}
           <Separator />
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold">Study</h3>
+            <div className="space-y-1">
+              <Label htmlFor="new-cards-per-day" className="text-sm">
+                New cards per day
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Maximum number of unseen cards introduced each day
+              </p>
+              <Input
+                id="new-cards-per-day"
+                type="number"
+                min={0}
+                max={9999}
+                value={newCardsPerDay}
+                onChange={(e) => setNewCardsPerDay(Number(e.target.value))}
+                className="w-32"
+              />
+            </div>
+          </div>
 
           <Button type="submit" disabled={saving} className="w-full">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

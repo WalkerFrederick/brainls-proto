@@ -11,7 +11,8 @@ interface UpdateCardStateInput {
   cardDefinitionId: string;
   srsState?: string;
   intervalDays?: number;
-  easeFactor?: number;
+  stability?: number;
+  difficulty?: number;
   reps?: number;
   lapses?: number;
   dueAt?: string | null;
@@ -46,7 +47,8 @@ export async function updateCardState(
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
   if (input.srsState !== undefined) updateData.srsState = input.srsState;
   if (input.intervalDays !== undefined) updateData.intervalDays = input.intervalDays;
-  if (input.easeFactor !== undefined) updateData.easeFactor = String(input.easeFactor);
+  if (input.stability !== undefined) updateData.stability = String(input.stability);
+  if (input.difficulty !== undefined) updateData.difficulty = String(input.difficulty);
   if (input.reps !== undefined) updateData.reps = input.reps;
   if (input.lapses !== undefined) updateData.lapses = input.lapses;
   if (input.dueAt !== undefined) {

@@ -18,7 +18,12 @@ import {
   isModifierOnly,
 } from "@/lib/shortcut-blocklist";
 import { renderClozeHidden, renderClozeRevealed } from "@/lib/cloze";
-import { processReview, type CardState, type Rating as SrsRating } from "@/lib/srs";
+import {
+  processReview,
+  DEFAULT_PARAMETERS,
+  type CardState,
+  type Rating as SrsRating,
+} from "@/lib/srs";
 
 interface StudyCard {
   userCardStateId: string;
@@ -27,9 +32,11 @@ interface StudyCard {
   contentJson: unknown;
   srsState: string;
   intervalDays: number | null;
-  easeFactor: string | null;
+  stability: string | null;
+  difficulty: string | null;
   reps: number | null;
   lapses: number | null;
+  learningStep: number | null;
 }
 
 interface Props {
@@ -60,17 +67,21 @@ function formatInterval(days: number): string {
 function getIntervalPreviews(card: StudyCard): Record<Rating, string> {
   const state: CardState = {
     srsState: (card.srsState as CardState["srsState"]) ?? "new",
-    intervalDays: card.intervalDays ?? 0,
-    easeFactor: Number(card.easeFactor) || 2.5,
+    stability: Number(card.stability) || 0,
+    difficulty: Number(card.difficulty) || 0,
     reps: card.reps ?? 0,
     lapses: card.lapses ?? 0,
+    learningStep: card.learningStep ?? 0,
   };
 
+  const now = new Date();
   const ratings: Rating[] = ["again", "hard", "good", "easy"];
   const result = {} as Record<Rating, string>;
   for (const r of ratings) {
-    const review = processReview(state, r as SrsRating);
-    result[r] = formatInterval(review.nextState.intervalDays);
+    const review = processReview(state, r as SrsRating, DEFAULT_PARAMETERS, now);
+    const diffMs = review.nextDueAt.getTime() - now.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    result[r] = formatInterval(diffDays);
   }
   return result;
 }
@@ -239,7 +250,11 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
       </Card>
 
       {showAnswer ? (
-        <RatingPanel intervalPreviews={intervalPreviews} onRate={handleRate} />
+        <RatingPanel
+          intervalPreviews={intervalPreviews}
+          onRate={handleRate}
+          srsState={currentCard.srsState}
+        />
       ) : (
         <div className="rounded-xl border bg-card p-4">
           <Button variant="outline" className="w-full" onClick={() => setShowAnswer(true)}>
@@ -287,10 +302,15 @@ const RATING_CONFIG: {
 function RatingPanel({
   intervalPreviews,
   onRate,
+  srsState,
 }: {
   intervalPreviews: Record<Rating, string> | null;
   onRate: (r: Rating) => void;
+  srsState: string;
 }) {
+  const isLearning = srsState === "new" || srsState === "learning";
+  const againLabel = isLearning ? "Don't Know" : "Forgot";
+
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-3">
@@ -308,7 +328,7 @@ function RatingPanel({
             className="group flex flex-col items-center gap-1.5 rounded-lg border bg-muted/50 px-2 py-3 transition-colors hover:bg-muted"
           >
             <span className="flex items-center gap-1.5 text-sm font-medium">
-              {label}
+              {rating === "again" ? againLabel : label}
               <span
                 className={`inline-flex h-5 min-w-5 items-center justify-center rounded border px-1 font-mono text-[11px] font-semibold ${badgeClass}`}
               >

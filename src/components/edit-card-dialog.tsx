@@ -73,7 +73,8 @@ export function EditCardDialog({
 
   const [srsState, setSrsState] = useState("new");
   const [intervalDays, setIntervalDays] = useState(0);
-  const [easeFactor, setEaseFactor] = useState(2.5);
+  const [stability, setStability] = useState(0);
+  const [difficulty, setDifficulty] = useState(0);
   const [reps, setReps] = useState(0);
   const [lapses, setLapses] = useState(0);
   const [dueAt, setDueAt] = useState("");
@@ -90,7 +91,8 @@ export function EditCardDialog({
     if (result.success && result.data) {
       setSrsState(result.data.srsState);
       setIntervalDays(result.data.intervalDays ?? 0);
-      setEaseFactor(Number(result.data.easeFactor) || 2.5);
+      setStability(Number(result.data.stability) || 0);
+      setDifficulty(Number(result.data.difficulty) || 0);
       setReps(result.data.reps);
       setLapses(result.data.lapses);
       if (result.data.dueAt) {
@@ -171,7 +173,8 @@ export function EditCardDialog({
         cardDefinitionId: cardId,
         srsState,
         intervalDays,
-        easeFactor,
+        stability,
+        difficulty,
         reps,
         lapses,
         dueAt: dueAt || null,
@@ -423,29 +426,30 @@ export function EditCardDialog({
                           </Select>
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="edit-ease" className="text-xs">
-                            Ease Factor
+                          <Label htmlFor="edit-stability" className="text-xs">
+                            Stability (days)
                           </Label>
                           <Input
-                            id="edit-ease"
+                            id="edit-stability"
                             type="number"
                             step="0.1"
-                            min="1.3"
-                            max="5"
-                            value={easeFactor}
-                            onChange={(e) => setEaseFactor(Number(e.target.value))}
+                            min="0"
+                            value={stability}
+                            onChange={(e) => setStability(Number(e.target.value))}
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="edit-interval" className="text-xs">
-                            Interval (days)
+                          <Label htmlFor="edit-difficulty" className="text-xs">
+                            Difficulty (1–10)
                           </Label>
                           <Input
-                            id="edit-interval"
+                            id="edit-difficulty"
                             type="number"
-                            min="0"
-                            value={intervalDays}
-                            onChange={(e) => setIntervalDays(Number(e.target.value))}
+                            step="0.1"
+                            min="1"
+                            max="10"
+                            value={difficulty}
+                            onChange={(e) => setDifficulty(Number(e.target.value))}
                           />
                         </div>
                         <div className="space-y-1">
@@ -484,8 +488,13 @@ export function EditCardDialog({
                           />
                         </div>
                       </div>
+                      {intervalDays > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Current interval: {intervalDays} day{intervalDays !== 1 ? "s" : ""}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">
-                        Changing these values will override the SM-2 algorithm&apos;s calculations.
+                        Changing these values will override the FSRS algorithm&apos;s calculations.
                       </p>
                     </>
                   )}

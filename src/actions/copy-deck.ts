@@ -135,8 +135,11 @@ export async function copyDeck(
         studyableSourceCards.map((c) => ({
           userDeckId: ud.id,
           cardDefinitionId: sourceToNewCardId.get(c.id)!,
-          ...defaultState,
-          easeFactor: String(defaultState.easeFactor),
+          srsState: defaultState.srsState,
+          stability: String(defaultState.stability),
+          difficulty: String(defaultState.difficulty),
+          reps: 0,
+          lapses: 0,
         })),
       );
     }
@@ -206,7 +209,8 @@ async function migrateUserCardStates(
         srsState: state.srsState,
         dueAt: state.dueAt,
         intervalDays: state.intervalDays,
-        easeFactor: state.easeFactor,
+        stability: state.stability,
+        difficulty: state.difficulty,
         reps: state.reps,
         lapses: state.lapses,
         lastReviewedAt: state.lastReviewedAt,

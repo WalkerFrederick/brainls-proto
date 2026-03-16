@@ -20,9 +20,14 @@ export default async function AccountSettingsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        <UserCog className="h-6 w-6" />
-        <h1 className="text-2xl font-bold">Account Settings</h1>
+      <div>
+        <div className="flex items-center gap-3">
+          <UserCog className="h-6 w-6" />
+          <h1 className="text-2xl font-bold">Account Settings</h1>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Update your profile, view storage usage, and manage your account.
+        </p>
       </div>
 
       <div className="space-y-6">

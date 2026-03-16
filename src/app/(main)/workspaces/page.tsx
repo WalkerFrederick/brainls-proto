@@ -18,9 +18,14 @@ export default async function WorkspacesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Building2 className="h-6 w-6" />
-          <h1 className="text-2xl font-bold">Workspaces</h1>
+        <div>
+          <div className="flex items-center gap-3">
+            <Building2 className="h-6 w-6" />
+            <h1 className="text-2xl font-bold">Workspaces</h1>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your personal and shared workspaces.
+          </p>
         </div>
         <CreateWorkspaceDialog />
       </div>

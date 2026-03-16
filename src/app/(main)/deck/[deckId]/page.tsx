@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { getDeck } from "@/actions/deck";
 import { getWorkspace } from "@/actions/workspace";
 import { listCards } from "@/actions/card";
 import { getDeckStudyStats } from "@/actions/study";
 import { getDeckTags } from "@/actions/tag";
-import { BookOpen, AlertTriangle, ExternalLink } from "lucide-react";
+import { BookOpen, AlertTriangle, ExternalLink, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
@@ -38,7 +39,36 @@ export default async function DeckPage({ params, searchParams }: Props) {
   const deckResult = await getDeck(deckId);
 
   if (!deckResult.success) {
-    return <div className="text-destructive">Error: {deckResult.error}</div>;
+    const isArchived = deckResult.error.toLowerCase().includes("archived");
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
+        {isArchived ? (
+          <>
+            <Archive className="h-12 w-12 text-muted-foreground" />
+            <div className="space-y-1">
+              <h2 className="text-xl font-semibold">Deck Archived</h2>
+              <p className="text-sm text-muted-foreground">
+                The author has archived this deck and it is no longer available.
+              </p>
+            </div>
+            <Link
+              href="/browse"
+              className="mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              Browse public decks
+            </Link>
+          </>
+        ) : (
+          <>
+            <BookOpen className="h-12 w-12 text-muted-foreground" />
+            <div className="space-y-1">
+              <h2 className="text-xl font-semibold">Deck Not Available</h2>
+              <p className="text-sm text-muted-foreground">{deckResult.error}</p>
+            </div>
+          </>
+        )}
+      </div>
+    );
   }
 
   const deck = deckResult.data;
@@ -86,10 +116,19 @@ export default async function DeckPage({ params, searchParams }: Props) {
           {resolved.isLinked && (
             <Link
               href={`/deck/${resolved.sourceDeckId}`}
-              className="mb-2 inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-medium text-blue-600 underline hover:bg-blue-500/20 transition-colors dark:text-blue-400"
+              className={cn(
+                "mb-2 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium underline transition-colors",
+                resolved.isAbandoned
+                  ? "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
+                  : "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400",
+              )}
             >
-              <ExternalLink className="h-3 w-3" />
-              View Source Deck
+              {resolved.isAbandoned ? (
+                <AlertTriangle className="h-3 w-3" />
+              ) : (
+                <ExternalLink className="h-3 w-3" />
+              )}
+              {resolved.isAbandoned ? "Source Deck Archived" : "View Source Deck"}
             </Link>
           )}
           <div className="flex items-center gap-2">
@@ -129,6 +168,7 @@ export default async function DeckPage({ params, searchParams }: Props) {
               workspaceKind={workspaceKind}
               initialTags={deckTagNames}
               isDefaultDeck={isDefaultDeck}
+              isLinked={resolved.isLinked}
             />
           )}
           <AddToWorkspaceButtons

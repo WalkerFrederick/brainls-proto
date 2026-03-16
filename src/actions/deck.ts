@@ -62,9 +62,17 @@ export async function updateDeck(input: unknown): Promise<Result<{ id: string }>
 
   if (updates.viewPolicy !== undefined) {
     const [deck] = await db
-      .select({ workspaceId: deckDefinitions.workspaceId })
+      .select({
+        workspaceId: deckDefinitions.workspaceId,
+        linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
+      })
       .from(deckDefinitions)
       .where(eq(deckDefinitions.id, deckId));
+
+    if (deck.linkedDeckDefinitionId) {
+      return err("Linked decks cannot change visibility — only the source deck owner can do that");
+    }
+
     const perm = await requireWorkspaceRole(deck.workspaceId, session.user.id, "admin");
     if (!perm.allowed) return err("Only admins and owners can change deck visibility");
   }
@@ -87,12 +95,18 @@ export async function getDeck(
 ): Promise<Result<typeof deckDefinitions.$inferSelect>> {
   if (!isValidUuid(deckId)) return err("Invalid deck ID");
   const session = await requireSession();
-  const canView = await canViewDeck(deckId, session.user.id);
-  if (!canView) return err("Permission denied");
 
   const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
-
   if (!deck) return err("Deck not found");
+
+  if (deck.archivedAt) {
+    const canView = await canViewDeck(deckId, session.user.id);
+    if (!canView) return err("The author has archived this deck");
+  } else {
+    const canView = await canViewDeck(deckId, session.user.id);
+    if (!canView) return err("Permission denied");
+  }
+
   return ok(deck);
 }
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Play, Plus, Loader2, BookOpen } from "lucide-react";
+import { Play, Plus, Loader2, BookOpen, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { addDeckToLibrary, type LibraryDeck } from "@/actions/study";
@@ -64,8 +64,13 @@ function DeckRow({ deck }: { deck: LibraryDeck }) {
           {deck.linkedDeckDefinitionId && (
             <Badge
               variant="secondary"
-              className="shrink-0 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              className={
+                deck.isAbandoned
+                  ? "shrink-0 text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  : "shrink-0 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              }
             >
+              {deck.isAbandoned && <AlertTriangle className="mr-1 h-3 w-3" />}
               linked
             </Badge>
           )}

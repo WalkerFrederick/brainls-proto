@@ -1,4 +1,4 @@
-import { BookOpen, User } from "lucide-react";
+import { BookOpen, User, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlatformBadge } from "@/components/platform-badge";
@@ -12,6 +12,7 @@ interface DeckSummaryCardProps {
   createdByUserId?: string;
   viewPolicy?: string;
   isLinked?: boolean;
+  isAbandoned?: boolean;
 }
 
 export function DeckSummaryCard({
@@ -23,6 +24,7 @@ export function DeckSummaryCard({
   createdByUserId,
   viewPolicy,
   isLinked,
+  isAbandoned,
 }: DeckSummaryCardProps) {
   const hasTags = tags && tags.length > 0;
 
@@ -60,8 +62,13 @@ export function DeckSummaryCard({
             {isLinked && (
               <Badge
                 variant="secondary"
-                className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                className={
+                  isAbandoned
+                    ? "text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    : "text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                }
               >
+                {isAbandoned && <AlertTriangle className="mr-1 h-3 w-3" />}
                 linked
               </Badge>
             )}

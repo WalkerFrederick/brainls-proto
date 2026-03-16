@@ -49,8 +49,12 @@ export async function canViewDeck(deckId: string, userId: string | null) {
 
   if (!deck) return false;
 
-  if (deck.viewPolicy === "public") return true;
-  if (deck.viewPolicy === "link") return true;
+  if (deck.viewPolicy === "public" || deck.viewPolicy === "link") {
+    if (!deck.archivedAt) return true;
+    if (!userId) return false;
+    const member = await getWorkspaceMember(deck.workspaceId, userId);
+    return member !== null;
+  }
 
   if (!userId) return false;
 

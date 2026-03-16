@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getPublicDeck, listPublicCards } from "@/actions/public-deck";
-import { BookOpen, LogIn } from "lucide-react";
+import { BookOpen, LogIn, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DeckCardItem } from "@/components/deck-card-item";
 import { PlatformBadge } from "@/components/platform-badge";
@@ -38,17 +38,37 @@ export default async function PublicDeckPage({ params }: Props) {
   const deckResult = await getPublicDeck(deckId);
 
   if (!deckResult.success) {
+    const isArchived = deckResult.error.toLowerCase().includes("archived");
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold">Deck not available</h1>
-          <p className="text-muted-foreground">{deckResult.error}</p>
-          <Link
-            href="/sign-in"
-            className="inline-flex items-center gap-2 mt-4 text-sm font-medium text-primary hover:underline"
-          >
-            <LogIn className="h-4 w-4" /> Sign in
-          </Link>
+        <div className="flex flex-col items-center text-center space-y-3">
+          {isArchived ? (
+            <Archive className="h-12 w-12 text-muted-foreground" />
+          ) : (
+            <BookOpen className="h-12 w-12 text-muted-foreground" />
+          )}
+          <h1 className="text-2xl font-bold">
+            {isArchived ? "Deck Archived" : "Deck Not Available"}
+          </h1>
+          <p className="text-muted-foreground max-w-md">
+            {isArchived
+              ? "The author has archived this deck and it is no longer available."
+              : deckResult.error}
+          </p>
+          <div className="flex items-center gap-3 mt-2">
+            <Link
+              href="/discover"
+              className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              Browse public decks
+            </Link>
+            <Link
+              href="/sign-in"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <LogIn className="h-4 w-4" /> Sign in
+            </Link>
+          </div>
         </div>
       </div>
     );

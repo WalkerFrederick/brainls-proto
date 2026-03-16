@@ -36,6 +36,7 @@ interface DeckSettingsDialogProps {
   workspaceKind?: string;
   initialTags?: string[];
   isDefaultDeck?: boolean;
+  isLinked?: boolean;
 }
 
 const VIEW_POLICY_OPTIONS = [
@@ -55,6 +56,7 @@ export function DeckSettingsDialog({
   workspaceKind = "shared",
   initialTags = [],
   isDefaultDeck = false,
+  isLinked = false,
 }: DeckSettingsDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -152,23 +154,34 @@ export function DeckSettingsDialog({
 
           <Separator />
 
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Sharing</h3>
+          {isLinked ? (
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Sharing</h3>
+              <p className="text-sm text-muted-foreground">
+                Linked decks inherit visibility from the source deck. Only the source deck owner can
+                change sharing settings.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold">Sharing</h3>
 
-            <PolicySelect
-              id="view-policy"
-              label="View Policy"
-              hint="Who can see this deck"
-              value={viewPolicy}
-              onChange={setViewPolicy}
-              options={
-                workspaceKind === "personal"
-                  ? VIEW_POLICY_OPTIONS.filter((o) => o.value !== "workspace")
-                  : VIEW_POLICY_OPTIONS
-              }
-              disabled={!canChangeVisibility}
-            />
-          </div>
+              <PolicySelect
+                id="view-policy"
+                label="View Policy"
+                hint="Who can see this deck"
+                value={viewPolicy}
+                onChange={setViewPolicy}
+                options={
+                  workspaceKind === "personal"
+                    ? VIEW_POLICY_OPTIONS.filter((o) => o.value !== "workspace")
+                    : VIEW_POLICY_OPTIONS
+                }
+                disabled={!canChangeVisibility}
+              />
+            </div>
+          )}
+          <Separator />
 
           <Button type="submit" disabled={saving} className="w-full">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -178,8 +191,6 @@ export function DeckSettingsDialog({
 
         {canArchive && (
           <>
-            <Separator />
-
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
               {isDefaultDeck ? (

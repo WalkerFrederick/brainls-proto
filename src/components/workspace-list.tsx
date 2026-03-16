@@ -13,6 +13,7 @@ interface Deck {
   description: string | null;
   viewPolicy: string;
   linkedDeckDefinitionId: string | null;
+  isAbandoned: boolean;
   tags: string[];
 }
 
@@ -95,6 +96,7 @@ export function WorkspaceList({ workspaces, defaultCollapsed = false }: Props) {
                       tags={deck.tags}
                       viewPolicy={deck.viewPolicy}
                       isLinked={!!deck.linkedDeckDefinitionId}
+                      isAbandoned={deck.isAbandoned}
                     />
                   </Link>
                 ))}

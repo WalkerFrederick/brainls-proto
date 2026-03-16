@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
-import { listWorkspacesWithDecks } from "@/actions/workspace";
-import { Library, FolderOpen } from "lucide-react";
-import { CreateWorkspaceDialog } from "@/components/create-workspace-dialog";
-import { WorkspaceList } from "@/components/workspace-list";
+import { listLibraryDecks } from "@/actions/study";
+import { Library } from "lucide-react";
+import { CreateDeckDialog } from "@/components/create-deck-dialog";
+import { LibraryDeckList } from "@/components/library-deck-list";
 
 export const metadata: Metadata = { title: "Library" };
 
 export default async function LibraryPage() {
-  const result = await listWorkspacesWithDecks();
+  const result = await listLibraryDecks();
 
   if (!result.success) {
     return <div className="text-destructive">Error: {result.error}</div>;
   }
-
-  const workspaces = result.data;
 
   return (
     <div className="space-y-6">
@@ -22,22 +20,10 @@ export default async function LibraryPage() {
           <Library className="h-6 w-6" />
           <h1 className="text-2xl font-bold">Library</h1>
         </div>
-        <CreateWorkspaceDialog />
+        <CreateDeckDialog />
       </div>
 
-      {workspaces.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
-          <FolderOpen className="h-12 w-12 text-muted-foreground" />
-          <div className="text-center">
-            <h3 className="text-lg font-semibold">No workspaces yet</h3>
-            <p className="text-sm text-muted-foreground">
-              Create a workspace to organize your decks.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <WorkspaceList workspaces={workspaces} />
-      )}
+      <LibraryDeckList decks={result.data} />
     </div>
   );
 }

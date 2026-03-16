@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, isNull, sql, asc, or, ne, isNotNull } from "drizzle-orm";
+import { eq, and, isNull, sql, asc, or, ne, isNotNull, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   userDecks,
@@ -8,6 +8,10 @@ import {
   reviewLogs,
   cardDefinitions,
   deckDefinitions,
+  workspaceMembers,
+  workspaces,
+  deckTags,
+  tags,
 } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
@@ -324,6 +328,211 @@ export async function listUserDecks(): Promise<
   );
 
   return ok(result);
+}
+
+export type LibraryDeck = {
+  deckDefinitionId: string;
+  title: string;
+  description: string | null;
+  linkedDeckDefinitionId: string | null;
+  copiedFromDeckDefinitionId: string | null;
+  isAbandoned: boolean;
+  tags: string[];
+  workspaces: Array<{ id: string; name: string; kind: string }>;
+  userDeckId: string | null;
+  totalCards: number;
+  dueCards: number;
+  lastStudiedAt: Date | null;
+};
+
+export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
+  const session = await requireSession();
+  const nowIso = new Date().toISOString();
+
+  const memberRows = await db
+    .select({
+      workspaceId: workspaceMembers.workspaceId,
+      workspaceName: workspaces.name,
+      workspaceKind: workspaces.kind,
+    })
+    .from(workspaceMembers)
+    .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
+    .where(
+      and(eq(workspaceMembers.userId, session.user.id), eq(workspaceMembers.status, "active")),
+    );
+
+  if (memberRows.length === 0) return ok([]);
+
+  const wsMap = new Map(memberRows.map((r) => [r.workspaceId, r]));
+  const wsIds = [...wsMap.keys()];
+
+  const allDecks = await db
+    .select({
+      id: deckDefinitions.id,
+      title: deckDefinitions.title,
+      description: deckDefinitions.description,
+      linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
+      copiedFromDeckDefinitionId: deckDefinitions.copiedFromDeckDefinitionId,
+      workspaceId: deckDefinitions.workspaceId,
+    })
+    .from(deckDefinitions)
+    .where(and(inArray(deckDefinitions.workspaceId, wsIds), isNull(deckDefinitions.archivedAt)));
+
+  // Deduplicate: linked decks group under their source deck ID
+  const grouped = new Map<
+    string,
+    {
+      sourceDeckId: string;
+      title: string;
+      description: string | null;
+      linkedDeckDefinitionId: string | null;
+      copiedFromDeckDefinitionId: string | null;
+      workspaceIds: Set<string>;
+      representativeDeckId: string;
+    }
+  >();
+
+  for (const deck of allDecks) {
+    const key = deck.linkedDeckDefinitionId ?? deck.id;
+
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.workspaceIds.add(deck.workspaceId);
+    } else {
+      grouped.set(key, {
+        sourceDeckId: key,
+        title: deck.title,
+        description: deck.description,
+        linkedDeckDefinitionId: deck.linkedDeckDefinitionId,
+        copiedFromDeckDefinitionId: deck.copiedFromDeckDefinitionId,
+        workspaceIds: new Set([deck.workspaceId]),
+        representativeDeckId: deck.id,
+      });
+    }
+  }
+
+  // Check abandoned status for linked decks
+  const linkedSourceIds = [...grouped.values()]
+    .filter((g) => g.linkedDeckDefinitionId)
+    .map((g) => g.sourceDeckId);
+
+  const abandonedSet = new Set<string>();
+  if (linkedSourceIds.length > 0) {
+    const sourceDecks = await db
+      .select({ id: deckDefinitions.id, archivedAt: deckDefinitions.archivedAt })
+      .from(deckDefinitions)
+      .where(inArray(deckDefinitions.id, linkedSourceIds));
+    for (const s of sourceDecks) {
+      if (s.archivedAt) abandonedSet.add(s.id);
+    }
+  }
+
+  // Fetch study stats: userDecks keyed by source deck ID
+  const allUserDecks = await db
+    .select({
+      id: userDecks.id,
+      deckDefinitionId: userDecks.deckDefinitionId,
+      lastStudiedAt: userDecks.lastStudiedAt,
+    })
+    .from(userDecks)
+    .where(and(eq(userDecks.userId, session.user.id), isNull(userDecks.archivedAt)));
+
+  const userDeckMap = new Map(allUserDecks.map((ud) => [ud.deckDefinitionId, ud]));
+
+  // Batch card counts
+  const userDeckIds = allUserDecks.map((ud) => ud.id);
+  const totalCountMap = new Map<string, number>();
+  const dueCountMap = new Map<string, number>();
+
+  if (userDeckIds.length > 0) {
+    const totalRows = await db
+      .select({
+        userDeckId: userCardStates.userDeckId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(userCardStates)
+      .where(inArray(userCardStates.userDeckId, userDeckIds))
+      .groupBy(userCardStates.userDeckId);
+
+    for (const r of totalRows) totalCountMap.set(r.userDeckId, r.count);
+
+    const dueRows = await db
+      .select({
+        userDeckId: userCardStates.userDeckId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(userCardStates)
+      .where(
+        and(
+          inArray(userCardStates.userDeckId, userDeckIds),
+          sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
+        ),
+      )
+      .groupBy(userCardStates.userDeckId);
+
+    for (const r of dueRows) dueCountMap.set(r.userDeckId, r.count);
+  }
+
+  // Fetch tags in bulk
+  const allDeckIds = allDecks.map((d) => d.id);
+  const deckTagMap = new Map<string, string[]>();
+
+  if (allDeckIds.length > 0) {
+    const tagRows = await db
+      .select({
+        deckDefinitionId: deckTags.deckDefinitionId,
+        tagName: tags.name,
+      })
+      .from(deckTags)
+      .innerJoin(tags, eq(deckTags.tagId, tags.id))
+      .where(inArray(deckTags.deckDefinitionId, allDeckIds));
+
+    for (const row of tagRows) {
+      const existing = deckTagMap.get(row.deckDefinitionId) ?? [];
+      existing.push(row.tagName);
+      deckTagMap.set(row.deckDefinitionId, existing);
+    }
+  }
+
+  const libraryDecks: LibraryDeck[] = [];
+
+  for (const group of grouped.values()) {
+    const ud = userDeckMap.get(group.sourceDeckId);
+    const deckWorkspaces = [...group.workspaceIds]
+      .map((wsId) => wsMap.get(wsId))
+      .filter(Boolean)
+      .map((ws) => ({ id: ws!.workspaceId, name: ws!.workspaceName, kind: ws!.workspaceKind }));
+
+    const tagSet = new Set<string>();
+    for (const deck of allDecks) {
+      const key = deck.linkedDeckDefinitionId ?? deck.id;
+      if (key === group.sourceDeckId) {
+        for (const t of deckTagMap.get(deck.id) ?? []) tagSet.add(t);
+      }
+    }
+
+    libraryDecks.push({
+      deckDefinitionId: group.representativeDeckId,
+      title: group.title,
+      description: group.description,
+      linkedDeckDefinitionId: group.linkedDeckDefinitionId,
+      copiedFromDeckDefinitionId: group.copiedFromDeckDefinitionId,
+      isAbandoned: abandonedSet.has(group.sourceDeckId),
+      tags: [...tagSet].sort(),
+      workspaces: deckWorkspaces,
+      userDeckId: ud?.id ?? null,
+      totalCards: ud ? (totalCountMap.get(ud.id) ?? 0) : 0,
+      dueCards: ud ? (dueCountMap.get(ud.id) ?? 0) : 0,
+      lastStudiedAt: ud?.lastStudiedAt ?? null,
+    });
+  }
+
+  libraryDecks.sort((a, b) => {
+    if (a.dueCards !== b.dueCards) return b.dueCards - a.dueCards;
+    return a.title.localeCompare(b.title);
+  });
+
+  return ok(libraryDecks);
 }
 
 export async function getDeckStudyStats(deckDefinitionId: string): Promise<

@@ -211,11 +211,7 @@ function QuickbarContent({
             />
           </Link>
         ) : (
-          <Link href="/sign-in">
-            <Button variant="ghost" size="sm">
-              Sign In
-            </Button>
-          </Link>
+          <div className="h-8 w-8 rounded-full bg-muted" />
         )}
       </div>
     </div>

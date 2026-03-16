@@ -61,28 +61,12 @@ function DeckRow({ deck }: { deck: LibraryDeck }) {
           >
             {deck.title}
           </Link>
-          {deck.linkedDeckDefinitionId && !deck.isAbandoned && (
+          {deck.linkedDeckDefinitionId && (
             <Badge
               variant="secondary"
               className="shrink-0 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
             >
               linked
-            </Badge>
-          )}
-          {deck.isAbandoned && (
-            <Badge
-              variant="secondary"
-              className="shrink-0 text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400"
-            >
-              abandoned
-            </Badge>
-          )}
-          {deck.copiedFromDeckDefinitionId && (
-            <Badge
-              variant="secondary"
-              className="shrink-0 text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400"
-            >
-              copied
             </Badge>
           )}
         </div>
@@ -131,7 +115,7 @@ function DeckRow({ deck }: { deck: LibraryDeck }) {
             {deck.lastStudiedAt && (
               <>
                 <span className="text-muted-foreground/40">·</span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground" suppressHydrationWarning>
                   {new Date(deck.lastStudiedAt).toLocaleDateString()}
                 </span>
               </>

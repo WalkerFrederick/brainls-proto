@@ -21,9 +21,7 @@ export default async function LibraryPage() {
             <Library className="h-6 w-6" />
             <h1 className="text-2xl font-bold">Library</h1>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            All your workspaces and decks in one place.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">All your decks in one place.</p>
         </div>
         <CreateDeckDialog />
       </div>

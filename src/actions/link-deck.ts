@@ -2,11 +2,19 @@
 
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
-import { deckDefinitions, workspaceMembers, workspaces, userDecks } from "@/db/schema";
+import {
+  deckDefinitions,
+  workspaceMembers,
+  workspaces,
+  userDecks,
+  cardDefinitions,
+  userCardStates,
+} from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { canViewDeck, requireWorkspaceRole, canEditDeck } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
+import { getDefaultCardState } from "@/lib/srs";
 
 export async function linkDeckToWorkspace(
   sourceDeckId: string,
@@ -70,6 +78,46 @@ export async function linkDeckToWorkspace(
       updatedByUserId: session.user.id,
     })
     .returning({ id: deckDefinitions.id });
+
+  const existingUd = await db
+    .select({ id: userDecks.id })
+    .from(userDecks)
+    .where(
+      and(
+        eq(userDecks.userId, session.user.id),
+        eq(userDecks.deckDefinitionId, sourceDeckId),
+        isNull(userDecks.archivedAt),
+      ),
+    );
+
+  if (existingUd.length === 0) {
+    const [ud] = await db
+      .insert(userDecks)
+      .values({ userId: session.user.id, deckDefinitionId: sourceDeckId })
+      .returning({ id: userDecks.id });
+
+    const cards = await db
+      .select({ id: cardDefinitions.id })
+      .from(cardDefinitions)
+      .where(
+        and(
+          eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+          isNull(cardDefinitions.archivedAt),
+          eq(cardDefinitions.status, "active"),
+        ),
+      );
+
+    if (cards.length > 0) {
+      const defaultState = getDefaultCardState();
+      await db.insert(userCardStates).values(
+        cards.map((c) => ({
+          userDeckId: ud.id,
+          cardDefinitionId: c.id,
+          ...defaultState,
+        })),
+      );
+    }
+  }
 
   return ok({ id: linked.id });
 }

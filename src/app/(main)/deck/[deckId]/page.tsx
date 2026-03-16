@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getDeck } from "@/actions/deck";
 import { getWorkspace } from "@/actions/workspace";
 import { listCards } from "@/actions/card";
 import { getDeckStudyStats } from "@/actions/study";
 import { getDeckTags } from "@/actions/tag";
-import { BookOpen, AlertTriangle } from "lucide-react";
+import { BookOpen, AlertTriangle, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
@@ -82,6 +83,15 @@ export default async function DeckPage({ params, searchParams }: Props) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <PlatformBadge createdByUserId={deck.createdByUserId} showPill />
+          {resolved.isLinked && (
+            <Link
+              href={`/deck/${resolved.sourceDeckId}`}
+              className="mb-2 inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-medium text-blue-600 underline hover:bg-blue-500/20 transition-colors dark:text-blue-400"
+            >
+              <ExternalLink className="h-3 w-3" />
+              View Source Deck
+            </Link>
+          )}
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{deck.title}</h1>
             <PlatformBadge createdByUserId={deck.createdByUserId} showCheck />
@@ -90,30 +100,6 @@ export default async function DeckPage({ params, searchParams }: Props) {
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge variant="outline">{cards.length} cards</Badge>
             <Badge variant="secondary">{deck.viewPolicy}</Badge>
-            {resolved.isLinked && !resolved.isAbandoned && (
-              <Badge
-                variant="secondary"
-                className="bg-blue-500/10 text-blue-600 dark:text-blue-400"
-              >
-                linked
-              </Badge>
-            )}
-            {resolved.isLinked && resolved.isAbandoned && (
-              <Badge
-                variant="secondary"
-                className="bg-amber-500/10 text-amber-600 dark:text-amber-400"
-              >
-                abandoned
-              </Badge>
-            )}
-            {deck.copiedFromDeckDefinitionId && (
-              <Badge
-                variant="secondary"
-                className="bg-violet-500/10 text-violet-600 dark:text-violet-400"
-              >
-                copied
-              </Badge>
-            )}
           </div>
           {deckTagNames.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">

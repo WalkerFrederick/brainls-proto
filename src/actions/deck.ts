@@ -2,7 +2,7 @@
 
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { deckDefinitions } from "@/db/schema";
+import { deckDefinitions, userDecks } from "@/db/schema";
 import { archiveStudyDataIfOrphaned } from "@/actions/link-deck";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
@@ -42,6 +42,11 @@ export async function createDeck(input: unknown): Promise<Result<{ id: string }>
       updatedByUserId: session.user.id,
     })
     .returning({ id: deckDefinitions.id });
+
+  await db.insert(userDecks).values({
+    userId: session.user.id,
+    deckDefinitionId: deck.id,
+  });
 
   return ok({ id: deck.id });
 }

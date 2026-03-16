@@ -38,7 +38,7 @@ interface AddToWorkspaceDialogProps {
 
 const MODE_CONFIG = {
   link: {
-    title: "Add to Workspace",
+    title: "Link to Workspace",
     description:
       "Adds this deck to your workspace. Stays in sync with the original — when the author updates cards, yours update too. Study progress is shared across all workspaces.",
     icon: Link2,
@@ -48,7 +48,7 @@ const MODE_CONFIG = {
     successMessage: "Deck added to workspace",
   },
   copy: {
-    title: "Copy Deck",
+    title: "Create a Copy",
     description:
       "Makes an independent copy you own. You can add, edit, and remove cards freely. Future changes to the original won\u2019t affect your copy.",
     icon: Copy,
@@ -311,7 +311,7 @@ export function AddToWorkspaceButtons({ deckId, sourceArchived }: AddToWorkspace
           }}
         >
           <Link2 className="mr-2 h-4 w-4" />
-          Add to Workspace
+          Link to Workspace
         </Button>
       )}
       <Button

@@ -8,6 +8,7 @@ import { ok, err, type Result } from "@/lib/result";
 import { canViewDeck, requireWorkspaceRole } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
+import { getDefaultCardState } from "@/lib/srs";
 
 export async function copyDeck(
   sourceDeckId: string,
@@ -118,6 +119,26 @@ export async function copyDeck(
 
   if (retainSrsData) {
     await migrateUserCardStates(session.user.id, cardSourceId, copiedDeck.id, sourceToNewCardId);
+  } else {
+    const [ud] = await db
+      .insert(userDecks)
+      .values({ userId: session.user.id, deckDefinitionId: copiedDeck.id })
+      .returning({ id: userDecks.id });
+
+    const studyableSourceCards = sourceCards.filter(
+      (c) => c.cardType !== "cloze" || c.parentCardId !== null,
+    );
+
+    if (studyableSourceCards.length > 0) {
+      const defaultState = getDefaultCardState();
+      await db.insert(userCardStates).values(
+        studyableSourceCards.map((c) => ({
+          userDeckId: ud.id,
+          cardDefinitionId: sourceToNewCardId.get(c.id)!,
+          ...defaultState,
+        })),
+      );
+    }
   }
 
   return ok({ id: copiedDeck.id });

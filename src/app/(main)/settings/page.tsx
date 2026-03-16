@@ -20,9 +20,14 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        <Settings className="h-6 w-6" />
-        <h1 className="text-2xl font-bold">Settings</h1>
+      <div>
+        <div className="flex items-center gap-3">
+          <Settings className="h-6 w-6" />
+          <h1 className="text-2xl font-bold">Settings</h1>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Customize your experience and manage your account.
+        </p>
       </div>
 
       <div className="space-y-4">

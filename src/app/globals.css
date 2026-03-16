@@ -726,3 +726,12 @@
   opacity: 0.6;
   vertical-align: super;
 }
+
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}

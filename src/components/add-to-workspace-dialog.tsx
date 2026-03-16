@@ -24,9 +24,9 @@ import {
   listWorkspacesForPicker,
   type WorkspacePickerItem,
 } from "@/actions/link-deck";
-import { forkDeck } from "@/actions/fork";
+import { copyDeck } from "@/actions/copy-deck";
 
-type CopyMode = "link" | "fork";
+type CopyMode = "link" | "copy";
 
 interface AddToWorkspaceDialogProps {
   deckId: string;
@@ -38,24 +38,24 @@ interface AddToWorkspaceDialogProps {
 
 const MODE_CONFIG = {
   link: {
-    title: "Create Linked Copy",
+    title: "Add to Workspace",
     description:
-      "Stays in sync with the original. When the author adds or updates cards, your copy automatically reflects the changes. You cannot edit the cards.",
+      "Adds this deck to your workspace. Stays in sync with the original — when the author updates cards, yours update too. Study progress is shared across all workspaces.",
     icon: Link2,
     iconBg: "bg-blue-500/10",
     iconColor: "text-blue-600",
     activeRing: "ring-blue-500/40",
-    successMessage: "Linked copy added to workspace",
+    successMessage: "Deck added to workspace",
   },
-  fork: {
-    title: "Create Editable Copy",
+  copy: {
+    title: "Copy Deck",
     description:
       "Makes an independent copy you own. You can add, edit, and remove cards freely. Future changes to the original won\u2019t affect your copy.",
     icon: Copy,
     iconBg: "bg-violet-500/10",
     iconColor: "text-violet-600",
     activeRing: "ring-violet-500/40",
-    successMessage: "Editable copy created",
+    successMessage: "Deck copied successfully",
   },
 } as const;
 
@@ -74,6 +74,7 @@ export function AddToWorkspaceDialog({
   const [success, setSuccess] = useState("");
   const [workspaces, setWorkspaces] = useState<WorkspacePickerItem[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState("");
+  const [retainSrs, setRetainSrs] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -100,6 +101,7 @@ export function AddToWorkspaceDialog({
 
   const selectedWorkspace = workspaces.find((w) => w.id === selectedWorkspaceId);
   const config = MODE_CONFIG[mode];
+  const showRetainSrs = mode === "copy" && selectedWorkspace?.hasExistingSrsData;
 
   async function handleSubmit() {
     if (!selectedWorkspaceId) return;
@@ -117,7 +119,7 @@ export function AddToWorkspaceDialog({
         setError(result.error);
       }
     } else {
-      const result = await forkDeck(deckId, selectedWorkspaceId);
+      const result = await copyDeck(deckId, selectedWorkspaceId, showRetainSrs ? retainSrs : false);
       if (result.success) {
         setSuccess(config.successMessage);
         router.push(`/deck/${result.data.id}`);
@@ -133,11 +135,12 @@ export function AddToWorkspaceDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add to Workspace</DialogTitle>
-          <DialogDescription>Choose a copy type, pick a workspace, then confirm.</DialogDescription>
+          <DialogDescription>
+            Choose how to add this deck, pick a workspace, then confirm.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Mode toggle */}
           <div className={`grid gap-2 ${sourceArchived ? "grid-cols-1" : "grid-cols-2"}`}>
             {(Object.entries(MODE_CONFIG) as [CopyMode, typeof MODE_CONFIG.link][]).map(
               ([key, cfg]) => {
@@ -227,22 +230,41 @@ export function AddToWorkspaceDialog({
               </div>
 
               {selectedWorkspace && (
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  {selectedWorkspace.isSource && mode === "link" && (
-                    <Badge variant="secondary">
-                      This workspace already contains the original deck
-                    </Badge>
-                  )}
-                  {selectedWorkspace.hasLink && mode === "link" && !selectedWorkspace.isSource && (
-                    <Badge variant="secondary">Already linked in this workspace</Badge>
-                  )}
-                  {selectedWorkspace.hasFork && mode === "fork" && (
-                    <Badge variant="secondary">Already forked in this workspace</Badge>
-                  )}
-                  {selectedWorkspace.hasLink && mode === "fork" && (
-                    <p className="text-muted-foreground/70">
-                      Your study progress from the linked copy will carry over.
-                    </p>
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap gap-2">
+                    {selectedWorkspace.isSource && mode === "link" && (
+                      <Badge variant="secondary">
+                        This workspace already contains the original deck
+                      </Badge>
+                    )}
+                    {selectedWorkspace.hasLink &&
+                      mode === "link" &&
+                      !selectedWorkspace.isSource && (
+                        <Badge variant="secondary">Already linked in this workspace</Badge>
+                      )}
+                    {selectedWorkspace.hasCopy && mode === "copy" && (
+                      <Badge variant="secondary">Already copied to this workspace</Badge>
+                    )}
+                  </div>
+
+                  {showRetainSrs && (
+                    <label className="flex items-center gap-2 rounded-md border p-3 cursor-pointer hover:bg-accent/30">
+                      <input
+                        type="checkbox"
+                        checked={retainSrs}
+                        onChange={(e) => setRetainSrs(e.target.checked)}
+                        className="h-4 w-4 rounded border-muted-foreground/50"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-foreground">
+                          Retain study progress
+                        </span>
+                        <p className="text-xs text-muted-foreground">
+                          Carry over your existing SRS data (intervals, due dates) to the copied
+                          deck.
+                        </p>
+                      </div>
+                    </label>
                   )}
                 </div>
               )}
@@ -289,19 +311,19 @@ export function AddToWorkspaceButtons({ deckId, sourceArchived }: AddToWorkspace
           }}
         >
           <Link2 className="mr-2 h-4 w-4" />
-          Create Linked Copy
+          Add to Workspace
         </Button>
       )}
       <Button
         variant="outline"
         size="sm"
         onClick={() => {
-          setDialogMode("fork");
+          setDialogMode("copy");
           setDialogOpen(true);
         }}
       >
         <Copy className="mr-2 h-4 w-4" />
-        Create Editable Copy
+        Copy Deck
       </Button>
       <AddToWorkspaceDialog
         key={`${dialogMode}-${dialogOpen}`}

@@ -28,7 +28,7 @@ export const deckDefinitions = pgTable("deck_definitions", {
   updatedByUserId: uuid("updated_by_user_id")
     .notNull()
     .references(() => users.id),
-  forkedFromDeckDefinitionId: uuid("forked_from_deck_definition_id"),
+  copiedFromDeckDefinitionId: uuid("copied_from_deck_definition_id"),
   linkedDeckDefinitionId: uuid("linked_deck_definition_id"),
   publishedAt: timestamp("published_at", { withTimezone: true }),
   discoveryStatus: varchar("discovery_status", { length: 31 }).default("unlisted"),

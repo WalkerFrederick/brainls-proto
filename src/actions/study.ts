@@ -24,11 +24,13 @@ export async function addDeckToLibrary(deckDefinitionId: string): Promise<Result
   const canView = await canViewDeck(deckDefinitionId, session.user.id);
   if (!canView) return err("Permission denied");
 
+  const { sourceDeckId } = await resolveSourceDeck(deckDefinitionId);
+
   const existing = await db
     .select()
     .from(userDecks)
     .where(
-      and(eq(userDecks.userId, session.user.id), eq(userDecks.deckDefinitionId, deckDefinitionId)),
+      and(eq(userDecks.userId, session.user.id), eq(userDecks.deckDefinitionId, sourceDeckId)),
     );
 
   if (existing.length > 0) {
@@ -46,11 +48,9 @@ export async function addDeckToLibrary(deckDefinitionId: string): Promise<Result
     .insert(userDecks)
     .values({
       userId: session.user.id,
-      deckDefinitionId,
+      deckDefinitionId: sourceDeckId,
     })
     .returning({ id: userDecks.id });
-
-  const { sourceDeckId } = await resolveSourceDeck(deckDefinitionId);
 
   const cards = await db
     .select({ id: cardDefinitions.id })
@@ -108,7 +108,13 @@ export async function getStudySession(
   const [userDeck] = await db
     .select()
     .from(userDecks)
-    .where(and(eq(userDecks.id, userDeckId), eq(userDecks.userId, session.user.id)));
+    .where(
+      and(
+        eq(userDecks.id, userDeckId),
+        eq(userDecks.userId, session.user.id),
+        isNull(userDecks.archivedAt),
+      ),
+    );
 
   if (!userDeck) return err("User deck not found");
 
@@ -281,7 +287,13 @@ export async function listUserDecks(): Promise<
     })
     .from(userDecks)
     .innerJoin(deckDefinitions, eq(userDecks.deckDefinitionId, deckDefinitions.id))
-    .where(and(eq(userDecks.userId, session.user.id), isNull(userDecks.archivedAt)));
+    .where(
+      and(
+        eq(userDecks.userId, session.user.id),
+        isNull(userDecks.archivedAt),
+        isNull(deckDefinitions.archivedAt),
+      ),
+    );
 
   const result = await Promise.all(
     decks.map(async (deck) => {
@@ -326,13 +338,15 @@ export async function getDeckStudyStats(deckDefinitionId: string): Promise<
   if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
   const session = await requireSession();
 
+  const { sourceDeckId } = await resolveSourceDeck(deckDefinitionId);
+
   const [userDeck] = await db
     .select({ id: userDecks.id })
     .from(userDecks)
     .where(
       and(
         eq(userDecks.userId, session.user.id),
-        eq(userDecks.deckDefinitionId, deckDefinitionId),
+        eq(userDecks.deckDefinitionId, sourceDeckId),
         isNull(userDecks.archivedAt),
       ),
     );

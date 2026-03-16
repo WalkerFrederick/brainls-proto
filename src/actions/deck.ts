@@ -3,6 +3,7 @@
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { deckDefinitions } from "@/db/schema";
+import { archiveStudyDataIfOrphaned } from "@/actions/link-deck";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { CreateDeckSchema, UpdateDeckSchema } from "@/lib/schemas";
@@ -130,6 +131,10 @@ export async function archiveDeck(deckId: string): Promise<Result<{ id: string }
     .update(deckDefinitions)
     .set({ archivedAt: new Date(), updatedAt: new Date(), updatedByUserId: session.user.id })
     .where(eq(deckDefinitions.id, deckId));
+
+  if (deck.linkedDeckDefinitionId) {
+    await archiveStudyDataIfOrphaned(session.user.id, deck.linkedDeckDefinitionId);
+  }
 
   return ok({ id: deckId });
 }

@@ -72,8 +72,8 @@ export default async function DeckPage({ params, searchParams }: Props) {
               The author has archived this deck
             </p>
             <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
-              Your existing cards are still available, but no new cards will be added. Fork it to
-              your workspace to keep an independent copy you can update.
+              Your existing cards are still available, but no new cards will be added. Copy it to
+              your workspace to keep an independent version you can update.
             </p>
           </div>
         </div>
@@ -106,12 +106,12 @@ export default async function DeckPage({ params, searchParams }: Props) {
                 abandoned
               </Badge>
             )}
-            {deck.forkedFromDeckDefinitionId && (
+            {deck.copiedFromDeckDefinitionId && (
               <Badge
                 variant="secondary"
                 className="bg-violet-500/10 text-violet-600 dark:text-violet-400"
               >
-                forked
+                copied
               </Badge>
             )}
           </div>

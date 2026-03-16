@@ -35,6 +35,7 @@ CREATE TABLE "users" (
 	"username" varchar(63),
 	"status" varchar(31) DEFAULT 'active' NOT NULL,
 	"personal_workspace_id" uuid,
+	"default_deck_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"archived_at" timestamp with time zone,
@@ -54,7 +55,8 @@ CREATE TABLE "verifications" (
 CREATE TABLE "workspace_members" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"workspace_id" uuid NOT NULL,
-	"user_id" uuid NOT NULL,
+	"user_id" uuid,
+	"invited_email" varchar(255),
 	"role" varchar(31) DEFAULT 'viewer' NOT NULL,
 	"status" varchar(31) DEFAULT 'invited' NOT NULL,
 	"joined_at" timestamp with time zone,
@@ -112,6 +114,13 @@ CREATE TABLE "card_definitions" (
 	"archived_at" timestamp with time zone
 );
 --> statement-breakpoint
+CREATE TABLE "card_tags" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"card_definition_id" uuid NOT NULL,
+	"tag_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "deck_definitions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"workspace_id" uuid NOT NULL,
@@ -119,19 +128,32 @@ CREATE TABLE "deck_definitions" (
 	"slug" varchar(500),
 	"description" varchar(5000),
 	"view_policy" varchar(31) DEFAULT 'private' NOT NULL,
-	"use_policy" varchar(31) DEFAULT 'none' NOT NULL,
-	"fork_policy" varchar(31) DEFAULT 'none' NOT NULL,
 	"passcode_hash" varchar(255),
 	"share_token" varchar(255),
 	"created_by_user_id" uuid NOT NULL,
 	"updated_by_user_id" uuid NOT NULL,
-	"forked_from_deck_definition_id" uuid,
+	"copied_from_deck_definition_id" uuid,
+	"linked_deck_definition_id" uuid,
 	"published_at" timestamp with time zone,
 	"discovery_status" varchar(31) DEFAULT 'unlisted',
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"archived_at" timestamp with time zone,
 	CONSTRAINT "deck_definitions_share_token_unique" UNIQUE("share_token")
+);
+--> statement-breakpoint
+CREATE TABLE "deck_tags" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"deck_definition_id" uuid NOT NULL,
+	"tag_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "tags" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"name" varchar(100) NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "tags_name_unique" UNIQUE("name")
 );
 --> statement-breakpoint
 CREATE TABLE "review_logs" (
@@ -193,13 +215,19 @@ ALTER TABLE "assets" ADD CONSTRAINT "assets_workspace_id_workspaces_id_fk" FOREI
 ALTER TABLE "card_definitions" ADD CONSTRAINT "card_definitions_deck_definition_id_deck_definitions_id_fk" FOREIGN KEY ("deck_definition_id") REFERENCES "public"."deck_definitions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "card_definitions" ADD CONSTRAINT "card_definitions_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "card_definitions" ADD CONSTRAINT "card_definitions_updated_by_user_id_users_id_fk" FOREIGN KEY ("updated_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "card_tags" ADD CONSTRAINT "card_tags_card_definition_id_card_definitions_id_fk" FOREIGN KEY ("card_definition_id") REFERENCES "public"."card_definitions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "card_tags" ADD CONSTRAINT "card_tags_tag_id_tags_id_fk" FOREIGN KEY ("tag_id") REFERENCES "public"."tags"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "deck_definitions" ADD CONSTRAINT "deck_definitions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "deck_definitions" ADD CONSTRAINT "deck_definitions_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "deck_definitions" ADD CONSTRAINT "deck_definitions_updated_by_user_id_users_id_fk" FOREIGN KEY ("updated_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "deck_tags" ADD CONSTRAINT "deck_tags_deck_definition_id_deck_definitions_id_fk" FOREIGN KEY ("deck_definition_id") REFERENCES "public"."deck_definitions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "deck_tags" ADD CONSTRAINT "deck_tags_tag_id_tags_id_fk" FOREIGN KEY ("tag_id") REFERENCES "public"."tags"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "review_logs" ADD CONSTRAINT "review_logs_user_deck_id_user_decks_id_fk" FOREIGN KEY ("user_deck_id") REFERENCES "public"."user_decks"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "review_logs" ADD CONSTRAINT "review_logs_user_card_state_id_user_card_states_id_fk" FOREIGN KEY ("user_card_state_id") REFERENCES "public"."user_card_states"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "review_logs" ADD CONSTRAINT "review_logs_card_definition_id_card_definitions_id_fk" FOREIGN KEY ("card_definition_id") REFERENCES "public"."card_definitions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_card_states" ADD CONSTRAINT "user_card_states_user_deck_id_user_decks_id_fk" FOREIGN KEY ("user_deck_id") REFERENCES "public"."user_decks"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_card_states" ADD CONSTRAINT "user_card_states_card_definition_id_card_definitions_id_fk" FOREIGN KEY ("card_definition_id") REFERENCES "public"."card_definitions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_decks" ADD CONSTRAINT "user_decks_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "user_decks" ADD CONSTRAINT "user_decks_deck_definition_id_deck_definitions_id_fk" FOREIGN KEY ("deck_definition_id") REFERENCES "public"."deck_definitions"("id") ON DELETE no action ON UPDATE no action;
+ALTER TABLE "user_decks" ADD CONSTRAINT "user_decks_deck_definition_id_deck_definitions_id_fk" FOREIGN KEY ("deck_definition_id") REFERENCES "public"."deck_definitions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "card_tags_card_tag_idx" ON "card_tags" USING btree ("card_definition_id","tag_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "deck_tags_deck_tag_idx" ON "deck_tags" USING btree ("deck_definition_id","tag_id");

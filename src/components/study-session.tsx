@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { submitReview } from "@/actions/study";
-import { Loader2, Trophy, Info } from "lucide-react";
+import { Trophy, Info } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
 import {
@@ -80,7 +80,6 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
   const [cards] = useState(initialCards);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [reviewed, setReviewed] = useState(0);
   const [finished, setFinished] = useState(false);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
@@ -97,11 +96,10 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
   );
 
   const handleRate = useCallback(
-    async (rating: Rating) => {
-      setLoading(true);
+    (rating: Rating) => {
       const responseMs = Date.now() - startTime;
 
-      await submitReview({
+      submitReview({
         userCardStateId: currentCard.userCardStateId,
         rating,
         responseMs,
@@ -119,13 +117,11 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
       } else {
         setFinished(true);
       }
-
-      setLoading(false);
     },
     [currentCard, currentIndex, cards.length, startTime, skipSrsUpdate],
   );
 
-  const canRate = showAnswer && !loading && !finished;
+  const canRate = showAnswer && !finished;
   const isMultipleChoice = currentCard?.cardType === "multiple_choice";
   const choiceCount = isMultipleChoice
     ? Math.min(((content?.choices as string[]) ?? []).length, 10)
@@ -243,7 +239,7 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
       </Card>
 
       {showAnswer ? (
-        <RatingPanel intervalPreviews={intervalPreviews} loading={loading} onRate={handleRate} />
+        <RatingPanel intervalPreviews={intervalPreviews} onRate={handleRate} />
       ) : (
         <div className="rounded-xl border bg-card p-4">
           <Button variant="outline" className="w-full" onClick={() => setShowAnswer(true)}>
@@ -290,11 +286,9 @@ const RATING_CONFIG: {
 
 function RatingPanel({
   intervalPreviews,
-  loading,
   onRate,
 }: {
   intervalPreviews: Record<Rating, string> | null;
-  loading: boolean;
   onRate: (r: Rating) => void;
 }) {
   return (
@@ -310,12 +304,11 @@ function RatingPanel({
           <button
             key={rating}
             type="button"
-            disabled={loading}
             onClick={() => onRate(rating)}
-            className="group flex flex-col items-center gap-1.5 rounded-lg border bg-muted/50 px-2 py-3 transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+            className="group flex flex-col items-center gap-1.5 rounded-lg border bg-muted/50 px-2 py-3 transition-colors hover:bg-muted"
           >
             <span className="flex items-center gap-1.5 text-sm font-medium">
-              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : label}
+              {label}
               <span
                 className={`inline-flex h-5 min-w-5 items-center justify-center rounded border px-1 font-mono text-[11px] font-semibold ${badgeClass}`}
               >

@@ -12,7 +12,7 @@ interface DeckSummaryCardProps {
   createdByUserId?: string;
   viewPolicy?: string;
   linkedDeckDefinitionId?: string | null;
-  forkedFromDeckDefinitionId?: string | null;
+  copiedFromDeckDefinitionId?: string | null;
   isAbandoned?: boolean;
 }
 
@@ -25,7 +25,7 @@ export function DeckSummaryCard({
   createdByUserId,
   viewPolicy,
   linkedDeckDefinitionId,
-  forkedFromDeckDefinitionId,
+  copiedFromDeckDefinitionId,
   isAbandoned,
 }: DeckSummaryCardProps) {
   const hasTags = tags && tags.length > 0;
@@ -33,7 +33,7 @@ export function DeckSummaryCard({
     viewPolicy ||
     (linkedDeckDefinitionId && !isAbandoned) ||
     (linkedDeckDefinitionId && isAbandoned) ||
-    forkedFromDeckDefinitionId;
+    copiedFromDeckDefinitionId;
 
   return (
     <Card className="h-full transition-colors hover:border-primary/50 hover:bg-muted/30">
@@ -82,12 +82,12 @@ export function DeckSummaryCard({
                 abandoned
               </Badge>
             )}
-            {forkedFromDeckDefinitionId && (
+            {copiedFromDeckDefinitionId && (
               <Badge
                 variant="secondary"
                 className="text-[10px] bg-violet-500/10 text-violet-600 dark:text-violet-400"
               >
-                forked
+                copied
               </Badge>
             )}
             {viewPolicy && <Badge variant="outline">{viewPolicy}</Badge>}

@@ -9,16 +9,17 @@ import { canViewDeck, requireWorkspaceRole } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
 
-export async function forkDeck(
+export async function copyDeck(
   sourceDeckId: string,
   targetWorkspaceId: string,
+  retainSrsData: boolean = false,
 ): Promise<Result<{ id: string }>> {
   if (!isValidUuid(sourceDeckId)) return err("Invalid source deck ID");
   if (!isValidUuid(targetWorkspaceId)) return err("Invalid target workspace ID");
   const session = await requireSession();
 
   const canView = await canViewDeck(sourceDeckId, session.user.id);
-  if (!canView) return err("Not allowed to fork this deck");
+  if (!canView) return err("Not allowed to copy this deck");
 
   const perm = await requireWorkspaceRole(targetWorkspaceId, session.user.id, "editor");
   if (!perm.allowed) return err(perm.error);
@@ -32,14 +33,14 @@ export async function forkDeck(
 
   const { sourceDeckId: cardSourceId } = await resolveSourceDeck(sourceDeckId);
 
-  const [forkedDeck] = await db
+  const [copiedDeck] = await db
     .insert(deckDefinitions)
     .values({
       workspaceId: targetWorkspaceId,
-      title: `${sourceDeck.title} (fork)`,
-      slug: `${sourceDeck.slug}-fork-${Date.now()}`,
+      title: `${sourceDeck.title} (copy)`,
+      slug: `${sourceDeck.slug}-copy-${Date.now()}`,
       description: sourceDeck.description,
-      forkedFromDeckDefinitionId: sourceDeckId,
+      copiedFromDeckDefinitionId: sourceDeckId,
       createdByUserId: session.user.id,
       updatedByUserId: session.user.id,
     })
@@ -60,14 +61,14 @@ export async function forkDeck(
   const clozeChildren = sourceCards.filter((c) => c.cardType === "cloze" && c.parentCardId);
   const regularCards = sourceCards.filter((c) => c.cardType !== "cloze");
 
-  const sourceToForkCardId = new Map<string, string>();
+  const sourceToNewCardId = new Map<string, string>();
 
   if (regularCards.length > 0) {
     const inserted = await db
       .insert(cardDefinitions)
       .values(
         regularCards.map((card) => ({
-          deckDefinitionId: forkedDeck.id,
+          deckDefinitionId: copiedDeck.id,
           cardType: card.cardType,
           contentJson: card.contentJson,
           createdByUserId: session.user.id,
@@ -76,7 +77,7 @@ export async function forkDeck(
       )
       .returning({ id: cardDefinitions.id });
     regularCards.forEach((card, i) => {
-      sourceToForkCardId.set(card.id, inserted[i].id);
+      sourceToNewCardId.set(card.id, inserted[i].id);
     });
   }
 
@@ -84,7 +85,7 @@ export async function forkDeck(
     const [newParent] = await db
       .insert(cardDefinitions)
       .values({
-        deckDefinitionId: forkedDeck.id,
+        deckDefinitionId: copiedDeck.id,
         cardType: "cloze",
         contentJson: parent.contentJson,
         createdByUserId: session.user.id,
@@ -92,7 +93,7 @@ export async function forkDeck(
       })
       .returning({ id: cardDefinitions.id });
 
-    sourceToForkCardId.set(parent.id, newParent.id);
+    sourceToNewCardId.set(parent.id, newParent.id);
 
     const children = clozeChildren.filter((c) => c.parentCardId === parent.id);
     if (children.length > 0) {
@@ -100,7 +101,7 @@ export async function forkDeck(
         .insert(cardDefinitions)
         .values(
           children.map((child) => ({
-            deckDefinitionId: forkedDeck.id,
+            deckDefinitionId: copiedDeck.id,
             cardType: "cloze",
             contentJson: child.contentJson,
             parentCardId: newParent.id,
@@ -110,26 +111,23 @@ export async function forkDeck(
         )
         .returning({ id: cardDefinitions.id });
       children.forEach((child, i) => {
-        sourceToForkCardId.set(child.id, inserted[i].id);
+        sourceToNewCardId.set(child.id, inserted[i].id);
       });
     }
   }
 
-  await migrateUserCardStatesToFork(
-    session.user.id,
-    cardSourceId,
-    forkedDeck.id,
-    sourceToForkCardId,
-  );
+  if (retainSrsData) {
+    await migrateUserCardStates(session.user.id, cardSourceId, copiedDeck.id, sourceToNewCardId);
+  }
 
-  return ok({ id: forkedDeck.id });
+  return ok({ id: copiedDeck.id });
 }
 
-async function migrateUserCardStatesToFork(
+async function migrateUserCardStates(
   userId: string,
   cardSourceDeckId: string,
-  forkedDeckId: string,
-  sourceToForkCardId: Map<string, string>,
+  copiedDeckId: string,
+  sourceToNewCardId: Map<string, string>,
 ): Promise<void> {
   const linkedDecks = await db
     .select({ id: deckDefinitions.id })
@@ -166,20 +164,20 @@ async function migrateUserCardStatesToFork(
       ),
     );
 
-  const statesToMigrate = allStates.filter((s) => sourceToForkCardId.has(s.cardDefinitionId));
+  const statesToMigrate = allStates.filter((s) => sourceToNewCardId.has(s.cardDefinitionId));
   if (statesToMigrate.length === 0) return;
 
   const [newUserDeck] = await db
     .insert(userDecks)
     .values({
       userId,
-      deckDefinitionId: forkedDeckId,
+      deckDefinitionId: copiedDeckId,
     })
     .returning({ id: userDecks.id });
 
   await db.insert(userCardStates).values(
     statesToMigrate.map((state) => {
-      const newCardId = sourceToForkCardId.get(state.cardDefinitionId)!;
+      const newCardId = sourceToNewCardId.get(state.cardDefinitionId)!;
       return {
         userDeckId: newUserDeck.id,
         cardDefinitionId: newCardId,

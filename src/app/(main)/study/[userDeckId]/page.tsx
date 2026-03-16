@@ -3,6 +3,7 @@ import { getStudySession } from "@/actions/study";
 
 export const metadata: Metadata = { title: "Study" };
 import { StudySessionClient } from "@/components/study-session";
+import { StudyPrepScreen } from "@/components/study-prep-screen";
 import { BookOpen } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -23,18 +24,24 @@ export default async function StudyPage({ params }: Props) {
 
   if (cards.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4">
-        <BookOpen className="h-16 w-16 text-muted-foreground" />
-        <h2 className="text-2xl font-bold">All caught up!</h2>
-        <p className="text-muted-foreground">
-          No cards are due for review in &quot;{deckTitle}&quot;.
-        </p>
-        <Link href="/library">
-          <Button variant="outline">Back to Library</Button>
-        </Link>
-      </div>
+      <StudyPrepScreen>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4">
+          <BookOpen className="h-16 w-16 text-muted-foreground" />
+          <h2 className="text-2xl font-bold">All caught up!</h2>
+          <p className="text-muted-foreground">
+            No cards are due for review in &quot;{deckTitle}&quot;.
+          </p>
+          <Link href="/library">
+            <Button variant="outline">Back to Library</Button>
+          </Link>
+        </div>
+      </StudyPrepScreen>
     );
   }
 
-  return <StudySessionClient deckTitle={deckTitle} initialCards={cards} totalDue={totalDue} />;
+  return (
+    <StudyPrepScreen>
+      <StudySessionClient deckTitle={deckTitle} initialCards={cards} totalDue={totalDue} />
+    </StudyPrepScreen>
+  );
 }

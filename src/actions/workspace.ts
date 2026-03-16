@@ -120,7 +120,7 @@ export async function listWorkspacesWithDecks(): Promise<
         description: string | null;
         viewPolicy: string;
         linkedDeckDefinitionId: string | null;
-        forkedFromDeckDefinitionId: string | null;
+        copiedFromDeckDefinitionId: string | null;
         isAbandoned: boolean;
         tags: string[];
       }>;
@@ -152,7 +152,7 @@ export async function listWorkspacesWithDecks(): Promise<
           description: deckDefinitions.description,
           viewPolicy: deckDefinitions.viewPolicy,
           linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
-          forkedFromDeckDefinitionId: deckDefinitions.forkedFromDeckDefinitionId,
+          copiedFromDeckDefinitionId: deckDefinitions.copiedFromDeckDefinitionId,
         })
         .from(deckDefinitions)
         .where(and(eq(deckDefinitions.workspaceId, ws.id), isNull(deckDefinitions.archivedAt)));

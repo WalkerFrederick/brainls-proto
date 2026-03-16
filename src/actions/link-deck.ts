@@ -2,7 +2,7 @@
 
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
-import { deckDefinitions, workspaceMembers, workspaces } from "@/db/schema";
+import { deckDefinitions, workspaceMembers, workspaces, userDecks } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { canViewDeck, requireWorkspaceRole, canEditDeck } from "@/lib/permissions";
@@ -93,6 +93,8 @@ export async function unlinkDeckFromWorkspace(
   const canEdit = await canEditDeck(linkedDeckId, session.user.id);
   if (!canEdit) return err("Permission denied");
 
+  const sourceDeckId = deck.linkedDeckDefinitionId!;
+
   await db
     .update(deckDefinitions)
     .set({
@@ -102,7 +104,76 @@ export async function unlinkDeckFromWorkspace(
     })
     .where(eq(deckDefinitions.id, linkedDeckId));
 
+  await archiveStudyDataIfOrphaned(session.user.id, sourceDeckId);
+
   return ok({ id: linkedDeckId });
+}
+
+/**
+ * After unlinking, check if the user still has access to the source deck
+ * (either directly via workspace membership or through another active link).
+ * If not, archive their userDecks row so study data doesn't linger orphaned.
+ */
+export async function archiveStudyDataIfOrphaned(
+  userId: string,
+  sourceDeckId: string,
+): Promise<void> {
+  const userWorkspaceIds = (
+    await db
+      .select({ workspaceId: workspaceMembers.workspaceId })
+      .from(workspaceMembers)
+      .where(and(eq(workspaceMembers.userId, userId), eq(workspaceMembers.status, "active")))
+  ).map((r) => r.workspaceId);
+
+  if (userWorkspaceIds.length === 0) {
+    await archiveUserDeckForSource(userId, sourceDeckId);
+    return;
+  }
+
+  const [sourceDeck] = await db
+    .select({ workspaceId: deckDefinitions.workspaceId, archivedAt: deckDefinitions.archivedAt })
+    .from(deckDefinitions)
+    .where(eq(deckDefinitions.id, sourceDeckId));
+
+  if (!sourceDeck) {
+    await archiveUserDeckForSource(userId, sourceDeckId);
+    return;
+  }
+
+  if (!sourceDeck.archivedAt && userWorkspaceIds.includes(sourceDeck.workspaceId)) {
+    return;
+  }
+
+  const remainingLinks = await db
+    .select({ workspaceId: deckDefinitions.workspaceId })
+    .from(deckDefinitions)
+    .where(
+      and(
+        eq(deckDefinitions.linkedDeckDefinitionId, sourceDeckId),
+        isNull(deckDefinitions.archivedAt),
+      ),
+    );
+
+  const hasAccessibleLink = remainingLinks.some((link) =>
+    userWorkspaceIds.includes(link.workspaceId),
+  );
+
+  if (hasAccessibleLink) return;
+
+  await archiveUserDeckForSource(userId, sourceDeckId);
+}
+
+async function archiveUserDeckForSource(userId: string, sourceDeckId: string): Promise<void> {
+  await db
+    .update(userDecks)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(userDecks.userId, userId),
+        eq(userDecks.deckDefinitionId, sourceDeckId),
+        isNull(userDecks.archivedAt),
+      ),
+    );
 }
 
 export type WorkspacePickerItem = {
@@ -110,8 +181,9 @@ export type WorkspacePickerItem = {
   name: string;
   kind: string;
   hasLink: boolean;
-  hasFork: boolean;
+  hasCopy: boolean;
   isSource: boolean;
+  hasExistingSrsData: boolean;
 };
 
 export async function listWorkspacesForPicker(
@@ -143,6 +215,18 @@ export async function listWorkspacesForPicker(
 
   const sourceWorkspaceId = sourceDeck?.workspaceId ?? null;
 
+  const existingSrsDecks = await db
+    .select({ id: userDecks.id })
+    .from(userDecks)
+    .where(
+      and(
+        eq(userDecks.userId, session.user.id),
+        eq(userDecks.deckDefinitionId, sourceDeckId),
+        isNull(userDecks.archivedAt),
+      ),
+    );
+  const hasExistingSrsData = existingSrsDecks.length > 0;
+
   const result: WorkspacePickerItem[] = [];
 
   for (const wsId of editorWorkspaceIds) {
@@ -164,13 +248,13 @@ export async function listWorkspacesForPicker(
         ),
       );
 
-    const forkedDecks = await db
+    const copiedDecks = await db
       .select({ id: deckDefinitions.id })
       .from(deckDefinitions)
       .where(
         and(
           eq(deckDefinitions.workspaceId, wsId),
-          eq(deckDefinitions.forkedFromDeckDefinitionId, sourceDeckId),
+          eq(deckDefinitions.copiedFromDeckDefinitionId, sourceDeckId),
           isNull(deckDefinitions.archivedAt),
         ),
       );
@@ -180,8 +264,9 @@ export async function listWorkspacesForPicker(
       name: ws.name,
       kind: ws.kind,
       hasLink: linkedDecks.length > 0,
-      hasFork: forkedDecks.length > 0,
+      hasCopy: copiedDecks.length > 0,
       isSource: wsId === sourceWorkspaceId,
+      hasExistingSrsData,
     });
   }
 

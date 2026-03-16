@@ -184,8 +184,8 @@ async function seedPlatform() {
         back: "Workspaces group decks together. You have a personal workspace and can create or join shared workspaces with other users.",
       },
       {
-        front: "What is the difference between a linked copy and a forked copy?",
-        back: "A linked copy stays in sync with the original deck. A forked copy is independent — you can edit it freely.",
+        front: "What is the difference between a linked deck and a copied deck?",
+        back: "A linked deck stays in sync with the original and shares study progress. A copied deck is independent — you can edit it freely.",
       },
       {
         front: "How does the rating system work after reviewing a card?",

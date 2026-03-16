@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
 import * as schema from "./schema";
 
@@ -404,11 +404,11 @@ async function seed() {
 
   const capitalsDeck = await createDeck(
     allisonPersonal.id,
-    "World Capitals",
-    "world-capitals",
+    "World Capitals (MC)",
+    "world-capitals-mc",
     users.allison.id,
     {
-      description: "Test your knowledge of world capitals",
+      description: "Test your knowledge of world capitals with multiple choice",
     },
   );
   await createCards(capitalsDeck.id, users.allison.id, "multiple_choice", [
@@ -435,7 +435,7 @@ async function seed() {
   ]);
 
   console.log(
-    "  Allison's Personal: Biology 101 (6 cards: 3 front/back, 3 cloze), World Capitals (4 cards)",
+    "  Allison's Personal: Biology 101 (6 cards: 3 front/back, 3 cloze), World Capitals MC (4 cards)",
   );
 
   // ── Allison's Shared Workspace (Owner) — Bob is editor ────────
@@ -837,13 +837,21 @@ async function seed() {
   // ── Seed user libraries (userDecks + userCardStates) ──────────
   console.log("\nSeeding user libraries...");
 
-  async function addToLibrary(userId: string, deckId: string, sourceDeckId?: string) {
+  async function addToLibrary(userId: string, deckId: string) {
+    const existing = await db
+      .select({ id: schema.userDecks.id })
+      .from(schema.userDecks)
+      .where(
+        and(eq(schema.userDecks.userId, userId), eq(schema.userDecks.deckDefinitionId, deckId)),
+      );
+
+    if (existing.length > 0) return existing[0].id;
+
     const [userDeck] = await db
       .insert(schema.userDecks)
       .values({ userId, deckDefinitionId: deckId })
       .returning({ id: schema.userDecks.id });
 
-    const cardSource = sourceDeckId ?? deckId;
     const allCards = await db
       .select({
         id: schema.cardDefinitions.id,
@@ -853,7 +861,7 @@ async function seed() {
         archivedAt: schema.cardDefinitions.archivedAt,
       })
       .from(schema.cardDefinitions)
-      .where(eq(schema.cardDefinitions.deckDefinitionId, cardSource));
+      .where(eq(schema.cardDefinitions.deckDefinitionId, deckId));
 
     const studyableCards = allCards.filter(
       (c) =>
@@ -882,17 +890,18 @@ async function seed() {
   await addToLibrary(users.allison.id, capitalsDeck.id);
   await addToLibrary(users.allison.id, jsDeck.id);
   await addToLibrary(users.allison.id, dsDeck.id);
-  // Allison's linked decks (cards come from source)
-  await addToLibrary(users.allison.id, linkedWorldCapitals.id, bobPublicDeck.id);
-  await addToLibrary(users.allison.id, linkedIdioms.id, carolPublicDeck.id);
-  await addToLibrary(users.allison.id, linkedAbandoned.id, eveAbandonedDeck.id);
+  // Linked decks: study state is keyed to the SOURCE deck, not the linked copy.
+  // addToLibrary deduplicates, so if a source was already added above it's a no-op.
+  await addToLibrary(users.allison.id, bobPublicDeck.id);
+  await addToLibrary(users.allison.id, carolPublicDeck.id);
+  await addToLibrary(users.allison.id, eveAbandonedDeck.id);
   // Decks from workspaces Allison is a member of
   await addToLibrary(users.allison.id, chemDeck.id);
   await addToLibrary(users.allison.id, physicsDeck.id);
   await addToLibrary(users.allison.id, artDeck.id);
   await addToLibrary(users.allison.id, spanishDeck.id);
 
-  console.log("  Added 11 decks to Allison's library with userCardStates");
+  console.log("  Added 10 decks to Allison's library with userCardStates");
 
   // ── Tags ────────────────────────────────────────────────────────
   console.log("\nSeeding tags...");
@@ -984,9 +993,10 @@ Seed complete!
     ✉ Eve's Book Club — Pending Invite  → invited as viewer
 
   Allison's library (userDecks + userCardStates seeded):
-    📚 Biology 101, World Capitals, JS Fundamentals, Data Structures
-    🔗 World Capitals (linked), English Idioms (linked), Music Theory (abandoned)
+    📚 Biology 101, World Capitals MC (own), JS Fundamentals, Data Structures
+    📚 World Capitals (Bob's, via link), English Idioms (Carol's, via link), Music Theory (Eve's, abandoned)
     👀 Chemistry Basics, Physics 101 (Bob's Lab), Art History, Spanish Vocab (Carol's Studio)
+    Note: linked decks share study state with source — userDecks points to the source deck ID
 
   Public decks (visible on /browse):
     🌐 World Capitals (Bob)               → 5 cards

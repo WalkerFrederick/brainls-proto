@@ -13,7 +13,7 @@ interface Deck {
   description: string | null;
   viewPolicy: string;
   linkedDeckDefinitionId: string | null;
-  forkedFromDeckDefinitionId: string | null;
+  copiedFromDeckDefinitionId: string | null;
   isAbandoned: boolean;
   tags: string[];
 }
@@ -97,7 +97,7 @@ export function WorkspaceList({ workspaces, defaultCollapsed = false }: Props) {
                       tags={deck.tags}
                       viewPolicy={deck.viewPolicy}
                       linkedDeckDefinitionId={deck.linkedDeckDefinitionId}
-                      forkedFromDeckDefinitionId={deck.forkedFromDeckDefinitionId}
+                      copiedFromDeckDefinitionId={deck.copiedFromDeckDefinitionId}
                       isAbandoned={deck.isAbandoned}
                     />
                   </Link>

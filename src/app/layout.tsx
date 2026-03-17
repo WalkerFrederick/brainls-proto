@@ -91,7 +91,7 @@ export default async function RootLayout({
   const rawAccent = cookieStore.get("accent")?.value;
   const accent: AccentColor = VALID_ACCENTS.has(rawAccent as AccentColor)
     ? (rawAccent as AccentColor)
-    : "zinc";
+    : "orange";
 
   const htmlClass = theme === "light" ? "" : theme;
   const dataAccent = accent === "zinc" ? undefined : accent;

@@ -3,19 +3,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Play, Plus, Loader2, AlertTriangle, Link2 } from "lucide-react";
+import { Play, Plus, Loader2, AlertTriangle, Link2, MoreVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { addDeckToLibrary, type LibraryDeck } from "@/actions/study";
+import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 
 interface DeckRowProps {
   deck: LibraryDeck;
   showFolders?: boolean;
+  folderRole?: string;
 }
 
-export function DeckRow({ deck, showFolders = true }: DeckRowProps) {
+export function DeckRow({ deck, showFolders = true, folderRole }: DeckRowProps) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   async function handleAddToLibrary() {
     setAdding(true);
@@ -27,9 +30,31 @@ export function DeckRow({ deck, showFolders = true }: DeckRowProps) {
   }
 
   const inLibrary = deck.userDeckId !== null;
+  const isOwnerOrAdmin = folderRole === "owner" || folderRole === "admin";
 
   return (
     <div className="flex items-center gap-4 px-4 py-3">
+      <button
+        type="button"
+        onClick={() => setSettingsOpen(true)}
+        className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+
+      <DeckSettingsDialog
+        deckId={deck.deckDefinitionId}
+        title={deck.title}
+        description={deck.description}
+        viewPolicy={deck.viewPolicy}
+        canArchive={isOwnerOrAdmin}
+        canChangeVisibility={isOwnerOrAdmin}
+        initialTags={deck.tags}
+        isLinked={!!deck.linkedDeckDefinitionId}
+        externalOpen={settingsOpen}
+        onExternalOpenChange={setSettingsOpen}
+      />
+
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <Link

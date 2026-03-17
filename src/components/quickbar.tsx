@@ -225,7 +225,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
             </div>
 
             {/* Search bar trigger */}
-            <div className="flex flex-1 mx-3 max-w-md">
+            <div className="flex flex-1 mx-3">
               <button
                 type="button"
                 onClick={() => setPaletteOpen(true)}
@@ -239,7 +239,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
               </button>
             </div>
 
-            <div className="flex items-center gap-3 ml-auto">
+            <div className="flex items-center gap-3">
               <Link
                 href="/notifications"
                 className="relative flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

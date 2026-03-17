@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
 import { FolderSettingsDialog } from "@/components/folder-settings-dialog";
+import { getSession } from "@/lib/auth-server";
 
 interface Props {
   params: Promise<{ folderId: string }>;
@@ -22,10 +23,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function FolderPage({ params }: Props) {
   const { folderId } = await params;
 
-  const [folderResult, decksResult, roleResult] = await Promise.all([
+  const [folderResult, decksResult, roleResult, session] = await Promise.all([
     getFolder(folderId),
     listDecks(folderId),
     getFolderRole(folderId),
+    getSession(),
   ]);
 
   if (!folderResult.success) {
@@ -34,6 +36,7 @@ export default async function FolderPage({ params }: Props) {
 
   const decks = decksResult.success ? decksResult.data : [];
   const currentRole = roleResult.success ? roleResult.data.role : "viewer";
+  const isPersonalSpace = session?.user?.personalFolderId === folderId;
 
   return (
     <div className="space-y-6">
@@ -53,6 +56,7 @@ export default async function FolderPage({ params }: Props) {
             folderName={folderResult.data.name}
             folderDescription={folderResult.data.description}
             currentUserRole={currentRole}
+            isPersonalSpace={isPersonalSpace}
           />
           <CreateDeckDialog folderId={folderId} />
         </div>

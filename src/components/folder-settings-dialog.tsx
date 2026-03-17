@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Loader2, UserPlus, Trash2, LogOut } from "lucide-react";
+import { Settings, Loader2, UserPlus, Trash2, LogOut, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,6 +31,7 @@ import {
   updateMemberRole,
   removeMember,
   leaveFolder,
+  archiveFolder,
 } from "@/actions/folder";
 
 interface FolderSettingsDialogProps {
@@ -38,6 +39,7 @@ interface FolderSettingsDialogProps {
   folderName: string;
   folderDescription?: string | null;
   currentUserRole: string;
+  isPersonalSpace?: boolean;
 }
 
 type Member = {
@@ -55,6 +57,7 @@ export function FolderSettingsDialog({
   folderName,
   folderDescription,
   currentUserRole,
+  isPersonalSpace = false,
 }: FolderSettingsDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -77,8 +80,12 @@ export function FolderSettingsDialog({
   const [leaving, setLeaving] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
 
+  const [archivingFolder, setArchivingFolder] = useState(false);
+  const [confirmArchiveFolder, setConfirmArchiveFolder] = useState(false);
+
   const canManage = currentUserRole === "owner" || currentUserRole === "admin";
   const canLeave = currentUserRole !== "owner";
+  const isOwner = currentUserRole === "owner";
 
   const loadMembers = useCallback(async () => {
     setMembersLoading(true);
@@ -95,6 +102,7 @@ export function FolderSettingsDialog({
       loadMembers();
     } else {
       setConfirmLeave(false);
+      setConfirmArchiveFolder(false);
     }
   }
 
@@ -153,6 +161,20 @@ export function FolderSettingsDialog({
       setConfirmLeave(false);
     }
     setLeaving(false);
+  }
+
+  async function handleArchiveFolder() {
+    setArchivingFolder(true);
+    const result = await archiveFolder(folderId);
+    if (result.success) {
+      setOpen(false);
+      router.push("/folders");
+      router.refresh();
+    } else {
+      setGeneralError(result.error);
+      setConfirmArchiveFolder(false);
+    }
+    setArchivingFolder(false);
   }
 
   async function handleRoleChange(memberId: string, role: string) {
@@ -282,6 +304,74 @@ export function FolderSettingsDialog({
                             <LogOut className="mr-2 h-4 w-4" />
                           )}
                           Confirm Leave
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {isOwner && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-destructive">Archive Folder</Label>
+                  {isPersonalSpace ? (
+                    <div className="rounded-md border border-muted p-4">
+                      <p className="text-sm text-muted-foreground">
+                        Your Personal Space cannot be archived.
+                      </p>
+                    </div>
+                  ) : !confirmArchiveFolder ? (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Archiving hides this folder and removes all non-owner members. Decks inside
+                        will no longer be accessible to other members.
+                      </p>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setConfirmArchiveFolder(true)}
+                        className="w-full"
+                      >
+                        <Archive className="mr-2 h-4 w-4" />
+                        Archive Folder
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 space-y-3">
+                      <p className="text-sm font-medium">
+                        Are you sure you want to archive{" "}
+                        <span className="font-bold">{folderName}</span>?
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        All non-owner members will be removed immediately. This action cannot be
+                        undone from the UI.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => setConfirmArchiveFolder(false)}
+                          disabled={archivingFolder}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleArchiveFolder}
+                          disabled={archivingFolder}
+                        >
+                          {archivingFolder ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Archive className="mr-2 h-4 w-4" />
+                          )}
+                          Confirm Archive
                         </Button>
                       </div>
                     </div>

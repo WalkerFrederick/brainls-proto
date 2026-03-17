@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, isNull, sql, or, inArray } from "drizzle-orm";
+import { eq, and, isNull, sql, or, inArray, ne } from "drizzle-orm";
 import { db } from "@/db";
 import {
   folders,
@@ -99,7 +99,13 @@ export async function listFolders(): Promise<
     })
     .from(folderMembers)
     .innerJoin(folders, eq(folderMembers.folderId, folders.id))
-    .where(and(eq(folderMembers.userId, session.user.id), eq(folderMembers.status, "active")));
+    .where(
+      and(
+        eq(folderMembers.userId, session.user.id),
+        eq(folderMembers.status, "active"),
+        isNull(folders.archivedAt),
+      ),
+    );
 
   return ok(rows);
 }
@@ -144,7 +150,13 @@ export async function listFoldersWithDecks(): Promise<
     })
     .from(folderMembers)
     .innerJoin(folders, eq(folderMembers.folderId, folders.id))
-    .where(and(eq(folderMembers.userId, session.user.id), eq(folderMembers.status, "active")));
+    .where(
+      and(
+        eq(folderMembers.userId, session.user.id),
+        eq(folderMembers.status, "active"),
+        isNull(folders.archivedAt),
+      ),
+    );
 
   if (memberRows.length === 0) return ok([]);
 
@@ -287,6 +299,7 @@ export async function listFoldersWithDecks(): Promise<
       name: f.name,
       description: f.description,
       role: f.role,
+      isPersonalSpace: f.id === session.user.personalFolderId,
       decks,
     };
   });
@@ -582,4 +595,32 @@ export async function leaveFolder(folderId: string): Promise<Result<{ id: string
     .where(eq(folderMembers.id, member.id));
 
   return ok({ id: member.id });
+}
+
+export async function archiveFolder(folderId: string): Promise<Result<{ id: string }>> {
+  if (!isValidUuid(folderId)) return err("Invalid folder ID");
+  const session = await requireSession();
+
+  if (session.user.personalFolderId === folderId) {
+    return err("Your Personal Space cannot be archived.");
+  }
+
+  const perm = await requireFolderRole(folderId, session.user.id, "owner");
+  if (!perm.allowed) return err("Only the folder owner can archive this folder");
+
+  const [folder] = await db.select().from(folders).where(eq(folders.id, folderId));
+  if (!folder) return err("Folder not found");
+  if (folder.archivedAt) return err("Folder is already archived");
+
+  await db
+    .update(folders)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(eq(folders.id, folderId));
+
+  await db
+    .update(folderMembers)
+    .set({ status: "removed", updatedAt: new Date() })
+    .where(and(eq(folderMembers.folderId, folderId), ne(folderMembers.role, "owner")));
+
+  return ok({ id: folderId });
 }

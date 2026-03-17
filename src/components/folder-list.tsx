@@ -13,6 +13,7 @@ interface Folder {
   name: string;
   description: string | null;
   role: string;
+  isPersonalSpace?: boolean;
   decks: LibraryDeck[];
 }
 
@@ -43,11 +44,16 @@ export function FolderList({ folders, defaultCollapsed = false }: Props) {
               <div className="flex flex-1 min-w-0 items-center justify-between p-2 pl-2">
                 <div className="flex min-w-0 items-center gap-3">
                   <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-2">
                     <h2 className="truncate text-sm sm:text-base font-semibold">{f.name}</h2>
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 rounded-full px-2.5 text-[11px] font-normal text-muted-foreground"
+                    >
+                      {f.role}
+                    </Badge>
                   </div>
                 </div>
-                <Badge variant="secondary">{f.role}</Badge>
               </div>
               <div className="pr-3" onClick={(e) => e.stopPropagation()}>
                 <FolderSettingsDialog
@@ -55,6 +61,7 @@ export function FolderList({ folders, defaultCollapsed = false }: Props) {
                   folderName={f.name}
                   folderDescription={f.description}
                   currentUserRole={f.role}
+                  isPersonalSpace={f.isPersonalSpace}
                 />
               </div>
             </div>
@@ -68,7 +75,12 @@ export function FolderList({ folders, defaultCollapsed = false }: Props) {
             {!isCollapsed && f.decks.length > 0 && (
               <div className="divide-y border-t">
                 {f.decks.map((deck) => (
-                  <DeckRow key={deck.deckDefinitionId} deck={deck} showFolders={false} />
+                  <DeckRow
+                    key={deck.deckDefinitionId}
+                    deck={deck}
+                    showFolders={false}
+                    folderRole={f.role}
+                  />
                 ))}
               </div>
             )}

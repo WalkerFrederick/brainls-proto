@@ -397,6 +397,7 @@ export type LibraryDeck = {
   deckDefinitionId: string;
   title: string;
   description: string | null;
+  viewPolicy: string;
   linkedDeckDefinitionId: string | null;
   copiedFromDeckDefinitionId: string | null;
   isAbandoned: boolean;
@@ -434,6 +435,7 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
       id: deckDefinitions.id,
       title: deckDefinitions.title,
       description: deckDefinitions.description,
+      viewPolicy: deckDefinitions.viewPolicy,
       linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
       copiedFromDeckDefinitionId: deckDefinitions.copiedFromDeckDefinitionId,
       folderId: deckDefinitions.folderId,
@@ -448,6 +450,7 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
       sourceDeckId: string;
       title: string;
       description: string | null;
+      viewPolicy: string;
       linkedDeckDefinitionId: string | null;
       copiedFromDeckDefinitionId: string | null;
       folderIds: Set<string>;
@@ -466,6 +469,7 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
         sourceDeckId: key,
         title: deck.title,
         description: deck.description,
+        viewPolicy: deck.viewPolicy,
         linkedDeckDefinitionId: deck.linkedDeckDefinitionId,
         copiedFromDeckDefinitionId: deck.copiedFromDeckDefinitionId,
         folderIds: new Set([deck.folderId]),
@@ -582,6 +586,7 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
       deckDefinitionId: group.representativeDeckId,
       title: group.title,
       description: group.description,
+      viewPolicy: group.viewPolicy,
       linkedDeckDefinitionId: group.linkedDeckDefinitionId,
       copiedFromDeckDefinitionId: group.copiedFromDeckDefinitionId,
       isAbandoned: abandonedSet.has(group.sourceDeckId),

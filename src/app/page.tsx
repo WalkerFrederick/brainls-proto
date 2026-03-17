@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicShell } from "@/components/public-shell";
+import { SrsCurveDemo } from "@/components/srs-curve-demo";
 
 export const metadata: Metadata = {
   title: "BrainLS — Remember Everything You Learn",
@@ -93,6 +94,21 @@ export default async function LandingPage() {
       </section>
 
       <section className="border-t px-6 py-20 md:px-12">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="mb-4 text-center font-serif text-2xl font-bold md:text-3xl">
+            The Forgetting Curve
+          </h2>
+          <p className="mx-auto mb-8 max-w-2xl text-center text-muted-foreground">
+            Each card has its own forgetting curve. Rate how well you remember, and watch how the
+            algorithm schedules your next review. Try it — click a rating to begin.
+          </p>
+          <div className="rounded-xl border bg-background p-5 sm:p-6">
+            <SrsCurveDemo />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t bg-muted/30 px-6 py-20 md:px-12">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
             <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
@@ -167,7 +183,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="border-t bg-muted/30 px-6 py-20 md:px-12">
+      <section className="border-t px-6 py-20 md:px-12">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
             Coming Soon
@@ -182,7 +198,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="border-t px-6 py-20 md:px-12">
+      <section className="border-t bg-muted/30 px-6 py-20 md:px-12">
         <div className="mx-auto max-w-4xl">
           <h2 className="mb-4 text-center font-serif text-2xl font-bold md:text-3xl">
             How Does Spaced Repetition Work?
@@ -298,7 +314,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="border-t flex flex-col items-center gap-6 px-6 py-20 text-center">
+      <section className="border-t bg-muted/30 flex flex-col items-center gap-6 px-6 py-20 text-center">
         <h2 className="font-serif text-2xl font-bold md:text-3xl">Ready to get started?</h2>
         <p className="max-w-md text-muted-foreground">
           Join BrainLS and start building your knowledge, one card at a time.

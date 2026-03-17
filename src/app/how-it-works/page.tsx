@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Brain, BarChart3, Repeat, TrendingUp, Clock, Target, Lightbulb } from "lucide-react";
+import { BarChart3, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicShell } from "@/components/public-shell";
+import { SrsCurveDemo } from "@/components/srs-curve-demo";
 
 export const metadata: Metadata = {
   title: "How Spaced Repetition Works",
@@ -26,39 +27,15 @@ export default function HowItWorksPage() {
 
       <section className="border-t bg-muted/30 px-6 py-16 md:px-12">
         <div className="mx-auto max-w-4xl">
-          <h2 className="mb-8 text-center font-serif text-2xl font-bold md:text-3xl">
+          <h2 className="mb-4 text-center font-serif text-2xl font-bold md:text-3xl">
             The Forgetting Curve
           </h2>
-          <div className="grid gap-8 md:grid-cols-2">
-            <div className="space-y-4">
-              <p className="text-muted-foreground leading-relaxed">
-                In 1885, psychologist Hermann Ebbinghaus discovered that we forget newly learned
-                information at an exponential rate. Within 24 hours, you can lose up to 70% of what
-                you studied.
-              </p>
-              <p className="text-muted-foreground leading-relaxed">
-                Spaced repetition fights this by scheduling reviews at precisely the right moment —
-                just before you&apos;re about to forget. Each successful review strengthens the
-                memory, pushing the next review further into the future.
-              </p>
-            </div>
-            <div className="flex flex-col gap-4 rounded-lg border bg-background p-6">
-              <div className="flex items-center gap-3">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                <span className="font-semibold">Without SRS</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Study once → forget 70% in a day → re-study everything → forget again → give up.
-              </p>
-              <div className="flex items-center gap-3">
-                <Target className="h-5 w-5 text-primary" />
-                <span className="font-semibold">With SRS</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Study once → review at 1 day → review at 3 days → review at 7 days → review at 21
-                days → locked in long-term memory.
-              </p>
-            </div>
+          <p className="mx-auto mb-8 max-w-2xl text-center text-muted-foreground">
+            Each card has its own forgetting curve. Rate how well you remember, and watch how the
+            algorithm schedules your next review. Try it — click a rating to begin.
+          </p>
+          <div className="rounded-xl border bg-background p-5 sm:p-6">
+            <SrsCurveDemo />
           </div>
         </div>
       </section>
@@ -71,19 +48,16 @@ export default function HowItWorksPage() {
           <div className="grid gap-8 sm:grid-cols-3">
             <StepCard
               step={1}
-              icon={<Brain className="h-6 w-6 text-primary" />}
               title="Create Cards"
               description="Add flashcards with rich markdown, images, cloze deletions, or multiple choice. Organize them into decks and folders."
             />
             <StepCard
               step={2}
-              icon={<Clock className="h-6 w-6 text-primary" />}
               title="Study & Rate"
               description="When you study a card, rate how well you knew the answer. The algorithm adjusts the next review time based on your response."
             />
             <StepCard
               step={3}
-              icon={<Repeat className="h-6 w-6 text-primary" />}
               title="Review on Schedule"
               description="Cards reappear at optimal intervals. Easy cards come back less often. Difficult cards come back sooner until you master them."
             />
@@ -134,6 +108,36 @@ export default function HowItWorksPage() {
       </section>
 
       <section className="border-t px-6 py-16 md:px-12">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="mb-8 text-center font-serif text-2xl font-bold md:text-3xl">
+            Common Questions
+          </h2>
+          <div className="space-y-4">
+            <FaqItem
+              question="Can I review a card before it's due?"
+              answer="Yes, but it's less efficient. The algorithm works best when you review right around the scheduled time. Reviewing too early means the memory hasn't had time to weaken, so the strengthening effect is smaller."
+            />
+            <FaqItem
+              question="What happens if I miss a review day?"
+              answer="Nothing catastrophic. When you eventually review the card, the algorithm sees how long it's been and adjusts accordingly. Your retention will have dropped, but a single successful review gets you back on track — the next interval will just be shorter than if you'd reviewed on time."
+            />
+            <FaqItem
+              question="What do the rating buttons mean?"
+              answer="Again/Don't Know: you didn't remember at all. Hard: you recalled it but with significant effort. Good: you recalled it with moderate effort. Easy: it was effortless. The algorithm uses your rating to decide how soon you'll see the card again."
+            />
+            <FaqItem
+              question="How many new cards should I learn per day?"
+              answer="Start with 10–20 new cards per day. Adding too many at once creates a review backlog that snowballs. It's better to be consistent with a smaller number than to binge and burn out."
+            />
+            <FaqItem
+              question="What's the difference between Learning and Review?"
+              answer="New cards go through short learning steps (1 minute, then 10 minutes) before entering the long-term review schedule. This initial repetition helps form the memory before the algorithm starts spacing reviews over days and weeks."
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t bg-muted/30 px-6 py-16 md:px-12">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
           <h2 className="font-serif text-2xl font-bold md:text-3xl">Ready to try it?</h2>
           <p className="max-w-md text-muted-foreground">
@@ -153,12 +157,10 @@ export default function HowItWorksPage() {
 
 function StepCard({
   step,
-  icon,
   title,
   description,
 }: {
   step: number;
-  icon: React.ReactNode;
   title: string;
   description: string;
 }) {
@@ -167,9 +169,17 @@ function StepCard({
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 font-serif text-xl font-bold text-primary">
         {step}
       </div>
-      {icon}
       <h3 className="font-semibold">{title}</h3>
       <p className="text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function FaqItem({ question, answer }: { question: string; answer: string }) {
+  return (
+    <div className="rounded-lg border bg-background p-5">
+      <h3 className="font-semibold">{question}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{answer}</p>
     </div>
   );
 }

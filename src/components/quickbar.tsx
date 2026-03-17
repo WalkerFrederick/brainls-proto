@@ -16,6 +16,7 @@ import { SidebarNav } from "@/components/app-sidebar";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
 import { CreateCardDialog } from "@/components/create-card-dialog";
 import { CreateFolderDialog } from "@/components/create-folder-dialog";
+import { CommandPalette } from "@/components/command-palette";
 
 interface QuickbarProps {
   pendingInviteCount: number;
@@ -29,6 +30,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   const [cardDialogOpen, setCardDialogOpen] = useState(false);
   const [deckDialogOpen, setDeckDialogOpen] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const prevPathname = useRef(pathname);
@@ -64,7 +66,18 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   useHotkey("Shift+F", () => setFolderDialogOpen(true));
 
   useEffect(() => {
-    if (drawerOpen) {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (drawerOpen || paletteOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -72,12 +85,15 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [drawerOpen]);
+  }, [drawerOpen, paletteOpen]);
 
   useEffect(() => {
     if (prevPathname.current !== pathname) {
       prevPathname.current = pathname;
-      setTimeout(() => setDrawerOpen(false), 0);
+      setTimeout(() => {
+        setDrawerOpen(false);
+        setPaletteOpen(false);
+      }, 0);
     }
   }, [pathname]);
 
@@ -126,6 +142,14 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
           if (!v) setFabOpen(false);
         }}
         trigger={<button type="button" className="hidden" />}
+      />
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onCreateCard={() => setCardDialogOpen(true)}
+        onCreateDeck={() => setDeckDialogOpen(true)}
+        onCreateFolder={() => setFolderDialogOpen(true)}
       />
 
       <div ref={wrapperRef} className="sticky top-0 z-30 px-0 py-0 md:px-4 md:py-3">
@@ -200,15 +224,22 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
               </AnimatePresence>
             </div>
 
-            {/* Desktop search bar */}
-            <div className="flex flex-1 mx-3 max-w-md">
-              <div className="flex h-9 w-full items-center gap-2 rounded-full border bg-muted/50 px-4 text-sm text-muted-foreground">
+            {/* Search bar trigger */}
+            <div className="flex flex-1 mx-3">
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-full border bg-muted/50 px-4 text-sm text-muted-foreground transition-colors hover:bg-muted"
+              >
                 <Search className="h-4 w-4" />
-                <span>Search...</span>
-              </div>
+                <span className="flex-1 text-left">Search...</span>
+                <kbd className="hidden font-mono text-[10px] opacity-60 sm:inline-block">
+                  Ctrl K
+                </kbd>
+              </button>
             </div>
 
-            <div className="flex items-center gap-3 ml-auto">
+            <div className="flex items-center gap-3">
               <Link
                 href="/notifications"
                 className="relative flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

@@ -38,6 +38,8 @@ interface DeckSettingsDialogProps {
   isDefaultDeck?: boolean;
   initialNewCardsPerDay?: number;
   isLinked?: boolean;
+  externalOpen?: boolean;
+  onExternalOpenChange?: (open: boolean) => void;
 }
 
 const VIEW_POLICY_OPTIONS = [
@@ -58,9 +60,16 @@ export function DeckSettingsDialog({
   isDefaultDeck = false,
   initialNewCardsPerDay = 20,
   isLinked = false,
+  externalOpen,
+  onExternalOpenChange,
 }: DeckSettingsDialogProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  const isControlled = externalOpen !== undefined;
+  const open = isControlled ? externalOpen : internalOpen;
+  const setOpen = isControlled ? (onExternalOpenChange ?? (() => {})) : setInternalOpen;
+
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -119,10 +128,12 @@ export function DeckSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        <Settings className="mr-2 h-4 w-4" />
-        Settings
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger render={<Button variant="outline" size="sm" />}>
+          <Settings className="mr-2 h-4 w-4" />
+          Settings
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Deck Settings</DialogTitle>

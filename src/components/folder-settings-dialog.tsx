@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Loader2, UserPlus, Trash2, LogOut, Camera, X } from "lucide-react";
+import { Settings, Loader2, UserPlus, Trash2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,8 +24,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { UserAvatar } from "@/components/user-avatar";
-import { useFileUpload } from "@/hooks/use-file-upload";
 import {
   updateFolder,
   inviteFolderMember,
@@ -34,16 +32,11 @@ import {
   removeMember,
   leaveFolder,
 } from "@/actions/folder";
-import { removeFolderAvatar } from "@/actions/avatar";
-
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 interface FolderSettingsDialogProps {
   folderId: string;
   folderName: string;
   folderDescription?: string | null;
-  folderAvatarUrl?: string | null;
   currentUserRole: string;
 }
 
@@ -61,7 +54,6 @@ export function FolderSettingsDialog({
   folderId,
   folderName,
   folderDescription,
-  folderAvatarUrl,
   currentUserRole,
 }: FolderSettingsDialogProps) {
   const router = useRouter();
@@ -69,9 +61,7 @@ export function FolderSettingsDialog({
 
   const [name, setName] = useState(folderName);
   const [description, setDescription] = useState(folderDescription ?? "");
-  const [avatarUrl, setAvatarUrl] = useState(folderAvatarUrl ?? null);
   const [saving, setSaving] = useState(false);
-  const [removingAvatar, setRemovingAvatar] = useState(false);
   const [generalError, setGeneralError] = useState("");
   const [generalSuccess, setGeneralSuccess] = useState("");
 
@@ -89,44 +79,6 @@ export function FolderSettingsDialog({
 
   const canManage = currentUserRole === "owner" || currentUserRole === "admin";
   const canLeave = currentUserRole !== "owner";
-
-  const {
-    uploading: avatarUploading,
-    error: avatarUploadError,
-    inputRef: avatarInputRef,
-    openPicker: openAvatarPicker,
-    handleInputChange: handleAvatarInputChange,
-  } = useFileUpload({
-    route: "folderAvatar",
-    maxFileBytes: MAX_AVATAR_BYTES,
-    acceptedTypes: ACCEPTED_TYPES,
-    input: { folderId },
-    onSuccess: (files) => {
-      if (files[0]) {
-        setAvatarUrl(files[0].url);
-        setGeneralSuccess("Avatar updated.");
-        router.refresh();
-      }
-    },
-  });
-
-  const handleRemoveAvatar = useCallback(async () => {
-    setRemovingAvatar(true);
-    setGeneralError("");
-    setGeneralSuccess("");
-
-    const result = await removeFolderAvatar(folderId);
-
-    if (!result.success) {
-      setGeneralError(result.error);
-    } else {
-      setAvatarUrl(null);
-      setGeneralSuccess("Avatar removed.");
-      router.refresh();
-    }
-
-    setRemovingAvatar(false);
-  }, [folderId, router]);
 
   const loadMembers = useCallback(async () => {
     setMembersLoading(true);
@@ -249,68 +201,6 @@ export function FolderSettingsDialog({
               {generalSuccess && (
                 <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-700 dark:text-green-400">
                   {generalSuccess}
-                </div>
-              )}
-              {avatarUploadError && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                  {avatarUploadError}
-                </div>
-              )}
-              {canManage && (
-                <div className="space-y-2">
-                  <Label>Avatar</Label>
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <UserAvatar src={avatarUrl} fallback={name} size="md" />
-                      {avatarUploading && (
-                        <div className="absolute inset-0 flex items-center justify-center rounded-full bg-background/80">
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={avatarUploading || removingAvatar}
-                          onClick={openAvatarPicker}
-                        >
-                          <Camera className="mr-1.5 h-3.5 w-3.5" />
-                          {avatarUrl ? "Change" : "Upload"}
-                        </Button>
-                        {avatarUrl && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            disabled={avatarUploading || removingAvatar}
-                            onClick={handleRemoveAvatar}
-                          >
-                            <X className="mr-1.5 h-3.5 w-3.5" />
-                            Remove
-                          </Button>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        JPEG, PNG, WebP, or GIF. Max 5 MB.
-                      </p>
-                    </div>
-                    <input
-                      ref={avatarInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      className="hidden"
-                      onChange={handleAvatarInputChange}
-                    />
-                  </div>
-                </div>
-              )}
-              {!canManage && avatarUrl && (
-                <div className="space-y-2">
-                  <Label>Avatar</Label>
-                  <UserAvatar src={avatarUrl} fallback={name} size="md" />
                 </div>
               )}
               <div className="space-y-2">

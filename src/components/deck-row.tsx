@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Play, Plus, Loader2, AlertTriangle } from "lucide-react";
+import { Play, Plus, Loader2, AlertTriangle, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { addDeckToLibrary, type LibraryDeck } from "@/actions/study";
@@ -31,10 +31,10 @@ export function DeckRow({ deck, showFolders = true }: DeckRowProps) {
   return (
     <div className="flex items-center gap-4 px-4 py-3">
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Link
             href={`/deck/${deck.deckDefinitionId}`}
-            className="truncate font-medium hover:underline"
+            className="truncate text-sm sm:text-base font-medium hover:underline"
           >
             {deck.title}
           </Link>
@@ -47,8 +47,12 @@ export function DeckRow({ deck, showFolders = true }: DeckRowProps) {
                   : "shrink-0 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400"
               }
             >
-              {deck.isAbandoned && <AlertTriangle className="mr-1 h-3 w-3" />}
-              linked copy
+              {deck.isAbandoned ? (
+                <AlertTriangle className="h-3 w-3 sm:mr-1" />
+              ) : (
+                <Link2 className="h-3 w-3 sm:mr-1" />
+              )}
+              <span className="hidden sm:inline">linked copy</span>
             </Badge>
           )}
         </div>
@@ -56,22 +60,21 @@ export function DeckRow({ deck, showFolders = true }: DeckRowProps) {
 
       {inLibrary ? (
         <div className="flex shrink-0 items-center gap-4">
-          <div className="hidden items-center gap-3 text-sm sm:flex">
-            <span
-              className={`tabular-nums font-medium ${deck.dueCards > 0 ? "text-primary" : "text-muted-foreground"}`}
-            >
-              {deck.dueCards} due
+          <div className="flex items-center gap-1.5 text-sm sm:gap-3">
+            <span className="tabular-nums font-medium text-blue-600 dark:text-blue-400">
+              {deck.newCount}
+              <span className="hidden sm:inline text-xs font-normal"> new</span>
             </span>
             <span className="text-muted-foreground/40">·</span>
-            <span className="tabular-nums text-muted-foreground">{deck.totalCards} cards</span>
-            {deck.lastStudiedAt && (
-              <>
-                <span className="text-muted-foreground/40">·</span>
-                <span className="text-xs text-muted-foreground" suppressHydrationWarning>
-                  {new Date(deck.lastStudiedAt).toLocaleDateString()}
-                </span>
-              </>
-            )}
+            <span className="tabular-nums font-medium text-orange-600 dark:text-orange-400">
+              {deck.learningCount}
+              <span className="hidden sm:inline text-xs font-normal"> learning</span>
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="tabular-nums font-medium text-green-600 dark:text-green-400">
+              {deck.reviewDueCount}
+              <span className="hidden sm:inline text-xs font-normal"> due</span>
+            </span>
           </div>
           <Link href={`/study/${deck.userDeckId}`}>
             <Button size="sm" variant={deck.dueCards > 0 ? "default" : "outline"}>

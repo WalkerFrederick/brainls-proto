@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { getFolder, getFolderRole } from "@/actions/folder";
 import { listDecks } from "@/actions/deck";
-import { Layers } from "lucide-react";
+import { Layers, FolderOpen } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
 import { FolderSettingsDialog } from "@/components/folder-settings-dialog";
-import { UserAvatar } from "@/components/user-avatar";
 
 interface Props {
   params: Promise<{ folderId: string }>;
@@ -40,11 +39,7 @@ export default async function FolderPage({ params }: Props) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <UserAvatar
-            src={folderResult.data.avatarUrl}
-            fallback={folderResult.data.name}
-            size="md"
-          />
+          <FolderOpen className="h-6 w-6 text-muted-foreground" />
           <div>
             <h1 className="text-2xl font-bold">{folderResult.data.name}</h1>
             {folderResult.data.description && (
@@ -57,7 +52,6 @@ export default async function FolderPage({ params }: Props) {
             folderId={folderId}
             folderName={folderResult.data.name}
             folderDescription={folderResult.data.description}
-            folderAvatarUrl={folderResult.data.avatarUrl}
             currentUserRole={currentRole}
           />
           <CreateDeckDialog folderId={folderId} />

@@ -405,6 +405,9 @@ export type LibraryDeck = {
   userDeckId: string | null;
   totalCards: number;
   dueCards: number;
+  newCount: number;
+  learningCount: number;
+  reviewDueCount: number;
   lastStudiedAt: Date | null;
 };
 
@@ -499,38 +502,42 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
 
   const userDeckMap = new Map(allUserDecks.map((ud) => [ud.deckDefinitionId, ud]));
 
-  // Batch card counts
+  // Batch card counts by SRS state
   const userDeckIds = allUserDecks.map((ud) => ud.id);
-  const totalCountMap = new Map<string, number>();
-  const dueCountMap = new Map<string, number>();
+  type DeckStats = {
+    totalCards: number;
+    newCount: number;
+    learningCount: number;
+    reviewDueCount: number;
+    dueCards: number;
+  };
+  const statsMap = new Map<string, DeckStats>();
 
   if (userDeckIds.length > 0) {
-    const totalRows = await db
+    const isDueExpr = sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`;
+
+    const rows = await db
       .select({
         userDeckId: userCardStates.userDeckId,
-        count: sql<number>`count(*)::int`,
+        totalCards: sql<number>`count(*)::int`,
+        newCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'new')::int`,
+        learningCount: sql<number>`count(*) filter (where ${userCardStates.srsState} in ('learning', 'relearning'))::int`,
+        reviewDueCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'review' and ${isDueExpr})::int`,
+        dueCards: sql<number>`count(*) filter (where ${isDueExpr})::int`,
       })
       .from(userCardStates)
       .where(inArray(userCardStates.userDeckId, userDeckIds))
       .groupBy(userCardStates.userDeckId);
 
-    for (const r of totalRows) totalCountMap.set(r.userDeckId, r.count);
-
-    const dueRows = await db
-      .select({
-        userDeckId: userCardStates.userDeckId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(userCardStates)
-      .where(
-        and(
-          inArray(userCardStates.userDeckId, userDeckIds),
-          sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
-        ),
-      )
-      .groupBy(userCardStates.userDeckId);
-
-    for (const r of dueRows) dueCountMap.set(r.userDeckId, r.count);
+    for (const r of rows) {
+      statsMap.set(r.userDeckId, {
+        totalCards: r.totalCards,
+        newCount: r.newCount,
+        learningCount: r.learningCount,
+        reviewDueCount: r.reviewDueCount,
+        dueCards: r.dueCards,
+      });
+    }
   }
 
   // Fetch tags in bulk
@@ -581,8 +588,11 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
       tags: [...tagSet].sort(),
       folders: deckFolders,
       userDeckId: ud?.id ?? null,
-      totalCards: ud ? (totalCountMap.get(ud.id) ?? 0) : 0,
-      dueCards: ud ? (dueCountMap.get(ud.id) ?? 0) : 0,
+      totalCards: ud ? (statsMap.get(ud.id)?.totalCards ?? 0) : 0,
+      dueCards: ud ? (statsMap.get(ud.id)?.dueCards ?? 0) : 0,
+      newCount: ud ? (statsMap.get(ud.id)?.newCount ?? 0) : 0,
+      learningCount: ud ? (statsMap.get(ud.id)?.learningCount ?? 0) : 0,
+      reviewDueCount: ud ? (statsMap.get(ud.id)?.reviewDueCount ?? 0) : 0,
       lastStudiedAt: ud?.lastStudiedAt ?? null,
     });
   }

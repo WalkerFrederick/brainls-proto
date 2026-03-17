@@ -18,6 +18,7 @@ interface MarkdownEditorProps {
   minRows?: number;
   maxLength?: number;
   maxAttachments?: number;
+  renderPreview?: (value: string) => React.ReactNode;
 }
 
 const IMG_PATTERN = /!\[.*?\]\(.*?\)/g;
@@ -31,6 +32,7 @@ export function MarkdownEditor({
   minRows = 4,
   maxLength,
   maxAttachments,
+  renderPreview,
 }: MarkdownEditorProps) {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -83,12 +85,12 @@ export function MarkdownEditor({
               <Paperclip className="h-3.5 w-3.5" />
             )}
           </Button>
-          <div className="flex rounded-md border">
+          <div className="flex rounded-full border">
             <Button
               type="button"
               variant={mode === "edit" ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-r-none border-0 h-7 px-2"
+              className="rounded-r-none rounded-l-full border-0 h-7 px-2"
               onClick={() => setMode("edit")}
             >
               <Pencil className="h-3 w-3 mr-1" />
@@ -98,7 +100,7 @@ export function MarkdownEditor({
               type="button"
               variant={mode === "preview" ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-l-none border-0 h-7 px-2"
+              className="rounded-l-none rounded-r-full border-0 h-7 px-2"
               onClick={() => setMode("preview")}
             >
               <Eye className="h-3 w-3 mr-1" />
@@ -120,7 +122,7 @@ export function MarkdownEditor({
         />
       ) : (
         <div className="min-h-[100px] rounded-md border bg-background p-3">
-          <MarkdownRenderer content={value} />
+          {renderPreview ? renderPreview(value) : <MarkdownRenderer content={value} />}
         </div>
       )}
 

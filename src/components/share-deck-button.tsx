@@ -12,7 +12,7 @@ export function ShareDeckButton({ deckId }: ShareDeckButtonProps) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    const url = `${window.location.origin}/d/${deckId}`;
+    const url = `${window.location.origin}/deck/${deckId}`;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

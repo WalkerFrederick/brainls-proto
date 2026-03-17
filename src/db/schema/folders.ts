@@ -6,7 +6,6 @@ export const folders = pgTable("folders", {
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).unique(),
   description: varchar("description", { length: 2048 }),
-  avatarUrl: varchar("avatar_url", { length: 2048 }),
   createdByUserId: uuid("created_by_user_id")
     .notNull()
     .references(() => users.id),

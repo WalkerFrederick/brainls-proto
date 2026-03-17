@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, ChevronDown, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { UserAvatar } from "@/components/user-avatar";
 import { FolderSettingsDialog } from "@/components/folder-settings-dialog";
 import { DeckRow } from "@/components/deck-row";
 import { type LibraryDeck } from "@/actions/study";
@@ -14,7 +13,6 @@ interface Folder {
   name: string;
   description: string | null;
   role: string;
-  avatarUrl: string | null;
   decks: LibraryDeck[];
 }
 
@@ -42,11 +40,11 @@ export function FolderList({ folders, defaultCollapsed = false }: Props) {
         return (
           <div key={f.id} className="rounded-lg border">
             <div className="flex items-center transition-colors bg-accent/50">
-              <div className="flex flex-1 items-center justify-between p-2 pl-2">
-                <div className="flex items-center gap-3">
-                  <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <h2 className="font-semibold">{f.name}</h2>
+              <div className="flex flex-1 min-w-0 items-center justify-between p-2 pl-2">
+                <div className="flex min-w-0 items-center gap-3">
+                  <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <h2 className="truncate text-sm sm:text-base font-semibold">{f.name}</h2>
                   </div>
                 </div>
                 <Badge variant="secondary">{f.role}</Badge>
@@ -56,7 +54,6 @@ export function FolderList({ folders, defaultCollapsed = false }: Props) {
                   folderId={f.id}
                   folderName={f.name}
                   folderDescription={f.description}
-                  folderAvatarUrl={f.avatarUrl}
                   currentUserRole={f.role}
                 />
               </div>

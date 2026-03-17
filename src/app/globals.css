@@ -264,6 +264,38 @@
 
 /* ── Accent colors ─────────────────────────────────────────────── */
 
+/* Zinc */
+[data-accent="zinc"] {
+  --primary: oklch(0.45 0.01 260);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.55 0.01 260);
+  --sidebar-primary: oklch(0.45 0.01 260);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+}
+.dark[data-accent="zinc"],
+.dark-parchment[data-accent="zinc"],
+.dark-purple[data-accent="zinc"] {
+  --primary: oklch(0.7 0.01 260);
+  --primary-foreground: oklch(0.15 0.005 260);
+  --ring: oklch(0.55 0.01 260);
+  --sidebar-primary: oklch(0.7 0.01 260);
+  --sidebar-primary-foreground: oklch(0.15 0.005 260);
+}
+.parchment[data-accent="zinc"] {
+  --primary: oklch(0.48 0.01 260);
+  --primary-foreground: oklch(0.96 0.015 80);
+  --ring: oklch(0.52 0.01 260);
+  --sidebar-primary: oklch(0.48 0.01 260);
+  --sidebar-primary-foreground: oklch(0.96 0.015 80);
+}
+.light-purple[data-accent="zinc"] {
+  --primary: oklch(0.48 0.01 260);
+  --primary-foreground: oklch(0.97 0.01 260);
+  --ring: oklch(0.55 0.01 260);
+  --sidebar-primary: oklch(0.48 0.01 260);
+  --sidebar-primary-foreground: oklch(0.97 0.01 260);
+}
+
 /* Blue */
 [data-accent="blue"] {
   --primary: oklch(0.45 0.2 260);

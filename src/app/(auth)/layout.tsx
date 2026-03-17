@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ThemePopover } from "@/components/theme-popover";
 
 export const metadata: Metadata = {
   title: "Sign In",
@@ -7,6 +8,11 @@ export const metadata: Metadata = {
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">{children}</div>
+    <div className="relative flex min-h-screen items-center justify-center bg-background">
+      <div className="absolute right-4 top-4">
+        <ThemePopover />
+      </div>
+      {children}
+    </div>
   );
 }

@@ -7,7 +7,9 @@ const PUBLIC_PATHS = [
   "/api/auth",
   "/api/uploadthing",
   "/deck/",
-  "/discover",
+  "/browse",
+  "/how-it-works",
+  "/pricing",
 ];
 
 export function middleware(request: NextRequest) {

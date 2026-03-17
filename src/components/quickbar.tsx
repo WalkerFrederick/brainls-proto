@@ -57,6 +57,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
 
   const contextFolderId = pathname.startsWith("/folder/") ? pathname.split("/")[2] : undefined;
   const contextDeckId = pathname.startsWith("/deck/") ? pathname.split("/")[2] : undefined;
+  const isStudying = pathname.startsWith("/study");
 
   useHotkey("Shift+C", () => setCardDialogOpen(true));
   useHotkey("Shift+D", () => setDeckDialogOpen(true));
@@ -284,75 +285,77 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
       </AnimatePresence>
 
       {/* FAB for mobile */}
-      <div
-        ref={mobileFabRef}
-        className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3 lg:hidden"
-      >
-        <AnimatePresence>
-          {fabOpen && (
-            <>
-              <motion.div
-                key="fab-backdrop"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 -z-10 bg-black/40 backdrop-blur-sm"
-                onClick={() => setFabOpen(false)}
-              />
-              {[
-                {
-                  key: "folder",
-                  label: "New Folder",
-                  icon: <FolderPlus className="h-5 w-5" />,
-                  onOpen: () => setFolderDialogOpen(true),
-                  delay: 0,
-                },
-                {
-                  key: "deck",
-                  label: "New Deck",
-                  icon: <Plus className="h-5 w-5" />,
-                  onOpen: () => setDeckDialogOpen(true),
-                  delay: 0.04,
-                },
-                {
-                  key: "card",
-                  label: "Add Card",
-                  icon: <FilePlus className="h-5 w-5" />,
-                  onOpen: () => setCardDialogOpen(true),
-                  delay: 0.08,
-                },
-              ].map((item) => (
-                <motion.div
-                  key={item.key}
-                  initial={{ opacity: 0, y: 16, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  transition={{ duration: 0.15, delay: item.delay }}
-                >
-                  <button type="button" onClick={item.onOpen} className="flex items-center gap-3">
-                    <span className="rounded-lg bg-popover px-3 py-1.5 text-sm font-medium shadow-md">
-                      {item.label}
-                    </span>
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
-                      {item.icon}
-                    </span>
-                  </button>
-                </motion.div>
-              ))}
-            </>
-          )}
-        </AnimatePresence>
-        <Button
-          size="icon"
-          className={cn(
-            "h-14 w-14 rounded-full shadow-lg transition-transform duration-200",
-            fabOpen && "rotate-45",
-          )}
-          onClick={() => setFabOpen((prev) => !prev)}
+      {!isStudying && (
+        <div
+          ref={mobileFabRef}
+          className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3 lg:hidden"
         >
-          <Plus className="h-6 w-6" />
-        </Button>
-      </div>
+          <AnimatePresence>
+            {fabOpen && (
+              <>
+                <motion.div
+                  key="fab-backdrop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 -z-10 bg-black/40 backdrop-blur-sm"
+                  onClick={() => setFabOpen(false)}
+                />
+                {[
+                  {
+                    key: "folder",
+                    label: "New Folder",
+                    icon: <FolderPlus className="h-5 w-5" />,
+                    onOpen: () => setFolderDialogOpen(true),
+                    delay: 0,
+                  },
+                  {
+                    key: "deck",
+                    label: "New Deck",
+                    icon: <Plus className="h-5 w-5" />,
+                    onOpen: () => setDeckDialogOpen(true),
+                    delay: 0.04,
+                  },
+                  {
+                    key: "card",
+                    label: "Add Card",
+                    icon: <FilePlus className="h-5 w-5" />,
+                    onOpen: () => setCardDialogOpen(true),
+                    delay: 0.08,
+                  },
+                ].map((item) => (
+                  <motion.div
+                    key={item.key}
+                    initial={{ opacity: 0, y: 16, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                    transition={{ duration: 0.15, delay: item.delay }}
+                  >
+                    <button type="button" onClick={item.onOpen} className="flex items-center gap-3">
+                      <span className="rounded-lg bg-popover px-3 py-1.5 text-sm font-medium shadow-md">
+                        {item.label}
+                      </span>
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+                        {item.icon}
+                      </span>
+                    </button>
+                  </motion.div>
+                ))}
+              </>
+            )}
+          </AnimatePresence>
+          <Button
+            size="icon"
+            className={cn(
+              "h-14 w-14 rounded-full shadow-lg transition-transform duration-200",
+              fabOpen && "rotate-45",
+            )}
+            onClick={() => setFabOpen((prev) => !prev)}
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
     </>
   );
 }

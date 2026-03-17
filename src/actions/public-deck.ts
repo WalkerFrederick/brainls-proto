@@ -27,6 +27,8 @@ export async function getPublicDeck(
   return ok(deck);
 }
 
+const PUBLIC_CARD_PREVIEW_LIMIT = 8;
+
 export async function listPublicCards(
   deckId: string,
 ): Promise<Result<Array<typeof cardDefinitions.$inferSelect>>> {
@@ -56,6 +58,40 @@ export async function listPublicCards(
     );
 
   return ok(rows);
+}
+
+export async function previewPublicCards(
+  deckId: string,
+): Promise<Result<{ cards: Array<typeof cardDefinitions.$inferSelect>; totalCount: number }>> {
+  if (!isValidUuid(deckId)) return err("Invalid deck ID");
+
+  const [deck] = await db
+    .select({ viewPolicy: deckDefinitions.viewPolicy })
+    .from(deckDefinitions)
+    .where(eq(deckDefinitions.id, deckId));
+
+  if (!deck) return err("Deck not found");
+  if (!PUBLIC_VIEW_POLICIES.has(deck.viewPolicy)) {
+    return err("This deck is not publicly viewable");
+  }
+
+  const { sourceDeckId } = await resolveSourceDeck(deckId);
+
+  const baseWhere = and(
+    eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+    isNull(cardDefinitions.archivedAt),
+    isNull(cardDefinitions.parentCardId),
+  );
+
+  const [[countRow], cards] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(cardDefinitions)
+      .where(baseWhere),
+    db.select().from(cardDefinitions).where(baseWhere).limit(PUBLIC_CARD_PREVIEW_LIMIT),
+  ]);
+
+  return ok({ cards, totalCount: Number(countRow.count) });
 }
 
 export async function listPublicDecks(opts?: { tag?: string }): Promise<

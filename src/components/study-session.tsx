@@ -327,13 +327,13 @@ function RatingPanel({
             onClick={() => onRate(rating)}
             className="group flex flex-col items-center gap-1.5 rounded-lg border bg-muted/50 px-2 py-3 transition-colors hover:bg-muted"
           >
-            <span className="flex items-center gap-1.5 text-sm font-medium">
-              {rating === "again" ? againLabel : label}
+            <span className="flex flex-col items-center gap-1 sm:flex-row sm:gap-1.5 text-sm font-medium">
               <span
-                className={`inline-flex h-5 min-w-5 items-center justify-center rounded border px-1 font-mono text-[11px] font-semibold ${badgeClass}`}
+                className={`inline-flex h-5 min-w-5 items-center justify-center rounded border px-1 font-mono text-[11px] font-semibold sm:order-2 mb-1 sm:mb-0 ${badgeClass}`}
               >
                 {key}
               </span>
+              <span className="sm:order-1">{rating === "again" ? againLabel : label}</span>
             </span>
             {intervalPreviews && (
               <span className="text-xs text-muted-foreground">{intervalPreviews[rating]}</span>

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getDeck } from "@/actions/deck";
-import { getPublicDeck, listPublicCards } from "@/actions/public-deck";
+import { getPublicDeck, previewPublicCards } from "@/actions/public-deck";
 import { getDeckTags } from "@/actions/tag";
 import { listCards } from "@/actions/card";
 import { getDeckStudyStats, getCardStudyStates, getNewCardsPerDay } from "@/actions/study";
@@ -88,7 +87,7 @@ async function GuestDeckView({ deckId }: { deckId: string }) {
             </p>
             <div className="flex items-center gap-3 mt-2">
               <Link
-                href="/discover"
+                href="/browse"
                 className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
               >
                 Browse public decks
@@ -128,7 +127,7 @@ async function GuestDeckView({ deckId }: { deckId: string }) {
             </Link>
           </div>
           <Link
-            href="/discover"
+            href="/browse"
             className="mt-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Or browse public decks
@@ -139,8 +138,10 @@ async function GuestDeckView({ deckId }: { deckId: string }) {
   }
 
   const deck = deckResult.data;
-  const cardsResult = await listPublicCards(deckId);
-  const cards = cardsResult.success ? cardsResult.data : [];
+  const cardsResult = await previewPublicCards(deckId);
+  const cards = cardsResult.success ? cardsResult.data.cards : [];
+  const totalCount = cardsResult.success ? cardsResult.data.totalCount : 0;
+  const remaining = totalCount - cards.length;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 space-y-8">
@@ -152,7 +153,7 @@ async function GuestDeckView({ deckId }: { deckId: string }) {
         </div>
         {deck.description && <p className="text-muted-foreground">{deck.description}</p>}
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">{cards.length} cards</Badge>
+          <Badge variant="outline">{totalCount} cards</Badge>
         </div>
       </div>
 
@@ -192,6 +193,20 @@ async function GuestDeckView({ deckId }: { deckId: string }) {
               />
             );
           })}
+          {remaining > 0 && (
+            <div className="rounded-lg border border-dashed p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                +{remaining} more card{remaining === 1 ? "" : "s"}.{" "}
+                <Link
+                  href={`/sign-in?callbackUrl=/deck/${deckId}`}
+                  className="font-medium text-primary hover:underline"
+                >
+                  Sign in
+                </Link>{" "}
+                to see all cards and start studying.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

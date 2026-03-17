@@ -61,7 +61,7 @@ export default async function DiscoverPage({ searchParams }: Props) {
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {platformDecks.map((deck) => (
-              <Link key={deck.id} href={`/d/${deck.id}`}>
+              <Link key={deck.id} href={`/deck/${deck.id}`}>
                 <DeckSummaryCard
                   title={deck.title}
                   description={deck.description}
@@ -104,7 +104,7 @@ export default async function DiscoverPage({ searchParams }: Props) {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {communityDecks.map((deck) => (
-              <Link key={deck.id} href={`/d/${deck.id}`}>
+              <Link key={deck.id} href={`/deck/${deck.id}`}>
                 <DeckSummaryCard
                   title={deck.title}
                   description={deck.description}

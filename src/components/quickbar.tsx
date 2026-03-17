@@ -34,20 +34,22 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   const prevPathname = useRef(pathname);
 
   const fabRef = useRef<HTMLDivElement>(null);
+  const mobileFabRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!fabOpen) return;
     function handleClick(e: MouseEvent) {
       const target = e.target as HTMLElement;
       if (
-        fabRef.current &&
-        !fabRef.current.contains(target) &&
-        !target.closest(
+        (fabRef.current && fabRef.current.contains(target)) ||
+        (mobileFabRef.current && mobileFabRef.current.contains(target)) ||
+        target.closest(
           "[data-slot*='dialog'],[data-slot*='select'],[data-radix-popper-content-wrapper]",
         )
       ) {
-        setFabOpen(false);
+        return;
       }
+      setFabOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -282,7 +284,10 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
       </AnimatePresence>
 
       {/* FAB for mobile */}
-      <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3 lg:hidden">
+      <div
+        ref={mobileFabRef}
+        className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3 lg:hidden"
+      >
         <AnimatePresence>
           {fabOpen && (
             <>
@@ -344,7 +349,6 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
             fabOpen && "rotate-45",
           )}
           onClick={() => setFabOpen((prev) => !prev)}
-          aria-label={fabOpen ? "Close actions" : "Open actions"}
         >
           <Plus className="h-6 w-6" />
         </Button>

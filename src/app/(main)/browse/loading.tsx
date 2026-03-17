@@ -3,10 +3,10 @@ import { CardGridSkeleton } from "@/components/skeletons";
 
 export default function Loading() {
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 px-6 py-10 md:px-12">
       <div>
-        <h1 className="text-2xl font-bold">Browse Public Decks</h1>
-        <p className="text-sm text-muted-foreground">Discover decks shared by the community.</p>
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="mt-2 h-4 w-72" />
       </div>
 
       <div className="flex flex-wrap gap-2">

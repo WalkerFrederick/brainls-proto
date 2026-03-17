@@ -79,12 +79,7 @@ function applyThemeClass(theme: Theme) {
 }
 
 function applyAccentAttr(accent: AccentColor) {
-  const root = document.documentElement;
-  if (accent === "zinc") {
-    root.removeAttribute("data-accent");
-  } else {
-    root.setAttribute("data-accent", accent);
-  }
+  document.documentElement.setAttribute("data-accent", accent);
 }
 
 function setCookie(name: string, value: string) {

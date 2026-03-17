@@ -1,61 +1,168 @@
 import type { Metadata } from "next";
-import { listPublicDecks } from "@/actions/public-deck";
-import { Globe } from "lucide-react";
-import { TagFilter } from "@/components/tag-filter";
-import { DeckSummaryCard } from "@/components/deck-summary-card";
 import Link from "next/link";
+import { listPlatformDecks, listCommunityDecksPaginated } from "@/actions/public-deck";
+import { Globe, BadgeCheck } from "lucide-react";
+import { DeckSummaryCard } from "@/components/deck-summary-card";
+import { TagFilter } from "@/components/tag-filter";
+import { Button } from "@/components/ui/button";
+import { getSession } from "@/lib/auth-server";
+
+export const metadata: Metadata = {
+  title: "Browse Decks",
+  description:
+    "Browse community and official flashcard decks on BrainLS. Find study material for any subject.",
+  openGraph: {
+    title: "Browse Decks | BrainLS",
+    description:
+      "Browse community and official flashcard decks on BrainLS. Find study material for any subject.",
+  },
+};
+
+const PAGE_SIZE = 12;
 
 interface Props {
-  searchParams: Promise<{ tag?: string }>;
+  searchParams: Promise<{ page?: string; tag?: string }>;
 }
 
-export const metadata: Metadata = { title: "Browse Decks" };
-
 export default async function BrowsePage({ searchParams }: Props) {
-  const { tag: tagFilter } = await searchParams;
-  const result = await listPublicDecks({ tag: tagFilter });
-  const decks = result.success ? result.data : [];
+  const sp = await searchParams;
+  const page = Math.max(1, Number(sp.page) || 1);
+  const tagFilter = sp.tag?.trim() || undefined;
+  const session = await getSession();
 
-  const allTags = [...new Set(decks.flatMap((d) => d.tags))].sort();
+  const [platformResult, communityResult] = await Promise.all([
+    page === 1 && !tagFilter ? listPlatformDecks() : Promise.resolve(null),
+    listCommunityDecksPaginated({ page, pageSize: PAGE_SIZE, tag: tagFilter }),
+  ]);
+
+  const platformDecks = platformResult?.success ? platformResult.data : [];
+  const communityDecks = communityResult.success ? communityResult.data.decks : [];
+  const totalCount = communityResult.success ? communityResult.data.totalCount : 0;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const allTags = [...new Set([...platformDecks, ...communityDecks].flatMap((d) => d.tags))].sort();
 
   return (
-    <div className="space-y-6">
+    <div className={session ? "space-y-6" : "mx-auto max-w-6xl space-y-8 px-6 py-10 md:px-12"}>
       <div>
-        <h1 className="text-2xl font-bold">Browse Public Decks</h1>
-        <p className="text-sm text-muted-foreground">Discover decks shared by the community.</p>
+        <div className="flex items-center gap-3">
+          <Globe className="h-6 w-6" />
+          <h1 className="text-2xl font-bold">Browse Public Decks</h1>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Explore flashcard decks shared by the community.
+          {!session && (
+            <>
+              {" "}
+              <Link href="/sign-up" className="text-primary hover:underline">
+                Sign up
+              </Link>{" "}
+              to start studying.
+            </>
+          )}
+        </p>
       </div>
 
       {allTags.length > 0 && <TagFilter availableTags={allTags} />}
 
-      {decks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
-          <Globe className="h-12 w-12 text-muted-foreground" />
-          <div className="text-center">
-            <h3 className="text-lg font-semibold">
-              {tagFilter ? `No decks tagged "${tagFilter}"` : "No public decks yet"}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {tagFilter
-                ? "Try a different tag or clear the filter."
-                : "Public decks will appear here once they\u2019re shared."}
-            </p>
+      {platformDecks.length > 0 && (
+        <section>
+          <div className="mb-4 flex items-center gap-2">
+            <BadgeCheck className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Official BrainLS Decks</h2>
           </div>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {decks.map((deck) => (
-            <Link key={deck.id} href={`/deck/${deck.id}`}>
-              <DeckSummaryCard
-                title={deck.title}
-                description={deck.description}
-                tags={deck.tags}
-                cardCount={deck.cardCount}
-                authorName={deck.createdByName}
-                createdByUserId={deck.createdByUserId}
-                viewPolicy="public"
-              />
-            </Link>
-          ))}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {platformDecks.map((deck) => (
+              <Link key={deck.id} href={`/deck/${deck.id}`}>
+                <DeckSummaryCard
+                  title={deck.title}
+                  description={deck.description}
+                  tags={deck.tags}
+                  cardCount={deck.cardCount}
+                  authorName={deck.createdByName}
+                  createdByUserId={deck.createdByUserId}
+                  viewPolicy="public"
+                />
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section>
+        <h2 className="mb-4 text-lg font-semibold">
+          Community Decks
+          {totalCount > 0 && (
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              ({totalCount} deck{totalCount !== 1 ? "s" : ""})
+            </span>
+          )}
+        </h2>
+
+        {communityDecks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
+            <Globe className="h-12 w-12 text-muted-foreground" />
+            <div className="text-center">
+              <h3 className="text-lg font-semibold">
+                {tagFilter ? `No decks tagged "${tagFilter}"` : "No community decks yet"}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {tagFilter
+                  ? "Try a different tag or clear the filter."
+                  : "Community decks will appear here once they\u2019re shared."}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {communityDecks.map((deck) => (
+              <Link key={deck.id} href={`/deck/${deck.id}`}>
+                <DeckSummaryCard
+                  title={deck.title}
+                  description={deck.description}
+                  tags={deck.tags}
+                  cardCount={deck.cardCount}
+                  authorName={deck.createdByName}
+                  createdByUserId={deck.createdByUserId}
+                  viewPolicy="public"
+                />
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-2">
+            {page > 1 && (
+              <Link href={`/browse?page=${page - 1}${tagFilter ? `&tag=${tagFilter}` : ""}`}>
+                <Button variant="outline" size="sm">
+                  Previous
+                </Button>
+              </Link>
+            )}
+            <span className="px-3 text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            {page < totalPages && (
+              <Link href={`/browse?page=${page + 1}${tagFilter ? `&tag=${tagFilter}` : ""}`}>
+                <Button variant="outline" size="sm">
+                  Next
+                </Button>
+              </Link>
+            )}
+          </div>
+        )}
+      </section>
+
+      {!session && (
+        <div className="flex flex-col items-center gap-4 rounded-lg border bg-muted/30 p-8 text-center">
+          <h3 className="font-semibold">Want to study these decks?</h3>
+          <p className="text-sm text-muted-foreground">
+            Create a free account to add decks to your library and start learning with spaced
+            repetition.
+          </p>
+          <Link href="/sign-up">
+            <Button>Create Free Account</Button>
+          </Link>
         </div>
       )}
     </div>

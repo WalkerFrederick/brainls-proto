@@ -802,6 +802,11 @@ async function ensureLibraryForTags(userId: string, tagNames: string[]) {
     JOIN tags t ON ct.tag_id = t.id
     WHERE cd.parent_card_id IS NOT NULL
       AND t.name IN (${tagNameParams})
+    UNION
+    SELECT cd.id FROM card_definitions cd
+    JOIN deck_tags dt ON dt.deck_definition_id = cd.deck_definition_id
+    JOIN tags t ON dt.tag_id = t.id
+    WHERE t.name IN (${tagNameParams})
   )`;
 
   // Find distinct deck IDs the user can access that have matching tagged cards
@@ -904,7 +909,11 @@ export async function getCustomStudySession(input: unknown): Promise<
 
   const { tagNames } = parsed.data;
 
-  await ensureLibraryForTags(session.user.id, tagNames);
+  try {
+    await ensureLibraryForTags(session.user.id, tagNames);
+  } catch {
+    // Non-fatal: session still works even if library sync fails
+  }
 
   const nowIso = new Date().toISOString();
 
@@ -930,6 +939,14 @@ export async function getCustomStudySession(input: unknown): Promise<
         tagNames.map((n) => sql`${n}`),
         sql`, `,
       )})
+    UNION
+    SELECT cd.id FROM card_definitions cd
+    JOIN deck_tags dt ON dt.deck_definition_id = cd.deck_definition_id
+    JOIN tags t ON dt.tag_id = t.id
+    WHERE t.name IN (${sql.join(
+      tagNames.map((n) => sql`${n}`),
+      sql`, `,
+    )})
   )`;
 
   const dueCards = await db
@@ -991,7 +1008,11 @@ export async function countCustomStudyCards(
 
   const { tagNames } = parsed.data;
 
-  await ensureLibraryForTags(session.user.id, tagNames);
+  try {
+    await ensureLibraryForTags(session.user.id, tagNames);
+  } catch {
+    // Non-fatal: counting still works even if library sync fails
+  }
 
   const nowIso = new Date().toISOString();
 
@@ -1017,6 +1038,14 @@ export async function countCustomStudyCards(
         tagNames.map((n) => sql`${n}`),
         sql`, `,
       )})
+    UNION
+    SELECT cd.id FROM card_definitions cd
+    JOIN deck_tags dt ON dt.deck_definition_id = cd.deck_definition_id
+    JOIN tags t ON dt.tag_id = t.id
+    WHERE t.name IN (${sql.join(
+      tagNames.map((n) => sql`${n}`),
+      sql`, `,
+    )})
   )`;
 
   const rows = await db

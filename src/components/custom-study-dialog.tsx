@@ -31,11 +31,18 @@ export function CustomStudyDialog() {
       return;
     }
     setLoadingPreview(true);
-    const result = await countCustomStudyCards({ tagNames });
-    if (result.success) {
-      setPreview(result.data);
+    try {
+      const result = await countCustomStudyCards({ tagNames });
+      if (result.success) {
+        setPreview(result.data);
+      } else {
+        setPreview(null);
+      }
+    } catch {
+      setPreview(null);
+    } finally {
+      setLoadingPreview(false);
     }
-    setLoadingPreview(false);
   }, []);
 
   useEffect(() => {

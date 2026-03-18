@@ -1,0 +1,28 @@
+---
+description: BrainLS project stack and key architecture decisions
+alwaysApply: true
+---
+
+# Tech Stack
+
+- **Framework**: Next.js 16 (App Router, Server Components, Turbopack)
+- **Language**: TypeScript 5, React 19
+- **Styling**: Tailwind CSS 4, `cn()` from `@/lib/utils` for conditional classes
+- **UI**: Shadcn (base-ui primitives), lucide-react icons, motion (Framer Motion)
+- **Database**: PostgreSQL via `@neondatabase/serverless` + Drizzle ORM (`drizzle-orm`)
+- **Auth**: `better-auth` — use `getSession()` / `requireSession()` from `@/lib/auth-server`
+- **Validation**: Zod 4 — schemas in `src/lib/schemas/`
+- **Email**: Resend + `@react-email/components` — templates in `src/emails/`
+- **File uploads**: UploadThing
+- **Charts**: visx
+- **Drag & drop**: `@dnd-kit/core`
+- **Testing**: Vitest
+
+# Key Patterns
+
+- **Server actions** live in `src/actions/` and return `Result<T>` (`ok(data)` / `err(message)`) from `@/lib/result`
+- **Permissions** use `requireFolderRole()` from `@/lib/permissions` — roles: owner > admin > editor > viewer
+- **Drizzle `sql` template** is acceptable for complex queries (UNIONs, subqueries) that don't map cleanly to the query builder
+- **Frontend "remove"** = backend "archive" — user-facing text says "remove", code/DB uses `archivedAt`
+- **Default folder** = user's personal folder (`user.personalFolderId`), cannot be archived
+- **Default deck** = user's scratch deck (`user.defaultDeckId`), cannot be archived or moved

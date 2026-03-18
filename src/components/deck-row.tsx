@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Play, Plus, Loader2, AlertTriangle, Link2, MoreVertical } from "lucide-react";
+import { Play, Plus, Loader2, AlertTriangle, Link2, Settings, GripVertical } from "lucide-react";
+import { useDraggable } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { addDeckToLibrary, type LibraryDeck } from "@/actions/study";
@@ -14,6 +15,7 @@ interface DeckRowProps {
   showFolders?: boolean;
   folderRole?: string;
   isDefaultDeck?: boolean;
+  folderId?: string;
 }
 
 export function DeckRow({
@@ -21,10 +23,17 @@ export function DeckRow({
   showFolders = true,
   folderRole,
   isDefaultDeck = false,
+  folderId,
 }: DeckRowProps) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: deck.deckDefinitionId,
+    data: { deck, folderId },
+    disabled: !folderId || isDefaultDeck,
+  });
 
   async function handleAddToLibrary() {
     setAdding(true);
@@ -39,14 +48,21 @@ export function DeckRow({
   const isOwnerOrAdmin = folderRole === "owner" || folderRole === "admin";
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3">
-      <button
-        type="button"
-        onClick={() => setSettingsOpen(true)}
-        className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <MoreVertical className="h-4 w-4" />
-      </button>
+    <div
+      ref={setNodeRef}
+      className="flex items-center gap-4 px-4 py-4 sm:py-3"
+      style={{ opacity: isDragging ? 0.4 : undefined }}
+    >
+      {folderId && !isDefaultDeck && (
+        <button
+          type="button"
+          className="hidden shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing sm:block"
+          {...listeners}
+          {...attributes}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      )}
 
       <DeckSettingsDialog
         deckId={deck.deckDefinitionId}
@@ -108,6 +124,13 @@ export function DeckRow({
               <span className="hidden sm:inline text-xs font-normal"> due</span>
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
           <Link href={`/study/${deck.userDeckId}`}>
             <Button size="sm" variant={deck.dueCards > 0 ? "default" : "outline"}>
               <Play className="mr-1.5 h-3.5 w-3.5" />
@@ -116,15 +139,33 @@ export function DeckRow({
           </Link>
         </div>
       ) : (
-        <Button size="sm" variant="outline" onClick={handleAddToLibrary} disabled={adding}>
-          {adding ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-          )}
-          Add
-        </Button>
+        <div className="flex shrink-0 items-center gap-4">
+          <Button size="sm" variant="outline" onClick={handleAddToLibrary} disabled={adding}>
+            {adding ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Add
+          </Button>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+        </div>
       )}
+    </div>
+  );
+}
+
+export function DeckRowDragPreview({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-lg">
+      <GripVertical className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm font-medium">{title}</span>
     </div>
   );
 }

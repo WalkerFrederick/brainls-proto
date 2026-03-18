@@ -6,7 +6,7 @@ import { getPublicDeck, previewPublicCards } from "@/actions/public-deck";
 import { getDeckTags } from "@/actions/tag";
 import { listCards } from "@/actions/card";
 import { getDeckStudyStats, getCardStudyStates, getNewCardsPerDay } from "@/actions/study";
-import { BookOpen, AlertTriangle, ExternalLink, Archive, LogIn, Lock } from "lucide-react";
+import { BookOpen, AlertTriangle, ExternalLink, Trash2, LogIn, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
@@ -80,10 +80,10 @@ async function GuestDeckView({ deckId }: { deckId: string }) {
       return (
         <div className="mx-auto max-w-3xl px-4 py-12">
           <div className="flex flex-col items-center text-center space-y-3">
-            <Archive className="h-12 w-12 text-muted-foreground" />
-            <h1 className="text-2xl font-bold">Deck Archived</h1>
+            <Trash2 className="h-12 w-12 text-muted-foreground" />
+            <h1 className="text-2xl font-bold">Deck Removed</h1>
             <p className="text-muted-foreground max-w-md">
-              The author has archived this deck and it is no longer available.
+              The author has removed this deck and it is no longer available.
             </p>
             <div className="flex items-center gap-3 mt-2">
               <Link
@@ -253,11 +253,11 @@ async function AuthenticatedDeckView({
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         {isArchived ? (
           <>
-            <Archive className="h-12 w-12 text-muted-foreground" />
+            <Trash2 className="h-12 w-12 text-muted-foreground" />
             <div className="space-y-1">
-              <h2 className="text-xl font-semibold">Deck Archived</h2>
+              <h2 className="text-xl font-semibold">Deck Removed</h2>
               <p className="text-sm text-muted-foreground">
-                The author has archived this deck and it is no longer available.
+                The author has removed this deck and it is no longer available.
               </p>
             </div>
             <Link
@@ -341,7 +341,7 @@ async function AuthenticatedDeckView({
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
           <div className="space-y-1">
             <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-              The author has archived this deck
+              The author has removed this deck
             </p>
             <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
               Your existing cards are still available, but no new cards will be added. Copy it to
@@ -369,7 +369,7 @@ async function AuthenticatedDeckView({
               ) : (
                 <ExternalLink className="h-3 w-3" />
               )}
-              {resolved.isAbandoned ? "Source Deck Archived" : "View Source Deck"}
+              {resolved.isAbandoned ? "Source Deck Removed" : "View Source Deck"}
             </Link>
           )}
           <div className="flex items-center gap-2">

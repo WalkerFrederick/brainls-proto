@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Loader2, UserPlus, Trash2, LogOut, Archive } from "lucide-react";
+import { Settings, Loader2, UserPlus, Trash2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -316,17 +316,17 @@ export function FolderSettingsDialog({
               <>
                 <Separator />
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium text-destructive">Archive Folder</Label>
+                  <Label className="text-sm font-medium text-destructive">Remove Folder</Label>
                   {isPersonalSpace ? (
                     <div className="rounded-md border border-muted p-4">
                       <p className="text-sm text-muted-foreground">
-                        Your default folder cannot be archived.
+                        Your default folder cannot be removed.
                       </p>
                     </div>
                   ) : !confirmArchiveFolder ? (
                     <>
                       <p className="text-xs text-muted-foreground">
-                        Archiving hides this folder and removes all non-owner members. Decks inside
+                        Removing hides this folder and removes all non-owner members. Decks inside
                         will no longer be accessible to other members.
                       </p>
                       <Button
@@ -335,14 +335,14 @@ export function FolderSettingsDialog({
                         onClick={() => setConfirmArchiveFolder(true)}
                         className="w-full"
                       >
-                        <Archive className="mr-2 h-4 w-4" />
-                        Archive Folder
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remove Folder
                       </Button>
                     </>
                   ) : (
                     <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 space-y-3">
                       <p className="text-sm font-medium">
-                        Are you sure you want to archive{" "}
+                        Are you sure you want to remove{" "}
                         <span className="font-bold">{folderName}</span>?
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -369,9 +369,9 @@ export function FolderSettingsDialog({
                           {archivingFolder ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           ) : (
-                            <Archive className="mr-2 h-4 w-4" />
+                            <Trash2 className="mr-2 h-4 w-4" />
                           )}
-                          Confirm Archive
+                          Confirm Remove
                         </Button>
                       </div>
                     </div>

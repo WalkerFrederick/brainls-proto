@@ -250,3 +250,56 @@ export async function searchLibraryDecks(
 
   return ok(rows);
 }
+
+export async function moveDeck(
+  deckDefinitionId: string,
+  targetFolderId: string,
+): Promise<Result<{ id: string }>> {
+  if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
+  if (!isValidUuid(targetFolderId)) return err("Invalid folder ID");
+
+  const session = await requireSession();
+
+  const [deck] = await db
+    .select({
+      id: deckDefinitions.id,
+      folderId: deckDefinitions.folderId,
+      linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
+    })
+    .from(deckDefinitions)
+    .where(and(eq(deckDefinitions.id, deckDefinitionId), isNull(deckDefinitions.archivedAt)));
+
+  if (!deck) return err("Deck not found");
+  if (session.user.defaultDeckId === deckDefinitionId)
+    return err("Your default deck cannot be moved.");
+  if (deck.folderId === targetFolderId) return err("Deck is already in this folder");
+
+  if (deck.linkedDeckDefinitionId) {
+    const [existing] = await db
+      .select({ id: deckDefinitions.id })
+      .from(deckDefinitions)
+      .where(
+        and(
+          eq(deckDefinitions.folderId, targetFolderId),
+          eq(deckDefinitions.linkedDeckDefinitionId, deck.linkedDeckDefinitionId),
+          isNull(deckDefinitions.archivedAt),
+        ),
+      )
+      .limit(1);
+
+    if (existing) return err("The target folder already has a linked copy of this deck.");
+  }
+
+  const sourcePerm = await requireFolderRole(deck.folderId, session.user.id, "admin");
+  if (!sourcePerm.allowed) return err("You must be an owner or admin of the source folder");
+
+  const targetPerm = await requireFolderRole(targetFolderId, session.user.id, "admin");
+  if (!targetPerm.allowed) return err("You must be an owner or admin of the target folder");
+
+  await db
+    .update(deckDefinitions)
+    .set({ folderId: targetFolderId, updatedAt: new Date(), updatedByUserId: session.user.id })
+    .where(eq(deckDefinitions.id, deckDefinitionId));
+
+  return ok({ id: deckDefinitionId });
+}

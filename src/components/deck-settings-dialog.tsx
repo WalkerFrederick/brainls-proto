@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Loader2, Archive } from "lucide-react";
+import { Settings, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -236,16 +236,16 @@ export function DeckSettingsDialog({
               {isDefaultDeck ? (
                 <div className="rounded-md border border-muted p-4">
                   <p className="text-sm text-muted-foreground">
-                    This is your default deck and cannot be archived.
+                    This is your default deck and cannot be removed.
                   </p>
                 </div>
               ) : (
                 <div className="rounded-md border border-destructive/30 p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium">Archive this deck</p>
+                      <p className="text-sm font-medium">Remove this deck</p>
                       <p className="text-xs text-muted-foreground">
-                        The deck will be hidden from your library. Linked copies will show an
+                        The deck will be removed from your library. Linked copies will show an
                         &ldquo;abandoned&rdquo; warning.
                       </p>
                     </div>
@@ -285,8 +285,8 @@ export function DeckSettingsDialog({
                         size="sm"
                         onClick={() => setConfirmArchive(true)}
                       >
-                        <Archive className="mr-2 h-4 w-4" />
-                        Archive
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remove
                       </Button>
                     )}
                   </div>

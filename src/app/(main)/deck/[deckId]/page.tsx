@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { getDeck } from "@/actions/deck";
+import { getDeck, getDeckSummary } from "@/actions/deck";
 import { getPublicDeck, previewPublicCards } from "@/actions/public-deck";
-import { getDeckTags } from "@/actions/tag";
 import { listCards } from "@/actions/card";
-import { getDeckStudyStats, getCardStudyStates, getNewCardsPerDay } from "@/actions/study";
+import { getCardStudyStates } from "@/actions/study";
 import { BookOpen, AlertTriangle, ExternalLink, Trash2, LogIn, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EditCardDialog } from "@/components/edit-card-dialog";
@@ -16,8 +15,7 @@ import { AddToFolderButtons } from "@/components/add-to-folder-dialog";
 import { DeckCardItem } from "@/components/deck-card-item";
 import { PlatformBadge } from "@/components/platform-badge";
 import { TagFilter } from "@/components/tag-filter";
-import { canEditDeckInFolder, getFolderMember } from "@/lib/permissions";
-import { resolveSourceDeckFromData } from "@/lib/deck-resolver";
+import { LoadMoreCards } from "@/components/load-more-cards";
 import { getSession } from "@/lib/auth-server";
 
 interface Props {
@@ -181,7 +179,7 @@ async function GuestDeckView({ deckId }: { deckId: string }) {
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {cards.map((card) => {
             const content = card.contentJson as Record<string, unknown>;
             return (
@@ -245,10 +243,10 @@ async function AuthenticatedDeckView({
   userId: string;
   defaultDeckId: string | null;
 }) {
-  const deckResult = await getDeck(deckId);
+  const summaryResult = await getDeckSummary(deckId);
 
-  if (!deckResult.success) {
-    const isArchived = deckResult.error.toLowerCase().includes("archived");
+  if (!summaryResult.success) {
+    const isArchived = summaryResult.error.toLowerCase().includes("archived");
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         {isArchived ? (
@@ -272,7 +270,7 @@ async function AuthenticatedDeckView({
             <BookOpen className="h-12 w-12 text-muted-foreground" />
             <div className="space-y-1">
               <h2 className="text-xl font-semibold">Deck Not Available</h2>
-              <p className="text-sm text-muted-foreground">{deckResult.error}</p>
+              <p className="text-sm text-muted-foreground">{summaryResult.error}</p>
             </div>
           </>
         )}
@@ -280,33 +278,18 @@ async function AuthenticatedDeckView({
     );
   }
 
-  const deck = deckResult.data;
+  const summary = summaryResult.data;
   const isDefaultDeck = defaultDeckId === deckId;
 
-  const [
-    isEditor,
-    member,
-    resolved,
-    cardsResult,
-    statsResult,
-    deckTagNames,
-    studyStatesResult,
-    newCardsPerDayResult,
-  ] = await Promise.all([
-    canEditDeckInFolder(deck.folderId, userId),
-    getFolderMember(deck.folderId, userId),
-    resolveSourceDeckFromData(deckId, deck.linkedDeckDefinitionId),
-    listCards(deckId, { tag: tagFilter }),
-    getDeckStudyStats(deckId),
-    getDeckTags(deckId),
+  const PAGE_SIZE = 50;
+
+  const [cardsResult, studyStatesResult] = await Promise.all([
+    listCards(deckId, { tag: tagFilter, limit: PAGE_SIZE }),
     getCardStudyStates(deckId),
-    getNewCardsPerDay(deckId),
   ]);
 
-  const canArchive = member !== null && ["owner", "admin"].includes(member.role);
-  const canChangeVisibility = canArchive;
-  const cards = cardsResult.success ? cardsResult.data : [];
-  const stats = statsResult.success ? statsResult.data : null;
+  const cards = cardsResult.success ? cardsResult.data.cards : [];
+  const totalCount = cardsResult.success ? cardsResult.data.totalCount : 0;
 
   const studyStateMap = new Map<string, { srsState: string; dueAt: Date | null }>();
   const childStudyStateMap = new Map<
@@ -333,10 +316,11 @@ async function AuthenticatedDeckView({
   }
 
   const allCardTags = [...new Set(cards.flatMap((c) => c.tags))].sort();
+  const hasMore = cards.length < totalCount;
 
   return (
     <div className="space-y-6">
-      {resolved.isLinked && resolved.isAbandoned && (
+      {summary.isLinked && summary.isAbandoned && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
           <div className="space-y-1">
@@ -353,37 +337,39 @@ async function AuthenticatedDeckView({
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <PlatformBadge createdByUserId={deck.createdByUserId} showPill />
-          {resolved.isLinked && (
+          <PlatformBadge createdByUserId={summary.createdByUserId} showPill />
+          {summary.isLinked && (
             <Link
-              href={`/deck/${resolved.sourceDeckId}`}
+              href={`/deck/${summary.sourceDeckId}`}
               className={cn(
                 "mb-2 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium underline transition-colors",
-                resolved.isAbandoned
+                summary.isAbandoned
                   ? "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
                   : "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400",
               )}
             >
-              {resolved.isAbandoned ? (
+              {summary.isAbandoned ? (
                 <AlertTriangle className="h-3 w-3" />
               ) : (
                 <ExternalLink className="h-3 w-3" />
               )}
-              {resolved.isAbandoned ? "Source Deck Removed" : "View Source Deck"}
+              {summary.isAbandoned ? "Source Deck Removed" : "View Source Deck"}
             </Link>
           )}
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">{deck.title}</h1>
-            <PlatformBadge createdByUserId={deck.createdByUserId} showCheck />
+            <h1 className="text-2xl font-bold">{summary.title}</h1>
+            <PlatformBadge createdByUserId={summary.createdByUserId} showCheck />
           </div>
-          {deck.description && <p className="text-sm text-muted-foreground">{deck.description}</p>}
+          {summary.description && (
+            <p className="text-sm text-muted-foreground">{summary.description}</p>
+          )}
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant="outline">{cards.length} cards</Badge>
-            <Badge variant="secondary">{deck.viewPolicy}</Badge>
+            <Badge variant="outline">{summary.studyCardCount} cards</Badge>
+            <Badge variant="secondary">{summary.viewPolicy}</Badge>
           </div>
-          {deckTagNames.length > 0 && (
+          {summary.tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
-              {deckTagNames.map((tag) => (
+              {summary.tags.map((tag) => (
                 <span
                   key={tag}
                   className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
@@ -395,46 +381,48 @@ async function AuthenticatedDeckView({
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {(deck.viewPolicy === "public" || deck.viewPolicy === "link") && (
+          {(summary.viewPolicy === "public" || summary.viewPolicy === "link") && (
             <ShareDeckButton deckId={deckId} />
           )}
-          {isEditor && (
+          {summary.isEditor && (
             <DeckSettingsDialog
               deckId={deckId}
-              title={deck.title}
-              description={deck.description}
-              viewPolicy={deck.viewPolicy}
-              canArchive={canArchive}
-              canChangeVisibility={canChangeVisibility}
-              initialTags={deckTagNames}
+              title={summary.title}
+              description={summary.description}
+              viewPolicy={summary.viewPolicy}
+              canArchive={summary.canArchive}
+              canChangeVisibility={summary.canChangeVisibility}
+              initialTags={summary.tags}
               isDefaultDeck={isDefaultDeck}
-              initialNewCardsPerDay={newCardsPerDayResult.success ? newCardsPerDayResult.data : 20}
-              isLinked={resolved.isLinked}
+              initialNewCardsPerDay={summary.newCardsPerDay}
+              isLinked={summary.isLinked}
             />
           )}
           <AddToFolderButtons
-            deckId={resolved.isLinked ? resolved.sourceDeckId : deckId}
-            sourceArchived={resolved.isAbandoned || !!deck.archivedAt}
+            deckId={summary.isLinked ? summary.sourceDeckId : deckId}
+            sourceArchived={summary.isAbandoned || !!summary.archivedAt}
           />
-          {stats && <UseDeckButton deckDefinitionId={deckId} />}
+          {summary.stats && <UseDeckButton deckDefinitionId={deckId} />}
         </div>
       </div>
 
-      {stats && (
+      {summary.stats && (
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg border p-4 text-center">
-            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.newCount}</p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              {summary.stats.newCount}
+            </p>
             <p className="text-xs font-medium text-muted-foreground">New</p>
           </div>
           <div className="rounded-lg border p-4 text-center">
             <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {stats.learningCount}
+              {summary.stats.learningCount}
             </p>
             <p className="text-xs font-medium text-muted-foreground">Learning</p>
           </div>
           <div className="rounded-lg border p-4 text-center">
             <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {stats.dueCount}
+              {summary.stats.dueCount}
             </p>
             <p className="text-xs font-medium text-muted-foreground">Due</p>
           </div>
@@ -462,7 +450,7 @@ async function AuthenticatedDeckView({
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {cards.map((card) => {
             const content = card.contentJson as Record<string, unknown>;
             const studyState = studyStateMap.get(card.id);
@@ -478,7 +466,7 @@ async function AuthenticatedDeckView({
                 dueAt={studyState?.dueAt ?? undefined}
                 childStudyStates={childStudyStateMap.get(card.id)}
                 editSlot={
-                  isEditor && !resolved.isLinked ? (
+                  summary.isEditor && !summary.isLinked ? (
                     <EditCardDialog
                       cardId={card.id}
                       cardType={card.cardType}
@@ -491,6 +479,16 @@ async function AuthenticatedDeckView({
               />
             );
           })}
+          {hasMore && (
+            <LoadMoreCards
+              deckId={deckId}
+              initialOffset={PAGE_SIZE}
+              totalCount={totalCount}
+              tagFilter={tagFilter}
+              isEditor={summary.isEditor}
+              isLinked={summary.isLinked}
+            />
+          )}
         </div>
       )}
     </div>

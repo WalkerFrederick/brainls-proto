@@ -129,7 +129,7 @@ export async function listFoldersWithDecks(): Promise<
         copiedFromDeckDefinitionId: string | null;
         isAbandoned: boolean;
         tags: string[];
-        folders: Array<{ id: string; name: string }>;
+        folders: Array<{ id: string; name: string; role: string }>;
         userDeckId: string | null;
         totalCards: number;
         dueCards: number;

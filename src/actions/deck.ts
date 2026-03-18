@@ -1,14 +1,29 @@
 "use server";
 
-import { eq, and, isNull, ilike, inArray, desc } from "drizzle-orm";
+import { eq, and, isNull, ilike, inArray, desc, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { deckDefinitions, userDecks, folderMembers } from "@/db/schema";
+import {
+  deckDefinitions,
+  userDecks,
+  folderMembers,
+  cardDefinitions,
+  userCardStates,
+  deckTags,
+  tags,
+} from "@/db/schema";
 import { archiveStudyDataIfOrphaned } from "@/actions/link-deck";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { CreateDeckSchema, UpdateDeckSchema } from "@/lib/schemas";
-import { requireFolderRole, canViewDeck, canEditDeck } from "@/lib/permissions";
+import {
+  requireFolderRole,
+  canViewDeck,
+  canEditDeck,
+  canEditDeckInFolder,
+  getFolderMember,
+} from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
+import { resolveSourceDeckFromData } from "@/lib/deck-resolver";
 
 export async function createDeck(input: unknown): Promise<Result<{ id: string }>> {
   const session = await requireSession();
@@ -302,4 +317,146 @@ export async function moveDeck(
     .where(eq(deckDefinitions.id, deckDefinitionId));
 
   return ok({ id: deckDefinitionId });
+}
+
+export type DeckSummary = {
+  title: string;
+  description: string | null;
+  viewPolicy: string;
+  createdByUserId: string;
+  folderId: string;
+  archivedAt: Date | null;
+  linkedDeckDefinitionId: string | null;
+  tags: string[];
+  studyCardCount: number;
+  rootCardCount: number;
+  isEditor: boolean;
+  canArchive: boolean;
+  canChangeVisibility: boolean;
+  isLinked: boolean;
+  isAbandoned: boolean;
+  sourceDeckId: string;
+  newCardsPerDay: number;
+  stats: { newCount: number; learningCount: number; dueCount: number } | null;
+};
+
+export async function getDeckSummary(deckId: string): Promise<Result<DeckSummary>> {
+  if (!isValidUuid(deckId)) return err("Invalid deck ID");
+  const session = await requireSession();
+
+  const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
+  if (!deck) return err("Deck not found");
+
+  if (deck.archivedAt) {
+    const canView = await canViewDeck(deckId, session.user.id);
+    if (!canView) return err("The author has archived this deck");
+  } else {
+    const canView = await canViewDeck(deckId, session.user.id);
+    if (!canView) return err("Permission denied");
+  }
+
+  const { sourceDeckId, isLinked, isAbandoned } = await resolveSourceDeckFromData(
+    deckId,
+    deck.linkedDeckDefinitionId,
+  );
+
+  const [tagRows, countRow, isEditor, member, userDeckRow] = await Promise.all([
+    db
+      .select({ name: tags.name })
+      .from(deckTags)
+      .innerJoin(tags, eq(deckTags.tagId, tags.id))
+      .where(eq(deckTags.deckDefinitionId, deckId))
+      .orderBy(tags.name),
+
+    db
+      .select({
+        studyCardCount: sql<number>`
+          count(*) filter (where ${cardDefinitions.parentCardId} is null and ${cardDefinitions.cardType} != 'cloze' and ${cardDefinitions.archivedAt} is null)
+          +
+          count(*) filter (where ${cardDefinitions.parentCardId} is not null and ${cardDefinitions.archivedAt} is null)
+        `.mapWith(Number),
+        rootCardCount: sql<number>`
+          count(*) filter (where ${cardDefinitions.parentCardId} is null and ${cardDefinitions.archivedAt} is null)
+        `.mapWith(Number),
+      })
+      .from(cardDefinitions)
+      .where(eq(cardDefinitions.deckDefinitionId, sourceDeckId))
+      .then((rows) => rows[0] ?? { studyCardCount: 0, rootCardCount: 0 }),
+
+    canEditDeckInFolder(deck.folderId, session.user.id),
+
+    getFolderMember(deck.folderId, session.user.id),
+
+    db
+      .select({ id: userDecks.id, newCardsPerDay: userDecks.newCardsPerDay })
+      .from(userDecks)
+      .where(
+        and(
+          eq(userDecks.userId, session.user.id),
+          eq(userDecks.deckDefinitionId, sourceDeckId),
+          isNull(userDecks.archivedAt),
+        ),
+      )
+      .then((rows) => rows[0] ?? null),
+  ]);
+
+  const memberRole = member?.role ?? null;
+  const canArchive = memberRole === "owner" || memberRole === "admin";
+  const canChangeVisibility = canArchive && !deck.linkedDeckDefinitionId;
+
+  let stats: DeckSummary["stats"] = null;
+  if (userDeckRow) {
+    const nowIso = new Date().toISOString();
+    const stateRows = await db
+      .select({
+        srsState: userCardStates.srsState,
+        isDue: sql<boolean>`(${userCardStates.dueAt} IS NOT NULL AND ${userCardStates.dueAt} <= ${nowIso})`,
+      })
+      .from(userCardStates)
+      .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+      .where(
+        and(eq(userCardStates.userDeckId, userDeckRow.id), isNull(cardDefinitions.archivedAt)),
+      );
+
+    let newCount = 0;
+    let learningCount = 0;
+    let dueCount = 0;
+    for (const row of stateRows) {
+      switch (row.srsState) {
+        case "new":
+          newCount++;
+          break;
+        case "learning":
+        case "relearning":
+          learningCount++;
+          if (row.isDue) dueCount++;
+          break;
+        case "review":
+          if (row.isDue) dueCount++;
+          break;
+      }
+    }
+    stats = { newCount, learningCount, dueCount };
+  }
+
+  return ok({
+    title: deck.title,
+    description: deck.description,
+    viewPolicy: deck.viewPolicy,
+    createdByUserId: deck.createdByUserId,
+    folderId: deck.folderId,
+    archivedAt: deck.archivedAt,
+    linkedDeckDefinitionId: deck.linkedDeckDefinitionId,
+    tags: tagRows.map((r) => r.name),
+    studyCardCount: countRow.studyCardCount,
+    rootCardCount: countRow.rootCardCount,
+    isEditor,
+    canArchive,
+    canChangeVisibility,
+    isLinked,
+    isAbandoned,
+    sourceDeckId,
+    newCardsPerDay: userDeckRow?.newCardsPerDay ?? 20,
+    stats,
+  });
 }

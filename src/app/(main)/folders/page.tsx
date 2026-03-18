@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { listFoldersWithDecks } from "@/actions/folder";
 import { FolderOpen } from "lucide-react";
 import { CreateFolderDialog } from "@/components/create-folder-dialog";
+import { CreateDeckDialog } from "@/components/create-deck-dialog";
 import { FolderList } from "@/components/folder-list";
 import { requireSession } from "@/lib/auth-server";
 
@@ -26,7 +27,10 @@ export default async function FoldersPage() {
           </div>
           <p className="mt-1 text-sm text-muted-foreground">Manage your library.</p>
         </div>
-        <CreateFolderDialog />
+        <div className="flex items-center gap-2">
+          <CreateDeckDialog folderId={session.user.personalFolderId ?? undefined} />
+          <CreateFolderDialog />
+        </div>
       </div>
 
       {folders.length === 0 ? (

@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Brain, BookOpen } from "lucide-react";
 import { getSession } from "@/lib/auth-server";
-import { getReviewHeatmapData, listUserDecks } from "@/actions/study";
+import { getReviewHeatmapData, listLibraryDecks } from "@/actions/study";
 import { ReviewHeatmap } from "@/components/review-heatmap";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomStudyDialog } from "@/components/custom-study-dialog";
-import Link from "next/link";
+import { DeckRow } from "@/components/deck-row";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -18,9 +16,14 @@ export default async function Home() {
     redirect("/sign-in");
   }
 
-  const [heatmapResult, decksResult] = await Promise.all([getReviewHeatmapData(), listUserDecks()]);
+  const [heatmapResult, decksResult] = await Promise.all([
+    getReviewHeatmapData(),
+    listLibraryDecks(),
+  ]);
 
   const decks = decksResult?.success ? decksResult.data : [];
+
+  const readyDecks = decks.filter((d) => d.dueCards > 0 || d.newCount > 0);
 
   return (
     <div className="space-y-8">
@@ -40,59 +43,34 @@ export default async function Home() {
       {heatmapResult?.success && <ReviewHeatmap data={heatmapResult.data} />}
 
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Study</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Ready to Study</h2>
+          <CustomStudyDialog />
+        </div>
 
-        {decks.length === 0 ? (
+        {readyDecks.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
             <BookOpen className="h-12 w-12 text-muted-foreground" />
             <div className="text-center">
-              <h3 className="text-lg font-semibold">No decks in your library</h3>
+              <h3 className="text-lg font-semibold">You&apos;re all caught up!</h3>
               <p className="text-sm text-muted-foreground">
-                Add a deck from a folder to start studying.
+                No decks have cards due right now. Check back later.
               </p>
             </div>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {decks.map((deck) => (
-              <Link key={deck.id} href={`/study/${deck.id}`}>
-                <Card className="h-full transition-colors hover:bg-accent/50">
-                  <CardHeader>
-                    <CardTitle className="text-lg">{deck.deckTitle}</CardTitle>
-                    <CardDescription>{deck.totalCards} cards total</CardDescription>
-                    <div className="flex gap-2 pt-1">
-                      <Badge variant={deck.dueCards > 0 ? "default" : "secondary"}>
-                        {deck.dueCards} due
-                      </Badge>
-                      {deck.lastStudiedAt && (
-                        <Badge variant="outline">
-                          Last: {new Date(deck.lastStudiedAt).toLocaleDateString()}
-                        </Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
-
-            <CustomStudyCard />
+          <div className="divide-y rounded-lg border">
+            {readyDecks.map((deck) => {
+              const bestRole = deck.folders.some((f) => f.role === "owner")
+                ? "owner"
+                : deck.folders.some((f) => f.role === "admin")
+                  ? "admin"
+                  : deck.folders[0]?.role;
+              return <DeckRow key={deck.deckDefinitionId} deck={deck} folderRole={bestRole} />;
+            })}
           </div>
         )}
       </div>
     </div>
-  );
-}
-
-function CustomStudyCard() {
-  return (
-    <Card className="h-full border-dashed transition-colors hover:bg-accent/50">
-      <CardHeader>
-        <CardTitle className="text-lg">Custom Study</CardTitle>
-        <CardDescription>Study cards by tag across all your decks</CardDescription>
-        <div className="pt-1">
-          <CustomStudyDialog />
-        </div>
-      </CardHeader>
-    </Card>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { Pencil, Loader2, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { updateCard, createCard } from "@/actions/card";
+import { updateCard, createCard, archiveCard } from "@/actions/card";
 import { getCardState, updateCardState } from "@/actions/card-state";
 import { setCardTags } from "@/actions/tag";
 import { TagInput } from "@/components/tag-input";
@@ -83,6 +83,8 @@ export function EditCardDialog({
   const [srsLoading, setSrsLoading] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [error, setError] = useState("");
 
   const loadStudyState = useCallback(async () => {
@@ -124,6 +126,7 @@ export function EditCardDialog({
       setError("");
       setShowAdvanced(false);
       setHasStudyState(false);
+      setConfirmRemove(false);
     }
     setOpen(isOpen);
   }
@@ -198,6 +201,19 @@ export function EditCardDialog({
 
     setOpen(false);
     setLoading(false);
+    router.refresh();
+  }
+
+  async function handleRemove() {
+    setRemoving(true);
+    const result = await archiveCard(cardId);
+    if (!result.success) {
+      setError(result.error);
+      setRemoving(false);
+      return;
+    }
+    setOpen(false);
+    setRemoving(false);
     router.refresh();
   }
 
@@ -522,6 +538,55 @@ export function EditCardDialog({
                   )}
                 </div>
               )}
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
+              <div className="rounded-md border border-destructive/30 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Remove this card</p>
+                    <p className="text-xs text-muted-foreground">
+                      This card will be permanently removed from the deck.
+                    </p>
+                  </div>
+                  {confirmRemove ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleRemove}
+                        disabled={removing}
+                      >
+                        {removing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                        Confirm
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setConfirmRemove(false)}
+                        disabled={removing}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => setConfirmRemove(true)}
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>

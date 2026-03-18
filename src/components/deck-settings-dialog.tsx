@@ -183,7 +183,7 @@ export function DeckSettingsDialog({
                 change sharing settings.
               </p>
             </div>
-          ) : (
+          ) : canChangeVisibility ? (
             <div className="space-y-4">
               <h3 className="text-sm font-semibold">Sharing</h3>
 
@@ -194,8 +194,15 @@ export function DeckSettingsDialog({
                 value={viewPolicy}
                 onChange={setViewPolicy}
                 options={VIEW_POLICY_OPTIONS}
-                disabled={!canChangeVisibility}
               />
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Sharing</h3>
+              <p className="text-sm text-muted-foreground">
+                You don&apos;t have permission to change visibility. Only folder owners and admins
+                can do this.
+              </p>
             </div>
           )}
           <Separator />
@@ -229,7 +236,7 @@ export function DeckSettingsDialog({
           </Button>
         </form>
 
-        {canArchive && (
+        {canArchive ? (
           <>
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
@@ -294,6 +301,16 @@ export function DeckSettingsDialog({
               )}
             </div>
           </>
+        ) : (
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
+            <div className="rounded-md border border-muted p-4">
+              <p className="text-sm text-muted-foreground">
+                You don&apos;t have permission to remove this deck. Only folder owners and admins
+                can do this.
+              </p>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>

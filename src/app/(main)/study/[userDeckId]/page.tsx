@@ -7,13 +7,18 @@ import { StudyPrepScreen } from "@/components/study-prep-screen";
 import { BookOpen } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getBackLabel } from "@/lib/back-label";
 
 interface Props {
   params: Promise<{ userDeckId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default async function StudyPage({ params }: Props) {
+export default async function StudyPage({ params, searchParams }: Props) {
   const { userDeckId } = await params;
+  const sp = await searchParams;
+  const ref = typeof sp.ref === "string" ? sp.ref : null;
+  const back = getBackLabel(ref);
   const result = await getStudySession(userDeckId);
 
   if (!result.success) {
@@ -31,8 +36,8 @@ export default async function StudyPage({ params }: Props) {
           <p className="text-muted-foreground">
             No cards are due for review in &quot;{deckTitle}&quot;.
           </p>
-          <Link href="/folders">
-            <Button variant="outline">Back to Library</Button>
+          <Link href={back.href}>
+            <Button variant="outline">{back.label}</Button>
           </Link>
         </div>
       </StudyPrepScreen>
@@ -41,7 +46,13 @@ export default async function StudyPage({ params }: Props) {
 
   return (
     <StudyPrepScreen>
-      <StudySessionClient deckTitle={deckTitle} initialCards={cards} totalDue={totalDue} />
+      <StudySessionClient
+        deckTitle={deckTitle}
+        initialCards={cards}
+        totalDue={totalDue}
+        backHref={back.href}
+        backLabel={back.label}
+      />
     </StudyPrepScreen>
   );
 }

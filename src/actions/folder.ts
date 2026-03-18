@@ -7,6 +7,7 @@ import {
   folderSettings,
   folderMembers,
   deckDefinitions,
+  cardDefinitions,
   deckTags,
   tags,
   userDecks,
@@ -106,6 +107,8 @@ export async function listFolders(): Promise<
         isNull(folders.archivedAt),
       ),
     );
+
+  rows.sort((a, b) => a.name.localeCompare(b.name));
 
   return ok(rows);
 }
@@ -247,7 +250,10 @@ export async function listFoldersWithDecks(): Promise<
         dueCards: sql<number>`count(*) filter (where ${isDueExpr})::int`,
       })
       .from(userCardStates)
-      .where(inArray(userCardStates.userDeckId, userDeckIds))
+      .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+      .where(
+        and(inArray(userCardStates.userDeckId, userDeckIds), isNull(cardDefinitions.archivedAt)),
+      )
       .groupBy(userCardStates.userDeckId);
 
     for (const r of rows) {
@@ -261,48 +267,61 @@ export async function listFoldersWithDecks(): Promise<
     }
   }
 
-  // Build folder map for quick lookup
-  const folderMap = new Map(memberRows.map((f) => [f.id, f]));
-
   // Group decks by folder
-  const result = memberRows.map((f) => {
-    const folderDecks = rawDecks.filter((d) => d.folderId === f.id);
+  const result = memberRows
+    .sort((a, b) => {
+      const aIsDefault = a.id === session.user.personalFolderId;
+      const bIsDefault = b.id === session.user.personalFolderId;
+      if (aIsDefault) return -1;
+      if (bIsDefault) return 1;
+      return a.name.localeCompare(b.name);
+    })
+    .map((f) => {
+      const folderDecks = rawDecks
+        .filter((d) => d.folderId === f.id)
+        .sort((a, b) => {
+          const aIsDefault = a.id === session.user.defaultDeckId;
+          const bIsDefault = b.id === session.user.defaultDeckId;
+          if (aIsDefault) return -1;
+          if (bIsDefault) return 1;
+          return a.title.localeCompare(b.title);
+        });
 
-    const decks = folderDecks.map((deck) => {
-      const sourceDeckId = deck.linkedDeckDefinitionId ?? deck.id;
-      const ud = userDeckMap.get(sourceDeckId);
+      const decks = folderDecks.map((deck) => {
+        const sourceDeckId = deck.linkedDeckDefinitionId ?? deck.id;
+        const ud = userDeckMap.get(sourceDeckId);
+
+        return {
+          deckDefinitionId: deck.id,
+          title: deck.title,
+          description: deck.description,
+          viewPolicy: deck.viewPolicy,
+          linkedDeckDefinitionId: deck.linkedDeckDefinitionId,
+          copiedFromDeckDefinitionId: deck.copiedFromDeckDefinitionId,
+          isAbandoned: deck.linkedDeckDefinitionId
+            ? abandonedSet.has(deck.linkedDeckDefinitionId)
+            : false,
+          tags: (deckTagMap.get(deck.id) ?? []).sort(),
+          folders: [{ id: f.id, name: f.name, role: f.role }],
+          userDeckId: ud?.id ?? null,
+          totalCards: ud ? (statsMap.get(ud.id)?.totalCards ?? 0) : 0,
+          dueCards: ud ? (statsMap.get(ud.id)?.dueCards ?? 0) : 0,
+          newCount: ud ? (statsMap.get(ud.id)?.newCount ?? 0) : 0,
+          learningCount: ud ? (statsMap.get(ud.id)?.learningCount ?? 0) : 0,
+          reviewDueCount: ud ? (statsMap.get(ud.id)?.reviewDueCount ?? 0) : 0,
+          lastStudiedAt: ud?.lastStudiedAt ?? null,
+        };
+      });
 
       return {
-        deckDefinitionId: deck.id,
-        title: deck.title,
-        description: deck.description,
-        viewPolicy: deck.viewPolicy,
-        linkedDeckDefinitionId: deck.linkedDeckDefinitionId,
-        copiedFromDeckDefinitionId: deck.copiedFromDeckDefinitionId,
-        isAbandoned: deck.linkedDeckDefinitionId
-          ? abandonedSet.has(deck.linkedDeckDefinitionId)
-          : false,
-        tags: (deckTagMap.get(deck.id) ?? []).sort(),
-        folders: [{ id: f.id, name: f.name }],
-        userDeckId: ud?.id ?? null,
-        totalCards: ud ? (statsMap.get(ud.id)?.totalCards ?? 0) : 0,
-        dueCards: ud ? (statsMap.get(ud.id)?.dueCards ?? 0) : 0,
-        newCount: ud ? (statsMap.get(ud.id)?.newCount ?? 0) : 0,
-        learningCount: ud ? (statsMap.get(ud.id)?.learningCount ?? 0) : 0,
-        reviewDueCount: ud ? (statsMap.get(ud.id)?.reviewDueCount ?? 0) : 0,
-        lastStudiedAt: ud?.lastStudiedAt ?? null,
+        id: f.id,
+        name: f.name,
+        description: f.description,
+        role: f.role,
+        isPersonalSpace: f.id === session.user.personalFolderId,
+        decks,
       };
     });
-
-    return {
-      id: f.id,
-      name: f.name,
-      description: f.description,
-      role: f.role,
-      isPersonalSpace: f.id === session.user.personalFolderId,
-      decks,
-    };
-  });
 
   return ok(result);
 }

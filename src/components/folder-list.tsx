@@ -178,7 +178,6 @@ export function FolderList({ folders, defaultCollapsed = false, defaultDeckId }:
                     <DeckRow
                       key={deck.deckDefinitionId}
                       deck={deck}
-                      showFolders={false}
                       folderRole={f.role}
                       isDefaultDeck={defaultDeckId === deck.deckDefinitionId}
                       folderId={f.id}

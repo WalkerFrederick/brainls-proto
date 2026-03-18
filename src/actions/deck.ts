@@ -2,7 +2,7 @@
 
 import { eq, and, isNull, ilike, inArray, desc } from "drizzle-orm";
 import { db } from "@/db";
-import { deckDefinitions, userDecks, folderMembers, folders } from "@/db/schema";
+import { deckDefinitions, userDecks, folderMembers } from "@/db/schema";
 import { archiveStudyDataIfOrphaned } from "@/actions/link-deck";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
@@ -290,11 +290,11 @@ export async function moveDeck(
     if (existing) return err("The target folder already has a linked copy of this deck.");
   }
 
-  const sourcePerm = await requireFolderRole(deck.folderId, session.user.id, "admin");
-  if (!sourcePerm.allowed) return err("You must be an owner or admin of the source folder");
+  const sourcePerm = await requireFolderRole(deck.folderId, session.user.id, "owner");
+  if (!sourcePerm.allowed) return err("You must be the owner of the source folder");
 
-  const targetPerm = await requireFolderRole(targetFolderId, session.user.id, "admin");
-  if (!targetPerm.allowed) return err("You must be an owner or admin of the target folder");
+  const targetPerm = await requireFolderRole(targetFolderId, session.user.id, "owner");
+  if (!targetPerm.allowed) return err("You must be the owner of the target folder");
 
   await db
     .update(deckDefinitions)

@@ -44,6 +44,8 @@ interface Props {
   initialCards: StudyCard[];
   totalDue: number;
   skipSrsUpdate?: boolean;
+  backHref?: string;
+  backLabel?: string;
 }
 
 type Rating = "again" | "hard" | "good" | "easy";
@@ -86,7 +88,14 @@ function getIntervalPreviews(card: StudyCard): Record<Rating, string> {
   return result;
 }
 
-export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsUpdate }: Props) {
+export function StudySessionClient({
+  deckTitle,
+  initialCards,
+  totalDue,
+  skipSrsUpdate,
+  backHref = "/home",
+  backLabel = "Back to Home",
+}: Props) {
   const router = useRouter();
   const [cards] = useState(initialCards);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -180,8 +189,8 @@ export function StudySessionClient({ deckTitle, initialCards, totalDue, skipSrsU
         <p className="text-muted-foreground">
           You reviewed {reviewed} card{reviewed !== 1 ? "s" : ""} from &quot;{deckTitle}&quot;.
         </p>
-        <Button variant="outline" onClick={() => router.push("/folders")}>
-          Back to Library
+        <Button variant="outline" onClick={() => router.push(backHref)}>
+          {backLabel}
         </Button>
       </div>
     );

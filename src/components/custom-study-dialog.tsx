@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Zap, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ import { countCustomStudyCards } from "@/actions/study";
 
 export function CustomStudyDialog() {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [updateSrs, setUpdateSrs] = useState(false);
@@ -55,6 +56,7 @@ export function CustomStudyDialog() {
     const params = new URLSearchParams();
     params.set("tags", tags.join(","));
     if (!updateSrs) params.set("srs", "false");
+    params.set("ref", pathname);
     setOpen(false);
     router.push(`/study/custom?${params.toString()}`);
   }

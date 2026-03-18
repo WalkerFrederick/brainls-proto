@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Loader2, Archive } from "lucide-react";
+import { Settings, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,6 +34,7 @@ interface DeckSettingsDialogProps {
   viewPolicy: string;
   canArchive?: boolean;
   canChangeVisibility?: boolean;
+  isEditor?: boolean;
   initialTags?: string[];
   isDefaultDeck?: boolean;
   initialNewCardsPerDay?: number;
@@ -56,6 +57,7 @@ export function DeckSettingsDialog({
   viewPolicy: initialViewPolicy,
   canArchive = false,
   canChangeVisibility = false,
+  isEditor = true,
   initialTags = [],
   isDefaultDeck = false,
   initialNewCardsPerDay = 20,
@@ -153,7 +155,12 @@ export function DeckSettingsDialog({
           <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="deck-title">Title</Label>
-              <Input id="deck-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Input
+                id="deck-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                disabled={!isEditor}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="deck-desc">Description</Label>
@@ -162,15 +169,27 @@ export function DeckSettingsDialog({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional description"
+                disabled={!isEditor}
               />
             </div>
             <div className="space-y-2">
               <Label>Tags</Label>
-              <TagInput value={deckTagsList} onChange={setDeckTagsList} placeholder="Add tags..." />
+              <TagInput
+                value={deckTagsList}
+                onChange={setDeckTagsList}
+                placeholder="Add tags..."
+                disabled={!isEditor}
+              />
               <p className="text-[11px] text-muted-foreground">
                 Tags help with discovery on the browse page.
               </p>
             </div>
+            {!isEditor && (
+              <p className="text-xs text-muted-foreground">
+                You don&apos;t have permission to edit deck details. Only editors, admins, and
+                owners can do this.
+              </p>
+            )}
           </div>
 
           <Separator />
@@ -183,7 +202,7 @@ export function DeckSettingsDialog({
                 change sharing settings.
               </p>
             </div>
-          ) : (
+          ) : canChangeVisibility ? (
             <div className="space-y-4">
               <h3 className="text-sm font-semibold">Sharing</h3>
 
@@ -194,12 +213,17 @@ export function DeckSettingsDialog({
                 value={viewPolicy}
                 onChange={setViewPolicy}
                 options={VIEW_POLICY_OPTIONS}
-                disabled={!canChangeVisibility}
               />
             </div>
+          ) : (
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Sharing</h3>
+              <p className="text-sm text-muted-foreground">
+                You don&apos;t have permission to change visibility. Only folder owners and admins
+                can do this.
+              </p>
+            </div>
           )}
-          <Separator />
-
           <Separator />
 
           <div className="space-y-4">
@@ -229,23 +253,23 @@ export function DeckSettingsDialog({
           </Button>
         </form>
 
-        {canArchive && (
+        {canArchive ? (
           <>
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
               {isDefaultDeck ? (
                 <div className="rounded-md border border-muted p-4">
                   <p className="text-sm text-muted-foreground">
-                    This is your default deck and cannot be archived.
+                    This is your default deck and cannot be removed.
                   </p>
                 </div>
               ) : (
                 <div className="rounded-md border border-destructive/30 p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium">Archive this deck</p>
+                      <p className="text-sm font-medium">Remove this deck</p>
                       <p className="text-xs text-muted-foreground">
-                        The deck will be hidden from your library. Linked copies will show an
+                        The deck will be removed from your library. Linked copies will show an
                         &ldquo;abandoned&rdquo; warning.
                       </p>
                     </div>
@@ -285,8 +309,8 @@ export function DeckSettingsDialog({
                         size="sm"
                         onClick={() => setConfirmArchive(true)}
                       >
-                        <Archive className="mr-2 h-4 w-4" />
-                        Archive
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remove
                       </Button>
                     )}
                   </div>
@@ -294,6 +318,16 @@ export function DeckSettingsDialog({
               )}
             </div>
           </>
+        ) : (
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
+            <div className="rounded-md border border-muted p-4">
+              <p className="text-sm text-muted-foreground">
+                You don&apos;t have permission to remove this deck. Only folder owners and admins
+                can do this.
+              </p>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>

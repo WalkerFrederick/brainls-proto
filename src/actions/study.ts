@@ -213,10 +213,12 @@ export async function getStudySession(
   const [countResult] = await db
     .select({ count: sql<number>`count(*)` })
     .from(userCardStates)
+    .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
     .where(
       and(
         eq(userCardStates.userDeckId, userDeckId),
         sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
+        isNull(cardDefinitions.archivedAt),
       ),
     );
 
@@ -367,15 +369,18 @@ export async function listUserDecks(): Promise<
       const [totalResult] = await db
         .select({ count: sql<number>`count(*)` })
         .from(userCardStates)
-        .where(eq(userCardStates.userDeckId, deck.id));
+        .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+        .where(and(eq(userCardStates.userDeckId, deck.id), isNull(cardDefinitions.archivedAt)));
 
       const [dueResult] = await db
         .select({ count: sql<number>`count(*)` })
         .from(userCardStates)
+        .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
         .where(
           and(
             eq(userCardStates.userDeckId, deck.id),
             sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`,
+            isNull(cardDefinitions.archivedAt),
           ),
         );
 
@@ -402,7 +407,7 @@ export type LibraryDeck = {
   copiedFromDeckDefinitionId: string | null;
   isAbandoned: boolean;
   tags: string[];
-  folders: Array<{ id: string; name: string }>;
+  folders: Array<{ id: string; name: string; role: string }>;
   userDeckId: string | null;
   totalCards: number;
   dueCards: number;
@@ -420,6 +425,7 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
     .select({
       folderId: folderMembers.folderId,
       folderName: folders.name,
+      role: folderMembers.role,
     })
     .from(folderMembers)
     .innerJoin(folders, eq(folderMembers.folderId, folders.id))
@@ -530,7 +536,10 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
         dueCards: sql<number>`count(*) filter (where ${isDueExpr})::int`,
       })
       .from(userCardStates)
-      .where(inArray(userCardStates.userDeckId, userDeckIds))
+      .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+      .where(
+        and(inArray(userCardStates.userDeckId, userDeckIds), isNull(cardDefinitions.archivedAt)),
+      )
       .groupBy(userCardStates.userDeckId);
 
     for (const r of rows) {
@@ -572,7 +581,7 @@ export async function listLibraryDecks(): Promise<Result<LibraryDeck[]>> {
     const deckFolders = [...group.folderIds]
       .map((fId) => fMap.get(fId))
       .filter(Boolean)
-      .map((f) => ({ id: f!.folderId, name: f!.folderName }));
+      .map((f) => ({ id: f!.folderId, name: f!.folderName, role: f!.role }));
 
     const tagSet = new Set<string>();
     for (const deck of allDecks) {
@@ -647,7 +656,8 @@ export async function getDeckStudyStats(deckDefinitionId: string): Promise<
       isDue: sql<boolean>`(${userCardStates.dueAt} IS NOT NULL AND ${userCardStates.dueAt} <= ${nowIso})`,
     })
     .from(userCardStates)
-    .where(eq(userCardStates.userDeckId, userDeck.id));
+    .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+    .where(and(eq(userCardStates.userDeckId, userDeck.id), isNull(cardDefinitions.archivedAt)));
 
   let newCount = 0;
   let learningCount = 0;
@@ -714,7 +724,7 @@ export async function getCardStudyStates(
     })
     .from(userCardStates)
     .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
-    .where(eq(userCardStates.userDeckId, userDeck.id));
+    .where(and(eq(userCardStates.userDeckId, userDeck.id), isNull(cardDefinitions.archivedAt)));
 
   return ok(rows);
 }

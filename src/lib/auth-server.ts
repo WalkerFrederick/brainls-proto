@@ -6,10 +6,14 @@ import { db } from "@/db";
 import { users, folders, folderSettings, folderMembers } from "@/db/schema";
 
 export async function getSession() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  return session;
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    return session;
+  } catch {
+    return null;
+  }
 }
 
 export async function requireSession() {

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Play, Plus, Loader2, AlertTriangle, Link2, MoreVertical } from "lucide-react";
+import { Play, Plus, Loader2, AlertTriangle, Link2, Settings, GripVertical } from "lucide-react";
+import { useDraggable } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { addDeckToLibrary, type LibraryDeck } from "@/actions/study";
@@ -11,20 +12,24 @@ import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 
 interface DeckRowProps {
   deck: LibraryDeck;
-  showFolders?: boolean;
   folderRole?: string;
   isDefaultDeck?: boolean;
+  folderId?: string;
 }
 
-export function DeckRow({
-  deck,
-  showFolders = true,
-  folderRole,
-  isDefaultDeck = false,
-}: DeckRowProps) {
+export function DeckRow({ deck, folderRole, isDefaultDeck = false, folderId }: DeckRowProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [adding, setAdding] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const canDrag = !!folderId && !isDefaultDeck && folderRole === "owner";
+
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: deck.deckDefinitionId,
+    data: { deck, folderId },
+    disabled: !canDrag,
+  });
 
   async function handleAddToLibrary() {
     setAdding(true);
@@ -39,14 +44,26 @@ export function DeckRow({
   const isOwnerOrAdmin = folderRole === "owner" || folderRole === "admin";
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3">
-      <button
-        type="button"
-        onClick={() => setSettingsOpen(true)}
-        className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <MoreVertical className="h-4 w-4" />
-      </button>
+    <div
+      ref={setNodeRef}
+      className="relative flex items-center gap-4 pl-4 pr-4 py-4 sm:pl-0 sm:py-3"
+      style={{ opacity: isDragging ? 0.4 : undefined, paddingLeft: folderId ? undefined : "1rem" }}
+    >
+      {folderId &&
+        (canDrag ? (
+          <button
+            type="button"
+            className="-my-4 sm:-my-3 hidden shrink-0 cursor-grab touch-none items-center self-stretch border-r px-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing sm:flex"
+            {...listeners}
+            {...attributes}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        ) : (
+          <div className="-my-4 sm:-my-3 hidden shrink-0 items-center self-stretch border-r px-1.5 sm:flex">
+            <GripVertical className="h-4 w-4 text-muted-foreground/30" />
+          </div>
+        ))}
 
       <DeckSettingsDialog
         deckId={deck.deckDefinitionId}
@@ -55,6 +72,7 @@ export function DeckRow({
         viewPolicy={deck.viewPolicy}
         canArchive={isOwnerOrAdmin}
         canChangeVisibility={isOwnerOrAdmin}
+        isEditor={folderRole === "owner" || folderRole === "admin" || folderRole === "editor"}
         initialTags={deck.tags}
         isDefaultDeck={isDefaultDeck}
         isLinked={!!deck.linkedDeckDefinitionId}
@@ -66,7 +84,7 @@ export function DeckRow({
         <div className="flex min-w-0 items-center gap-2">
           <Link
             href={`/deck/${deck.deckDefinitionId}`}
-            className="truncate text-sm sm:text-base font-medium hover:underline"
+            className="truncate text-sm sm:text-base font-medium underline"
           >
             {deck.title}
           </Link>
@@ -108,7 +126,14 @@ export function DeckRow({
               <span className="hidden sm:inline text-xs font-normal"> due</span>
             </span>
           </div>
-          <Link href={`/study/${deck.userDeckId}`}>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+          <Link href={`/study/${deck.userDeckId}?ref=${encodeURIComponent(pathname)}`}>
             <Button size="sm" variant={deck.dueCards > 0 ? "default" : "outline"}>
               <Play className="mr-1.5 h-3.5 w-3.5" />
               Study
@@ -116,15 +141,33 @@ export function DeckRow({
           </Link>
         </div>
       ) : (
-        <Button size="sm" variant="outline" onClick={handleAddToLibrary} disabled={adding}>
-          {adding ? (
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-          )}
-          Add
-        </Button>
+        <div className="flex shrink-0 items-center gap-4">
+          <Button size="sm" variant="outline" onClick={handleAddToLibrary} disabled={adding}>
+            {adding ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Add
+          </Button>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+        </div>
       )}
+    </div>
+  );
+}
+
+export function DeckRowDragPreview({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-lg">
+      <GripVertical className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm font-medium">{title}</span>
     </div>
   );
 }

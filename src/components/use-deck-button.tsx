@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Play, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { addDeckToLibrary } from "@/actions/study";
@@ -12,6 +12,7 @@ interface Props {
 
 export function UseDeckButton({ deckDefinitionId }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(false);
 
   async function handleClick() {
@@ -20,7 +21,7 @@ export function UseDeckButton({ deckDefinitionId }: Props) {
     setLoading(false);
 
     if (result.success) {
-      router.push(`/study/${result.data.id}`);
+      router.push(`/study/${result.data.id}?ref=${encodeURIComponent(pathname)}`);
     }
   }
 

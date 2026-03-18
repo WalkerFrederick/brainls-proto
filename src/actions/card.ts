@@ -273,7 +273,12 @@ export async function archiveCard(cardId: string): Promise<Result<{ id: string }
 export async function listCards(
   deckDefinitionId: string,
   opts?: { limit?: number; offset?: number; tag?: string },
-): Promise<Result<Array<typeof cardDefinitions.$inferSelect & { tags: string[] }>>> {
+): Promise<
+  Result<{
+    cards: Array<typeof cardDefinitions.$inferSelect & { tags: string[] }>;
+    totalCount: number;
+  }>
+> {
   if (!isValidUuid(deckDefinitionId)) return err("Invalid deck ID");
   const session = await requireSession();
 
@@ -287,50 +292,84 @@ export async function listCards(
   const tagFilter = opts?.tag?.trim().toLowerCase();
 
   let rows: (typeof cardDefinitions.$inferSelect)[];
+  let totalCount: number;
 
   if (tagFilter) {
-    rows = await db
-      .select({
-        id: cardDefinitions.id,
-        deckDefinitionId: cardDefinitions.deckDefinitionId,
-        cardType: cardDefinitions.cardType,
-        status: cardDefinitions.status,
-        contentJson: cardDefinitions.contentJson,
-        parentCardId: cardDefinitions.parentCardId,
-        parentVersionAtGeneration: cardDefinitions.parentVersionAtGeneration,
-        version: cardDefinitions.version,
-        createdByUserId: cardDefinitions.createdByUserId,
-        updatedByUserId: cardDefinitions.updatedByUserId,
-        createdAt: cardDefinitions.createdAt,
-        updatedAt: cardDefinitions.updatedAt,
-        archivedAt: cardDefinitions.archivedAt,
-      })
-      .from(cardDefinitions)
-      .innerJoin(cardTags, eq(cardTags.cardDefinitionId, cardDefinitions.id))
-      .innerJoin(tags, eq(cardTags.tagId, tags.id))
-      .where(
-        and(
-          eq(cardDefinitions.deckDefinitionId, sourceDeckId),
-          isNull(cardDefinitions.archivedAt),
-          isNull(cardDefinitions.parentCardId),
-          eq(tags.name, tagFilter),
-        ),
-      )
-      .limit(limit)
-      .offset(offset);
+    const [dataRows, countResult] = await Promise.all([
+      db
+        .select({
+          id: cardDefinitions.id,
+          deckDefinitionId: cardDefinitions.deckDefinitionId,
+          cardType: cardDefinitions.cardType,
+          status: cardDefinitions.status,
+          contentJson: cardDefinitions.contentJson,
+          parentCardId: cardDefinitions.parentCardId,
+          parentVersionAtGeneration: cardDefinitions.parentVersionAtGeneration,
+          version: cardDefinitions.version,
+          createdByUserId: cardDefinitions.createdByUserId,
+          updatedByUserId: cardDefinitions.updatedByUserId,
+          createdAt: cardDefinitions.createdAt,
+          updatedAt: cardDefinitions.updatedAt,
+          archivedAt: cardDefinitions.archivedAt,
+        })
+        .from(cardDefinitions)
+        .innerJoin(cardTags, eq(cardTags.cardDefinitionId, cardDefinitions.id))
+        .innerJoin(tags, eq(cardTags.tagId, tags.id))
+        .where(
+          and(
+            eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+            isNull(cardDefinitions.archivedAt),
+            isNull(cardDefinitions.parentCardId),
+            eq(tags.name, tagFilter),
+          ),
+        )
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)`.mapWith(Number) })
+        .from(cardDefinitions)
+        .innerJoin(cardTags, eq(cardTags.cardDefinitionId, cardDefinitions.id))
+        .innerJoin(tags, eq(cardTags.tagId, tags.id))
+        .where(
+          and(
+            eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+            isNull(cardDefinitions.archivedAt),
+            isNull(cardDefinitions.parentCardId),
+            eq(tags.name, tagFilter),
+          ),
+        )
+        .then((r) => r[0]?.count ?? 0),
+    ]);
+    rows = dataRows;
+    totalCount = countResult;
   } else {
-    rows = await db
-      .select()
-      .from(cardDefinitions)
-      .where(
-        and(
-          eq(cardDefinitions.deckDefinitionId, sourceDeckId),
-          isNull(cardDefinitions.archivedAt),
-          isNull(cardDefinitions.parentCardId),
-        ),
-      )
-      .limit(limit)
-      .offset(offset);
+    const [dataRows, countResult] = await Promise.all([
+      db
+        .select()
+        .from(cardDefinitions)
+        .where(
+          and(
+            eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+            isNull(cardDefinitions.archivedAt),
+            isNull(cardDefinitions.parentCardId),
+          ),
+        )
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)`.mapWith(Number) })
+        .from(cardDefinitions)
+        .where(
+          and(
+            eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+            isNull(cardDefinitions.archivedAt),
+            isNull(cardDefinitions.parentCardId),
+          ),
+        )
+        .then((r) => r[0]?.count ?? 0),
+    ]);
+    rows = dataRows;
+    totalCount = countResult;
   }
 
   const cardIds = rows.map((r) => r.id);
@@ -363,5 +402,5 @@ export async function listCards(
     tags: (tagMap.get(row.id) ?? []).sort(),
   }));
 
-  return ok(result);
+  return ok({ cards: result, totalCount });
 }

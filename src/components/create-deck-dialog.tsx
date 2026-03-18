@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -131,7 +131,16 @@ export function CreateDeckDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={trigger ?? <Button size="sm">New Deck</Button>} />
+      <DialogTrigger
+        render={
+          trigger ?? (
+            <Button size="sm">
+              <Plus className="mr-1.5 h-4 w-4" />
+              New Deck
+            </Button>
+          )
+        }
+      />
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>

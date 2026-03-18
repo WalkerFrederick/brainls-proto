@@ -236,7 +236,7 @@ export function DeckSettingsDialog({
               {isDefaultDeck ? (
                 <div className="rounded-md border border-muted p-4">
                   <p className="text-sm text-muted-foreground">
-                    This is your default Scratch Pad and cannot be archived.
+                    This is your default deck and cannot be archived.
                   </p>
                 </div>
               ) : (

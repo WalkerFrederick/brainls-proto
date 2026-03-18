@@ -20,9 +20,10 @@ interface Folder {
 interface Props {
   folders: Folder[];
   defaultCollapsed?: boolean;
+  defaultDeckId?: string | null;
 }
 
-export function FolderList({ folders, defaultCollapsed = false }: Props) {
+export function FolderList({ folders, defaultCollapsed = false, defaultDeckId }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
     defaultCollapsed ? Object.fromEntries(folders.map((f) => [f.id, false])) : {},
   );
@@ -80,6 +81,7 @@ export function FolderList({ folders, defaultCollapsed = false }: Props) {
                     deck={deck}
                     showFolders={false}
                     folderRole={f.role}
+                    isDefaultDeck={defaultDeckId === deck.deckDefinitionId}
                   />
                 ))}
               </div>

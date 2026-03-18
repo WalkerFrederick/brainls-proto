@@ -416,7 +416,7 @@ async function AuthenticatedDeckView({
             deckId={resolved.isLinked ? resolved.sourceDeckId : deckId}
             sourceArchived={resolved.isAbandoned || !!deck.archivedAt}
           />
-          <UseDeckButton deckDefinitionId={deckId} />
+          {stats && <UseDeckButton deckDefinitionId={deckId} />}
         </div>
       </div>
 

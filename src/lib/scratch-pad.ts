@@ -2,13 +2,13 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users, deckDefinitions, cardDefinitions, userDecks, userCardStates } from "@/db/schema";
 
-export async function createScratchPad(folderId: string, userId: string): Promise<string> {
+export async function createDefaultDeck(folderId: string, userId: string): Promise<string> {
   const [deck] = await db
     .insert(deckDefinitions)
     .values({
       folderId,
-      title: "Scratch Pad",
-      slug: `scratch-pad-${userId}`,
+      title: "Default Deck",
+      slug: `default-deck-${userId}`,
       description: "Your default deck — experiment with different card types here.",
       viewPolicy: "private",
       createdByUserId: userId,

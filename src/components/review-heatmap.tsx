@@ -50,20 +50,19 @@ function buildGrid(data: { date: string; count: number }[]): {
   const countMap = new Map(data.map((d) => [d.date, d.count]));
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const year = today.getFullYear();
+  const year = today.getUTCFullYear();
 
-  const jan1 = new Date(year, 0, 1);
-  const dec31 = new Date(year, 11, 31);
+  const jan1 = new Date(Date.UTC(year, 0, 1));
+  const dec31 = new Date(Date.UTC(year, 11, 31));
 
   const start = new Date(jan1);
-  while (start.getDay() !== 0) {
-    start.setDate(start.getDate() - 1);
+  while (start.getUTCDay() !== 0) {
+    start.setUTCDate(start.getUTCDate() - 1);
   }
 
   const end = new Date(dec31);
-  while (end.getDay() !== 6) {
-    end.setDate(end.getDate() + 1);
+  while (end.getUTCDay() !== 6) {
+    end.setUTCDate(end.getUTCDate() + 1);
   }
 
   const cells: DayCell[] = [];
@@ -71,14 +70,15 @@ function buildGrid(data: { date: string; count: number }[]): {
   let lastMonth = -1;
   let weekIndex = 0;
 
+  const todayStr = today.toISOString().slice(0, 10);
   const cursor = new Date(start);
   while (cursor <= end) {
-    const dayOfWeek = cursor.getDay();
+    const dayOfWeek = cursor.getUTCDay();
     if (dayOfWeek === 0 && cells.length > 0) weekIndex++;
 
     const dateStr = cursor.toISOString().slice(0, 10);
-    const month = cursor.getMonth();
-    const isCurrentYear = cursor.getFullYear() === year;
+    const month = cursor.getUTCMonth();
+    const isCurrentYear = cursor.getUTCFullYear() === year;
 
     if (isCurrentYear && month !== lastMonth) {
       monthMarkers.push({ label: MONTH_LABELS[month], weekIndex });
@@ -91,10 +91,10 @@ function buildGrid(data: { date: string; count: number }[]): {
       weekIndex,
       dayOfWeek,
       hidden: !isCurrentYear,
-      future: cursor > today,
+      future: dateStr > todayStr,
     });
 
-    cursor.setDate(cursor.getDate() + 1);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
   return { cells, weeks: weekIndex + 1, monthMarkers };

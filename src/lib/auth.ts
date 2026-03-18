@@ -3,7 +3,10 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { createScratchPad } from "@/lib/scratch-pad";
+import { createDefaultDeck } from "@/lib/scratch-pad";
+import { sendEmail } from "@/lib/email";
+import { VerifyEmail } from "@/emails/verify-email";
+import { ResetPassword } from "@/emails/reset-password";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -23,6 +26,24 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
+    async sendResetPassword({ user, url }) {
+      await sendEmail({
+        to: user.email,
+        subject: "Reset your BrainLS password",
+        react: ResetPassword({ url, userName: user.name }),
+      });
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    async sendVerificationEmail({ user, url }) {
+      await sendEmail({
+        to: user.email,
+        subject: "Verify your BrainLS email",
+        react: VerifyEmail({ url, userName: user.name }),
+      });
+    },
   },
   user: {
     additionalFields: {
@@ -39,8 +60,8 @@ export const auth = betterAuth({
           const [folder] = await db
             .insert(schema.folders)
             .values({
-              name: `${user.name ?? "My"}'s Space`,
-              slug: `personal-${user.id}`,
+              name: `${user.name ?? "My"}'s Default Folder`,
+              slug: `default-folder-${user.id}`,
               createdByUserId: user.id,
             })
             .returning({ id: schema.folders.id });
@@ -62,7 +83,7 @@ export const auth = betterAuth({
             .set({ personalFolderId: folder.id })
             .where(eq(schema.users.id, user.id));
 
-          await createScratchPad(folder.id, user.id);
+          await createDefaultDeck(folder.id, user.id);
 
           if (user.email) {
             await db

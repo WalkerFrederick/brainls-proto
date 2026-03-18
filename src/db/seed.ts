@@ -206,16 +206,32 @@ async function seed() {
     return [...indices].sort((a, b) => a - b);
   }
 
-  // ── Personal Folders (all 5 users) ─────────────────────────
+  // ── Default Folders (all 5 users) ─────────────────────────
   const allisonPersonal = await createFolder(
-    "Allison's Personal",
-    "allison-personal",
+    "Allison's Default Folder",
+    "allison-default-folder",
     users.allison.id,
   );
-  const bobPersonal = await createFolder("Bob's Personal", "bob-personal", users.bob.id);
-  const carolPersonal = await createFolder("Carol's Personal", "carol-personal", users.carol.id);
-  const davePersonal = await createFolder("Dave's Personal", "dave-personal", users.dave.id);
-  const evePersonal = await createFolder("Eve's Personal", "eve-personal", users.eve.id);
+  const bobPersonal = await createFolder(
+    "Bob's Default Folder",
+    "bob-default-folder",
+    users.bob.id,
+  );
+  const carolPersonal = await createFolder(
+    "Carol's Default Folder",
+    "carol-default-folder",
+    users.carol.id,
+  );
+  const davePersonal = await createFolder(
+    "Dave's Default Folder",
+    "dave-default-folder",
+    users.dave.id,
+  );
+  const evePersonal = await createFolder(
+    "Eve's Default Folder",
+    "eve-default-folder",
+    users.eve.id,
+  );
 
   await db
     .update(schema.users)
@@ -238,16 +254,16 @@ async function seed() {
     .set({ personalFolderId: evePersonal.id })
     .where(eq(schema.users.id, users.eve.id));
 
-  console.log("\n  Personal folders created for all 5 users");
+  console.log("\n  Default folders created for all 5 users");
 
-  // ── Scratch Pad (default deck per user) ─────────────────────────
-  async function createScratchPad(folderId: string, userId: string) {
+  // ── Default Deck (default deck per user) ─────────────────────────
+  async function createDefaultDeck(folderId: string, userId: string) {
     const [deck] = await db
       .insert(schema.deckDefinitions)
       .values({
         folderId,
-        title: "Scratch Pad",
-        slug: `scratch-pad-${userId}`,
+        title: "Default Deck",
+        slug: `default-deck-${userId}`,
         description: "Your default deck — experiment with different card types here.",
         viewPolicy: "private",
         createdByUserId: userId,
@@ -368,15 +384,15 @@ async function seed() {
     return deck;
   }
 
-  await createScratchPad(allisonPersonal.id, users.allison.id);
-  await createScratchPad(bobPersonal.id, users.bob.id);
-  await createScratchPad(carolPersonal.id, users.carol.id);
-  await createScratchPad(davePersonal.id, users.dave.id);
-  await createScratchPad(evePersonal.id, users.eve.id);
+  await createDefaultDeck(allisonPersonal.id, users.allison.id);
+  await createDefaultDeck(bobPersonal.id, users.bob.id);
+  await createDefaultDeck(carolPersonal.id, users.carol.id);
+  await createDefaultDeck(davePersonal.id, users.dave.id);
+  await createDefaultDeck(evePersonal.id, users.eve.id);
 
-  console.log("  Scratch Pad (default deck) created for all 5 users");
+  console.log("  Default Deck created for all 5 users");
 
-  // ── Allison's Personal Folder — decks ────────────────────
+  // ── Allison's Default Folder — decks ────────────────────
   const bioDeck = await createDeck(
     allisonPersonal.id,
     "Biology 101",
@@ -412,7 +428,7 @@ async function seed() {
   await createCards(cs101Deck.id, users.allison.id, "cloze", CS101_CLOZE);
 
   console.log(
-    "  Allison's Personal: Biology 101 (6 cards), World Capitals MC (4 cards), CS 101 (100 cards)",
+    "  Allison's Default Folder: Biology 101 (6 cards), World Capitals MC (4 cards), CS 101 (100 cards)",
   );
 
   // ── Allison's Shared Folder (Owner) — Bob is editor ────────
@@ -601,7 +617,7 @@ async function seed() {
   // ── Linked Decks ──────────────────────────────────────────────
   console.log("\nCreating linked decks...");
 
-  // Link Bob's World Capitals into Allison's personal folder
+  // Link Bob's World Capitals into Allison's default folder
   const [linkedWorldCapitals] = await db
     .insert(schema.deckDefinitions)
     .values({
@@ -615,7 +631,9 @@ async function seed() {
       updatedByUserId: users.allison.id,
     })
     .returning();
-  console.log(`  Linked "World Capitals" into Allison's Personal (${linkedWorldCapitals.id})`);
+  console.log(
+    `  Linked "World Capitals" into Allison's Default Folder (${linkedWorldCapitals.id})`,
+  );
 
   // Link Carol's English Idioms into Allison's shared folder
   const [linkedIdioms] = await db
@@ -659,7 +677,7 @@ async function seed() {
     .set({ archivedAt: new Date() })
     .where(eq(schema.deckDefinitions.id, eveAbandonedDeck.id));
   console.log(
-    `  Linked "Eve's Music Theory" (ABANDONED) into Allison's Personal (${linkedAbandoned.id})`,
+    `  Linked "Eve's Music Theory" (ABANDONED) into Allison's Default Folder (${linkedAbandoned.id})`,
   );
 
   // ── Seed user libraries (userDecks + userCardStates) ──────────
@@ -819,7 +837,7 @@ Seed complete!
     eve.martinez@example.com      — Eve Martinez
 
   Allison's folder membership:
-    ✦ Allison's Personal              → owner   (3 decks + 2 linked + Scratch Pad)
+    ✦ Allison's Default Folder         → owner   (3 decks + 2 linked + Default Deck)
     ✦ Allison's Team — Owner Role     → owner   (2 decks + 1 linked)
     ✦ Bob's Lab — Allison Viewer      → viewer  (2 decks)
     ✦ Carol's Studio — Allison Editor → editor  (2 decks)
@@ -840,9 +858,9 @@ Seed complete!
     🌐 Eve's Music Theory (Eve)           → 2 cards (archived)
 
   Linked decks in Allison's folders:
-    🔗 World Capitals → Allison's Personal
+    🔗 World Capitals → Allison's Default Folder
     🔗 Common English Idioms → Allison's Team
-    ⚠️  Eve's Music Theory → Allison's Personal (ABANDONED)
+    ⚠️  Eve's Music Theory → Allison's Default Folder (ABANDONED)
 `);
 
   await client.end();

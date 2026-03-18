@@ -9,9 +9,16 @@ interface Props {
   onChange: (tags: string[]) => void;
   placeholder?: string;
   max?: number;
+  disabled?: boolean;
 }
 
-export function TagInput({ value, onChange, placeholder = "Add tag...", max = 10 }: Props) {
+export function TagInput({
+  value,
+  onChange,
+  placeholder = "Add tag...",
+  max = 10,
+  disabled = false,
+}: Props) {
   const [input, setInput] = useState("");
   const [suggestions, setSuggestions] = useState<{ name: string; usageCount: number }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -106,23 +113,27 @@ export function TagInput({ value, onChange, placeholder = "Add tag...", max = 10
 
   return (
     <div ref={containerRef} className="relative">
-      <div className="flex flex-wrap gap-1.5 rounded-md border bg-background px-2 py-1.5 text-sm focus-within:ring-1 focus-within:ring-ring">
+      <div
+        className={`flex flex-wrap gap-1.5 rounded-md border bg-background px-2 py-1.5 text-sm focus-within:ring-1 focus-within:ring-ring ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      >
         {value.map((tag) => (
           <span
             key={tag}
             className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
           >
             {tag}
-            <button
-              type="button"
-              onClick={() => removeTag(tag)}
-              className="ml-0.5 rounded-sm hover:bg-primary/20"
-            >
-              <X className="h-3 w-3" />
-            </button>
+            {!disabled && (
+              <button
+                type="button"
+                onClick={() => removeTag(tag)}
+                className="ml-0.5 rounded-sm hover:bg-primary/20"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </span>
         ))}
-        {value.length < max && (
+        {!disabled && value.length < max && (
           <input
             ref={inputRef}
             type="text"

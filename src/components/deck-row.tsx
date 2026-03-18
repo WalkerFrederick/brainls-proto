@@ -72,6 +72,7 @@ export function DeckRow({ deck, folderRole, isDefaultDeck = false, folderId }: D
         viewPolicy={deck.viewPolicy}
         canArchive={isOwnerOrAdmin}
         canChangeVisibility={isOwnerOrAdmin}
+        isEditor={folderRole === "owner" || folderRole === "admin" || folderRole === "editor"}
         initialTags={deck.tags}
         isDefaultDeck={isDefaultDeck}
         isLinked={!!deck.linkedDeckDefinitionId}

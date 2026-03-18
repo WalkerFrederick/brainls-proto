@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Loader2, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { Pencil, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,15 +22,7 @@ import { MAX_FIELD_LENGTH } from "@/lib/schemas/card-content";
 import type { ShortcutCombo } from "@/lib/shortcut-blocklist";
 import { getUniqueClozeIndices, renderClozeHidden } from "@/lib/cloze";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { updateCard, createCard, archiveCard } from "@/actions/card";
-import { getCardState, updateCardState } from "@/actions/card-state";
 import { setCardTags } from "@/actions/tag";
 import { TagInput } from "@/components/tag-input";
 
@@ -51,7 +43,6 @@ export function EditCardDialog({
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [front, setFront] = useState(String(contentJson.front ?? ""));
   const [back, setBack] = useState(String(contentJson.back ?? ""));
@@ -72,43 +63,10 @@ export function EditCardDialog({
 
   const [cardTagsList, setCardTagsList] = useState<string[]>(initialTags);
 
-  const [srsState, setSrsState] = useState("new");
-  const [intervalDays, setIntervalDays] = useState(0);
-  const [stability, setStability] = useState(0);
-  const [difficulty, setDifficulty] = useState(0);
-  const [reps, setReps] = useState(0);
-  const [lapses, setLapses] = useState(0);
-  const [dueAt, setDueAt] = useState("");
-  const [hasStudyState, setHasStudyState] = useState(false);
-  const [srsLoading, setSrsLoading] = useState(false);
-
   const [loading, setLoading] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [error, setError] = useState("");
-
-  const loadStudyState = useCallback(async () => {
-    if (hasStudyState) return;
-    setSrsLoading(true);
-    const result = await getCardState(cardId);
-    if (result.success && result.data) {
-      setSrsState(result.data.srsState);
-      setIntervalDays(result.data.intervalDays ?? 0);
-      setStability(Number(result.data.stability) || 0);
-      setDifficulty(Number(result.data.difficulty) || 0);
-      setReps(result.data.reps);
-      setLapses(result.data.lapses);
-      if (result.data.dueAt) {
-        const d = new Date(result.data.dueAt);
-        const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-        setDueAt(local.toISOString().slice(0, 16));
-      } else {
-        setDueAt("");
-      }
-      setHasStudyState(true);
-    }
-    setSrsLoading(false);
-  }, [hasStudyState, cardId]);
 
   function handleOpen(isOpen: boolean) {
     if (isOpen) {
@@ -124,8 +82,6 @@ export function EditCardDialog({
       setClozeText(String(contentJson.text ?? ""));
       setCardTagsList(initialTags);
       setError("");
-      setShowAdvanced(false);
-      setHasStudyState(false);
       setConfirmRemove(false);
     }
     setOpen(isOpen);
@@ -170,19 +126,6 @@ export function EditCardDialog({
       setError(result.error);
       setLoading(false);
       return;
-    }
-
-    if (showAdvanced && hasStudyState) {
-      await updateCardState({
-        cardDefinitionId: cardId,
-        srsState,
-        intervalDays,
-        stability,
-        difficulty,
-        reps,
-        lapses,
-        dueAt: dueAt || null,
-      });
     }
 
     if (createReverse && cardType === "front_back") {
@@ -413,131 +356,6 @@ export function EditCardDialog({
                 onChange={setCardTagsList}
                 placeholder="Add tags (e.g. chem101)..."
               />
-            </div>
-
-            <div className="border-t pt-3">
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => {
-                  const next = !showAdvanced;
-                  setShowAdvanced(next);
-                  if (next) loadStudyState();
-                }}
-              >
-                {showAdvanced ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-                Advanced: SRS Settings
-              </button>
-
-              {showAdvanced && (
-                <div className="mt-3 space-y-3 rounded-md border bg-muted/30 p-3">
-                  {srsLoading ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      <span className="ml-2 text-sm text-muted-foreground">
-                        Loading study state...
-                      </span>
-                    </div>
-                  ) : !hasStudyState ? (
-                    <p className="text-sm text-muted-foreground">
-                      No study state yet. Add this deck to your library and study it first.
-                    </p>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">SRS State</Label>
-                          <Select value={srsState} onValueChange={(v) => setSrsState(v ?? "")}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="new">New</SelectItem>
-                              <SelectItem value="learning">Learning</SelectItem>
-                              <SelectItem value="review">Review</SelectItem>
-                              <SelectItem value="relearning">Relearning</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="edit-stability" className="text-xs">
-                            Stability (days)
-                          </Label>
-                          <Input
-                            id="edit-stability"
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            value={stability}
-                            onChange={(e) => setStability(Number(e.target.value))}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="edit-difficulty" className="text-xs">
-                            Difficulty (1–10)
-                          </Label>
-                          <Input
-                            id="edit-difficulty"
-                            type="number"
-                            step="0.1"
-                            min="1"
-                            max="10"
-                            value={difficulty}
-                            onChange={(e) => setDifficulty(Number(e.target.value))}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="edit-reps" className="text-xs">
-                            Reps
-                          </Label>
-                          <Input
-                            id="edit-reps"
-                            type="number"
-                            min="0"
-                            value={reps}
-                            onChange={(e) => setReps(Number(e.target.value))}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="edit-lapses" className="text-xs">
-                            Lapses
-                          </Label>
-                          <Input
-                            id="edit-lapses"
-                            type="number"
-                            min="0"
-                            value={lapses}
-                            onChange={(e) => setLapses(Number(e.target.value))}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="edit-due" className="text-xs">
-                            Due At
-                          </Label>
-                          <Input
-                            id="edit-due"
-                            type="datetime-local"
-                            value={dueAt}
-                            onChange={(e) => setDueAt(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      {intervalDays > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Current interval: {intervalDays} day{intervalDays !== 1 ? "s" : ""}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        Changing these values will override the FSRS algorithm&apos;s calculations.
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
             </div>
 
             <div className="space-y-3">

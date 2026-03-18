@@ -34,6 +34,7 @@ interface DeckSettingsDialogProps {
   viewPolicy: string;
   canArchive?: boolean;
   canChangeVisibility?: boolean;
+  isEditor?: boolean;
   initialTags?: string[];
   isDefaultDeck?: boolean;
   initialNewCardsPerDay?: number;
@@ -56,6 +57,7 @@ export function DeckSettingsDialog({
   viewPolicy: initialViewPolicy,
   canArchive = false,
   canChangeVisibility = false,
+  isEditor = true,
   initialTags = [],
   isDefaultDeck = false,
   initialNewCardsPerDay = 20,
@@ -153,7 +155,12 @@ export function DeckSettingsDialog({
           <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="deck-title">Title</Label>
-              <Input id="deck-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Input
+                id="deck-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                disabled={!isEditor}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="deck-desc">Description</Label>
@@ -162,15 +169,27 @@ export function DeckSettingsDialog({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional description"
+                disabled={!isEditor}
               />
             </div>
             <div className="space-y-2">
               <Label>Tags</Label>
-              <TagInput value={deckTagsList} onChange={setDeckTagsList} placeholder="Add tags..." />
+              <TagInput
+                value={deckTagsList}
+                onChange={setDeckTagsList}
+                placeholder="Add tags..."
+                disabled={!isEditor}
+              />
               <p className="text-[11px] text-muted-foreground">
                 Tags help with discovery on the browse page.
               </p>
             </div>
+            {!isEditor && (
+              <p className="text-xs text-muted-foreground">
+                You don&apos;t have permission to edit deck details. Only editors, admins, and
+                owners can do this.
+              </p>
+            )}
           </div>
 
           <Separator />
@@ -205,8 +224,6 @@ export function DeckSettingsDialog({
               </p>
             </div>
           )}
-          <Separator />
-
           <Separator />
 
           <div className="space-y-4">

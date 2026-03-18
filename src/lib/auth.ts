@@ -19,6 +19,10 @@ export const auth = betterAuth({
       verification: schema.verifications,
     },
   }),
+  session: {
+    expiresIn: 60 * 60 * 24 * 30,
+    updateAge: 60 * 60 * 24,
+  },
   advanced: {
     database: {
       generateId: () => crypto.randomUUID(),

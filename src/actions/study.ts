@@ -768,7 +768,7 @@ export async function getReviewHeatmapData(): Promise<Result<{ date: string; cou
 
   const rows = await db
     .select({
-      date: sql<string>`to_char(${reviewLogs.reviewedAt}::date, 'YYYY-MM-DD')`,
+      date: sql<string>`to_char((${reviewLogs.reviewedAt} AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD')`,
       count: sql<number>`count(*)::int`,
     })
     .from(reviewLogs)
@@ -778,8 +778,8 @@ export async function getReviewHeatmapData(): Promise<Result<{ date: string; cou
         sql`${reviewLogs.reviewedAt} >= ${startOfYear.toISOString()}`,
       ),
     )
-    .groupBy(sql`${reviewLogs.reviewedAt}::date`)
-    .orderBy(sql`${reviewLogs.reviewedAt}::date`);
+    .groupBy(sql`(${reviewLogs.reviewedAt} AT TIME ZONE 'UTC')::date`)
+    .orderBy(sql`(${reviewLogs.reviewedAt} AT TIME ZONE 'UTC')::date`);
 
   return ok(rows);
 }

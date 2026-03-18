@@ -137,7 +137,7 @@ export async function archiveDeck(deckId: string): Promise<Result<{ id: string }
   const session = await requireSession();
 
   if (session.user.defaultDeckId === deckId) {
-    return err("The Scratch Pad is your default deck and cannot be archived.");
+    return err("Your default deck cannot be archived.");
   }
 
   const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));

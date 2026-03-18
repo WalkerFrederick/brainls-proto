@@ -13,9 +13,15 @@ interface DeckRowProps {
   deck: LibraryDeck;
   showFolders?: boolean;
   folderRole?: string;
+  isDefaultDeck?: boolean;
 }
 
-export function DeckRow({ deck, showFolders = true, folderRole }: DeckRowProps) {
+export function DeckRow({
+  deck,
+  showFolders = true,
+  folderRole,
+  isDefaultDeck = false,
+}: DeckRowProps) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -50,6 +56,7 @@ export function DeckRow({ deck, showFolders = true, folderRole }: DeckRowProps) 
         canArchive={isOwnerOrAdmin}
         canChangeVisibility={isOwnerOrAdmin}
         initialTags={deck.tags}
+        isDefaultDeck={isDefaultDeck}
         isLinked={!!deck.linkedDeckDefinitionId}
         externalOpen={settingsOpen}
         onExternalOpenChange={setSettingsOpen}

@@ -41,8 +41,8 @@ async function ensurePersonalFolder(userId: string, name?: string) {
   const [folder] = await db
     .insert(folders)
     .values({
-      name: `${name ?? "My"}'s Space`,
-      slug: `personal-${userId}`,
+      name: `${name ?? "My"}'s Default Folder`,
+      slug: `default-folder-${userId}`,
       createdByUserId: userId,
     })
     .returning({ id: folders.id });

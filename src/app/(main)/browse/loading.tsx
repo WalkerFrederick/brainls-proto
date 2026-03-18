@@ -3,7 +3,7 @@ import { CardGridSkeleton } from "@/components/skeletons";
 
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-6 py-10 md:px-12">
+    <div className="space-y-6">
       <div>
         <Skeleton className="h-8 w-56" />
         <Skeleton className="mt-2 h-4 w-72" />

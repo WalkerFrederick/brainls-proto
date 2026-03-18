@@ -8,6 +8,7 @@ import { PublicShell } from "@/components/public-shell";
 import { listPendingInvites } from "@/actions/folder";
 import { DevTimeTravelFab } from "@/components/dev-time-travel-fab";
 import { getSession } from "@/lib/auth-server";
+import { EmailVerificationBanner } from "@/components/email-verification-banner";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -31,6 +32,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         <AppShell>
           <AppSidebar />
           <div className="flex flex-1 flex-col overflow-auto">
+            <EmailVerificationBanner />
             <Quickbar pendingInviteCount={pendingInviteCount} />
             <main className="flex-1 p-6 pb-24 lg:pb-6">{children}</main>
           </div>

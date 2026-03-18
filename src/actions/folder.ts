@@ -602,7 +602,7 @@ export async function archiveFolder(folderId: string): Promise<Result<{ id: stri
   const session = await requireSession();
 
   if (session.user.personalFolderId === folderId) {
-    return err("Your Personal Space cannot be archived.");
+    return err("Your default folder cannot be archived.");
   }
 
   const perm = await requireFolderRole(folderId, session.user.id, "owner");

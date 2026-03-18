@@ -30,7 +30,12 @@ export default function SignUpPage() {
     setError("");
     setLoading(true);
 
-    const result = await signUp.email({ name, email, password });
+    const result = await signUp.email({
+      name,
+      email,
+      password,
+      callbackURL: "/home",
+    });
 
     if (result.error) {
       setError(result.error.message ?? "Sign up failed");

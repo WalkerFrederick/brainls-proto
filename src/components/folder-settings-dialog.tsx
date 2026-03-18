@@ -320,7 +320,7 @@ export function FolderSettingsDialog({
                   {isPersonalSpace ? (
                     <div className="rounded-md border border-muted p-4">
                       <p className="text-sm text-muted-foreground">
-                        Your Personal Space cannot be archived.
+                        Your default folder cannot be archived.
                       </p>
                     </div>
                   ) : !confirmArchiveFolder ? (

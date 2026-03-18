@@ -3,11 +3,12 @@ import { listFoldersWithDecks } from "@/actions/folder";
 import { FolderOpen } from "lucide-react";
 import { CreateFolderDialog } from "@/components/create-folder-dialog";
 import { FolderList } from "@/components/folder-list";
+import { requireSession } from "@/lib/auth-server";
 
 export const metadata: Metadata = { title: "Folders" };
 
 export default async function FoldersPage() {
-  const result = await listFoldersWithDecks();
+  const [session, result] = await Promise.all([requireSession(), listFoldersWithDecks()]);
 
   if (!result.success) {
     return <div className="text-destructive">Error: {result.error}</div>;
@@ -37,7 +38,11 @@ export default async function FoldersPage() {
           </div>
         </div>
       ) : (
-        <FolderList folders={folders} defaultCollapsed />
+        <FolderList
+          folders={folders}
+          defaultCollapsed
+          defaultDeckId={session.user.defaultDeckId ?? null}
+        />
       )}
     </div>
   );

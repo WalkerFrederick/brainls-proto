@@ -17,6 +17,7 @@
     "db:studio": "drizzle-kit studio",
     "db:reset": "npx tsx src/db/reset.ts && drizzle-kit push && echo Reset complete.",
     "db:seed": "npx tsx src/db/seed.ts",
+    "email:dev": "npx react-email dev --dir src/emails --port 3001",
     "db:seed-platform": "npx tsx src/db/seed-platform.ts",
     "db:fresh": "npx tsx src/db/reset.ts && drizzle-kit push && npx tsx src/db/seed.ts && npx tsx src/db/seed-platform.ts",
     "prepare": "husky"
@@ -60,6 +61,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@react-email/preview-server": "^5.2.10",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -75,6 +77,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
+    "react-email": "^5.2.10",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",

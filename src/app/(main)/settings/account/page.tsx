@@ -5,6 +5,7 @@ export const metadata: Metadata = { title: "Account" };
 import { UserCog } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { UpdateProfileForm } from "@/components/update-profile-form";
+import { ChangePasswordForm } from "@/components/change-password-form";
 import { DangerZone } from "@/components/danger-zone";
 import { getStorageInfo } from "@/actions/storage";
 import { formatBytes } from "@/lib/storage";
@@ -94,6 +95,18 @@ export default async function AccountSettingsPage() {
           <Separator />
         </>
       )}
+
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold">Password</h2>
+          <p className="text-sm text-muted-foreground">
+            Change your password. All other sessions will be signed out.
+          </p>
+        </div>
+        <ChangePasswordForm />
+      </div>
+
+      <Separator />
 
       <DangerZone />
     </div>

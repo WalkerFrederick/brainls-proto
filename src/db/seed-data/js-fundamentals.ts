@@ -1,32 +1,32 @@
 export const JS_FRONT_BACK = [
   {
-    front: "What is a closure?",
-    back: "A function that retains access to its lexical scope even when called outside that scope",
+    front: "<p>What is a closure?</p>",
+    back: "<p>A function that retains access to its lexical scope even when called outside that scope</p>",
   },
   {
-    front: "Difference between == and ===?",
-    back: "== performs type coercion, === checks value and type (strict equality)",
+    front: "<p>Difference between == and ===?</p>",
+    back: "<p>== performs type coercion, === checks value and type (strict equality)</p>",
   },
 ];
 
 export const JS_CLOZE = [
   {
-    text: "The {{c1::event loop}} processes the {{c2::callback queue}} after the {{c2::call stack}} is empty.",
+    text: "<p>The {{c1::event loop}} processes the {{c2::callback queue}} after the {{c2::call stack}} is empty.</p>",
   },
   {
-    text: "{{c1::Hoisting}} moves {{c2::variable}} and {{c2::function}} declarations to the top of their scope.",
+    text: "<p>{{c1::Hoisting}} moves {{c2::variable}} and {{c2::function}} declarations to the top of their scope.</p>",
   },
 ];
 
 export const JS_KEYBOARD_SHORTCUTS = [
   {
-    prompt: "Open the browser dev tools console",
+    prompt: "<p>Open the browser dev tools console</p>",
     shortcut: { key: "j", ctrl: true, shift: true, alt: false, meta: false },
-    explanation: "Ctrl+Shift+J opens the console directly in Chrome",
+    explanation: "<p>Ctrl+Shift+J opens the console directly in Chrome</p>",
   },
   {
-    prompt: "Comment out the selected lines in VS Code",
+    prompt: "<p>Comment out the selected lines in VS Code</p>",
     shortcut: { key: "/", ctrl: true, shift: false, alt: false, meta: false },
-    explanation: "Ctrl+/ toggles line comments in most editors",
+    explanation: "<p>Ctrl+/ toggles line comments in most editors</p>",
   },
 ];

@@ -6,6 +6,15 @@ export interface ClozeMatch {
   hint?: string;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function parseClozeText(text: string): ClozeMatch[] {
   const matches: ClozeMatch[] = [];
   let m: RegExpExecArray | null;
@@ -27,6 +36,18 @@ export function getUniqueClozeIndices(text: string): number[] {
   return [...new Set(matches.map((m) => m.index))].sort((a, b) => a - b);
 }
 
+export function getNextClozeIndex(text: string): number {
+  const indices = getUniqueClozeIndices(text);
+  if (indices.length === 0) return 1;
+  return indices[indices.length - 1] + 1;
+}
+
+export function getCurrentClozeIndex(text: string): number {
+  const indices = getUniqueClozeIndices(text);
+  if (indices.length === 0) return 1;
+  return indices[indices.length - 1];
+}
+
 /**
  * Render with a specific cloze index hidden (blanked out).
  * Other cloze markers are unwrapped to show their answer as plain text.
@@ -36,10 +57,10 @@ export function renderClozeHidden(text: string, clozeIndex: number): string {
     new RegExp(CLOZE_REGEX.source, CLOZE_REGEX.flags),
     (_match, idx, answer, hint) => {
       if (parseInt(idx, 10) === clozeIndex) {
-        const label = hint ? `[${hint}]` : "[...]";
+        const label = hint ? `[${escapeHtml(hint)}]` : "[...]";
         return `<span class="cloze-blank">${label}</span>`;
       }
-      return answer;
+      return escapeHtml(answer);
     },
   );
 }
@@ -51,9 +72,9 @@ export function renderClozeHidden(text: string, clozeIndex: number): string {
 export function renderClozeRevealed(text: string, clozeIndex: number): string {
   return text.replace(new RegExp(CLOZE_REGEX.source, CLOZE_REGEX.flags), (_match, idx, answer) => {
     if (parseInt(idx, 10) === clozeIndex) {
-      return `<span class="cloze-reveal">${answer}</span>`;
+      return `<span class="cloze-reveal">${escapeHtml(answer)}</span>`;
     }
-    return answer;
+    return escapeHtml(answer);
   });
 }
 
@@ -63,6 +84,6 @@ export function renderClozeRevealed(text: string, clozeIndex: number): string {
  */
 export function renderClozePreview(text: string): string {
   return text.replace(new RegExp(CLOZE_REGEX.source, CLOZE_REGEX.flags), (_match, idx, answer) => {
-    return `<span class="cloze-preview" data-cloze="${idx}">${answer}</span>`;
+    return `<span class="cloze-preview" data-cloze="${escapeHtml(idx)}">${escapeHtml(answer)}</span>`;
   });
 }

@@ -167,28 +167,28 @@ async function seedPlatform() {
   if (gettingStarted.created) {
     await createCards(gettingStarted.id, "front_back", [
       {
-        front: "What is spaced repetition?",
-        back: "A learning technique that reviews material at increasing intervals to move knowledge into long-term memory.",
+        front: "<p>What is spaced repetition?</p>",
+        back: "<p>A learning technique that reviews material at increasing intervals to move knowledge into long-term memory.</p>",
       },
       {
-        front: "What are the main card types in BrainLS?",
-        back: "Front/Back, Multiple Choice, Cloze Deletion, and Keyboard Shortcut.",
+        front: "<p>What are the main card types in BrainLS?</p>",
+        back: "<p>Front/Back, Multiple Choice, Cloze Deletion, and Keyboard Shortcut.</p>",
       },
       {
-        front: "What is a cloze deletion?",
-        back: "A card where part of the text is hidden (e.g. {{c1::answer}}) and you must recall the missing piece.",
+        front: "<p>What is a cloze deletion?</p>",
+        back: "<p>A card where part of the text is hidden (e.g. {{c1::answer}}) and you must recall the missing piece.</p>",
       },
       {
-        front: "How do folders work in BrainLS?",
-        back: "Folders group decks together. You have a personal folder and can create or join shared folders with other users.",
+        front: "<p>How do folders work in BrainLS?</p>",
+        back: "<p>Folders group decks together. You have a personal folder and can create or join shared folders with other users.</p>",
       },
       {
-        front: "What is the difference between a linked deck and a copied deck?",
-        back: "A linked deck stays in sync with the original and shares study progress. A copied deck is independent — you can edit it freely.",
+        front: "<p>What is the difference between a linked deck and a copied deck?</p>",
+        back: "<p>A linked deck stays in sync with the original and shares study progress. A copied deck is independent — you can edit it freely.</p>",
       },
       {
-        front: "How does the rating system work after reviewing a card?",
-        back: "You rate how well you recalled the answer (Again, Hard, Good, Easy). This adjusts the card's next review interval using the SM-2 algorithm.",
+        front: "<p>How does the rating system work after reviewing a card?</p>",
+        back: "<p>You rate how well you recalled the answer (Again, Hard, Good, Easy). This adjusts the card's next review interval using the SM-2 algorithm.</p>",
       },
     ]);
     await tagDeck(gettingStarted.id, ["brainls", "tutorial"]);
@@ -206,16 +206,16 @@ async function seedPlatform() {
 
   if (worldCapitals.created) {
     await createCards(worldCapitals.id, "front_back", [
-      { front: "What is the capital of France?", back: "Paris" },
-      { front: "What is the capital of Japan?", back: "Tokyo" },
-      { front: "What is the capital of Brazil?", back: "Brasília" },
-      { front: "What is the capital of Australia?", back: "Canberra" },
-      { front: "What is the capital of Canada?", back: "Ottawa" },
-      { front: "What is the capital of Egypt?", back: "Cairo" },
-      { front: "What is the capital of Germany?", back: "Berlin" },
-      { front: "What is the capital of South Korea?", back: "Seoul" },
-      { front: "What is the capital of Argentina?", back: "Buenos Aires" },
-      { front: "What is the capital of Thailand?", back: "Bangkok" },
+      { front: "<p>What is the capital of France?</p>", back: "<p>Paris</p>" },
+      { front: "<p>What is the capital of Japan?</p>", back: "<p>Tokyo</p>" },
+      { front: "<p>What is the capital of Brazil?</p>", back: "<p>Brasília</p>" },
+      { front: "<p>What is the capital of Australia?</p>", back: "<p>Canberra</p>" },
+      { front: "<p>What is the capital of Canada?</p>", back: "<p>Ottawa</p>" },
+      { front: "<p>What is the capital of Egypt?</p>", back: "<p>Cairo</p>" },
+      { front: "<p>What is the capital of Germany?</p>", back: "<p>Berlin</p>" },
+      { front: "<p>What is the capital of South Korea?</p>", back: "<p>Seoul</p>" },
+      { front: "<p>What is the capital of Argentina?</p>", back: "<p>Buenos Aires</p>" },
+      { front: "<p>What is the capital of Thailand?</p>", back: "<p>Bangkok</p>" },
     ]);
     await tagDeck(worldCapitals.id, ["geography", "trivia"]);
     console.log("  Created deck: World Capitals (10 cards)");
@@ -233,44 +233,44 @@ async function seedPlatform() {
   if (shortcuts.created) {
     await createCards(shortcuts.id, "keyboard_shortcut", [
       {
-        prompt: "Copy the selected text or item",
+        prompt: "<p>Copy the selected text or item</p>",
         shortcut: { key: "c", ctrl: true, shift: false, alt: false, meta: false },
-        explanation: "Ctrl+C copies the current selection to the clipboard.",
+        explanation: "<p>Ctrl+C copies the current selection to the clipboard.</p>",
       },
       {
-        prompt: "Paste from clipboard",
+        prompt: "<p>Paste from clipboard</p>",
         shortcut: { key: "v", ctrl: true, shift: false, alt: false, meta: false },
-        explanation: "Ctrl+V pastes the contents of the clipboard.",
+        explanation: "<p>Ctrl+V pastes the contents of the clipboard.</p>",
       },
       {
-        prompt: "Undo the last action",
+        prompt: "<p>Undo the last action</p>",
         shortcut: { key: "z", ctrl: true, shift: false, alt: false, meta: false },
-        explanation: "Ctrl+Z reverses the most recent action.",
+        explanation: "<p>Ctrl+Z reverses the most recent action.</p>",
       },
       {
-        prompt: "Redo the last undone action",
+        prompt: "<p>Redo the last undone action</p>",
         shortcut: { key: "z", ctrl: true, shift: true, alt: false, meta: false },
-        explanation: "Ctrl+Shift+Z (or Ctrl+Y) re-applies an undone action.",
+        explanation: "<p>Ctrl+Shift+Z (or Ctrl+Y) re-applies an undone action.</p>",
       },
       {
-        prompt: "Select all text or items",
+        prompt: "<p>Select all text or items</p>",
         shortcut: { key: "a", ctrl: true, shift: false, alt: false, meta: false },
-        explanation: "Ctrl+A selects everything in the current context.",
+        explanation: "<p>Ctrl+A selects everything in the current context.</p>",
       },
       {
-        prompt: "Save the current file",
+        prompt: "<p>Save the current file</p>",
         shortcut: { key: "s", ctrl: true, shift: false, alt: false, meta: false },
-        explanation: "Ctrl+S saves the active document.",
+        explanation: "<p>Ctrl+S saves the active document.</p>",
       },
       {
-        prompt: "Open the find/search dialog",
+        prompt: "<p>Open the find/search dialog</p>",
         shortcut: { key: "f", ctrl: true, shift: false, alt: false, meta: false },
-        explanation: "Ctrl+F opens a search bar in most applications.",
+        explanation: "<p>Ctrl+F opens a search bar in most applications.</p>",
       },
       {
-        prompt: "Switch to the next browser tab",
+        prompt: "<p>Switch to the next browser tab</p>",
         shortcut: { key: "Tab", ctrl: true, shift: false, alt: false, meta: false },
-        explanation: "Ctrl+Tab cycles forward through open browser tabs.",
+        explanation: "<p>Ctrl+Tab cycles forward through open browser tabs.</p>",
       },
     ]);
     await tagDeck(shortcuts.id, ["productivity", "shortcuts"]);

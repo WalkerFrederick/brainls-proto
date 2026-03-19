@@ -1,33 +1,33 @@
 export const ART_HISTORY_FRONT_BACK = [
-  { front: "Who painted the Mona Lisa?", back: "Leonardo da Vinci (c. 1503–1519)" },
-  { front: "What art movement did Monet belong to?", back: "Impressionism" },
-  { front: "Who painted 'The Starry Night'?", back: "Vincent van Gogh (1889)" },
+  { front: "<p>Who painted the Mona Lisa?</p>", back: "<p>Leonardo da Vinci (c. 1503–1519)</p>" },
+  { front: "<p>What art movement did Monet belong to?</p>", back: "<p>Impressionism</p>" },
+  { front: "<p>Who painted 'The Starry Night'?</p>", back: "<p>Vincent van Gogh (1889)</p>" },
   {
-    front: "What is Baroque art known for?",
-    back: "Dramatic lighting, rich colors, grandeur, and emotional intensity",
+    front: "<p>What is Baroque art known for?</p>",
+    back: "<p>Dramatic lighting, rich colors, grandeur, and emotional intensity</p>",
   },
 ];
 
 export const SPANISH_MC = [
   {
-    question: "What does 'hola' mean?",
+    question: "<p>What does 'hola' mean?</p>",
     choices: ["Goodbye", "Hello", "Please", "Thank you"],
     correctChoiceIndexes: [1],
   },
   {
-    question: "What does 'gracias' mean?",
+    question: "<p>What does 'gracias' mean?</p>",
     choices: ["Sorry", "Hello", "Thank you", "Please"],
     correctChoiceIndexes: [2],
   },
   {
-    question: "What is the Spanish word for 'water'?",
+    question: "<p>What is the Spanish word for 'water'?</p>",
     choices: ["Fuego", "Agua", "Tierra", "Aire"],
     correctChoiceIndexes: [1],
   },
 ];
 
 export const SPANISH_FRONT_BACK = [
-  { front: "Buenos días", back: "Good morning" },
-  { front: "¿Cómo estás?", back: "How are you?" },
-  { front: "Por favor", back: "Please" },
+  { front: "<p>Buenos días</p>", back: "<p>Good morning</p>" },
+  { front: "<p>¿Cómo estás?</p>", back: "<p>How are you?</p>" },
+  { front: "<p>Por favor</p>", back: "<p>Please</p>" },
 ];

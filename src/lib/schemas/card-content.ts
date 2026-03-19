@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { stripDisallowedImages } from "@/lib/allowed-hosts";
+import { sanitizeHtml, stripHtml } from "@/lib/sanitize-html";
 
 export const CARD_TYPES = [
   "front_back",
@@ -20,15 +20,20 @@ export const MAX_CHOICE_LENGTH = 1_000;
 const sanitizedField = (label: string) =>
   z
     .string()
-    .transform(stripDisallowedImages)
+    .transform(sanitizeHtml)
     .pipe(
-      z
-        .string()
-        .min(1, `${label} is required`)
-        .max(
-          MAX_FIELD_LENGTH,
-          `${label} must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
-        ),
+      z.string().superRefine((val, ctx) => {
+        const text = stripHtml(val);
+        if (text.trim().length === 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${label} is required` });
+        }
+        if (text.length > MAX_FIELD_LENGTH) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `${label} must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
+          });
+        }
+      }),
     );
 
 export const FrontBackCardSchema = z.object({
@@ -66,14 +71,17 @@ const shortcutObject = z.object({
 const optionalSanitizedField = (label: string) =>
   z
     .string()
-    .transform(stripDisallowedImages)
+    .transform(sanitizeHtml)
     .pipe(
-      z
-        .string()
-        .max(
-          MAX_FIELD_LENGTH,
-          `${label} must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
-        ),
+      z.string().superRefine((val, ctx) => {
+        const text = stripHtml(val);
+        if (text.length > MAX_FIELD_LENGTH) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `${label} must be under ${MAX_FIELD_LENGTH.toLocaleString()} characters`,
+          });
+        }
+      }),
     )
     .optional();
 

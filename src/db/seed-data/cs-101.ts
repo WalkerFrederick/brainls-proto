@@ -1,250 +1,250 @@
 export const CS101_FRONT_BACK: Record<string, unknown>[] = [
   {
-    front: "What is an algorithm?",
-    back: "A step-by-step procedure for solving a problem or accomplishing a task",
+    front: "<p>What is an algorithm?</p>",
+    back: "<p>A step-by-step procedure for solving a problem or accomplishing a task</p>",
   },
   {
-    front: "What is Big-O notation?",
-    back: "A mathematical notation that describes the upper bound of an algorithm's time or space complexity",
+    front: "<p>What is Big-O notation?</p>",
+    back: "<p>A mathematical notation that describes the upper bound of an algorithm's time or space complexity</p>",
   },
   {
-    front: "What is a compiler?",
-    back: "A program that translates source code written in a high-level language into machine code",
+    front: "<p>What is a compiler?</p>",
+    back: "<p>A program that translates source code written in a high-level language into machine code</p>",
   },
   {
-    front: "What is an interpreter?",
-    back: "A program that executes source code line by line without prior compilation",
+    front: "<p>What is an interpreter?</p>",
+    back: "<p>A program that executes source code line by line without prior compilation</p>",
   },
   {
-    front: "What is recursion?",
-    back: "A technique where a function calls itself to solve smaller instances of the same problem",
+    front: "<p>What is recursion?</p>",
+    back: "<p>A technique where a function calls itself to solve smaller instances of the same problem</p>",
   },
   {
-    front: "What is a binary tree?",
-    back: "A tree data structure where each node has at most two children (left and right)",
+    front: "<p>What is a binary tree?</p>",
+    back: "<p>A tree data structure where each node has at most two children (left and right)</p>",
   },
   {
-    front: "What is a hash function?",
-    back: "A function that maps data of arbitrary size to fixed-size values, used in hash tables",
+    front: "<p>What is a hash function?</p>",
+    back: "<p>A function that maps data of arbitrary size to fixed-size values, used in hash tables</p>",
   },
   {
-    front: "What is polymorphism?",
-    back: "The ability of different objects to respond to the same method call in different ways",
+    front: "<p>What is polymorphism?</p>",
+    back: "<p>The ability of different objects to respond to the same method call in different ways</p>",
   },
   {
-    front: "What is encapsulation?",
-    back: "Bundling data and the methods that operate on that data within a single unit (class), restricting direct access",
+    front: "<p>What is encapsulation?</p>",
+    back: "<p>Bundling data and the methods that operate on that data within a single unit (class), restricting direct access</p>",
   },
   {
-    front: "What is inheritance?",
-    back: "A mechanism where a class derives properties and behaviors from a parent class",
+    front: "<p>What is inheritance?</p>",
+    back: "<p>A mechanism where a class derives properties and behaviors from a parent class</p>",
   },
   {
-    front: "What is abstraction?",
-    back: "Hiding complex implementation details and showing only the necessary features of an object",
+    front: "<p>What is abstraction?</p>",
+    back: "<p>Hiding complex implementation details and showing only the necessary features of an object</p>",
   },
   {
-    front: "What is a deadlock?",
-    back: "A situation where two or more processes are blocked forever, each waiting for the other to release a resource",
+    front: "<p>What is a deadlock?</p>",
+    back: "<p>A situation where two or more processes are blocked forever, each waiting for the other to release a resource</p>",
   },
   {
-    front: "What is a mutex?",
-    back: "A mutual exclusion lock that ensures only one thread can access a shared resource at a time",
+    front: "<p>What is a mutex?</p>",
+    back: "<p>A mutual exclusion lock that ensures only one thread can access a shared resource at a time</p>",
   },
   {
-    front: "What is a semaphore?",
-    back: "A signaling mechanism that controls access to a shared resource by multiple threads using a counter",
+    front: "<p>What is a semaphore?</p>",
+    back: "<p>A signaling mechanism that controls access to a shared resource by multiple threads using a counter</p>",
   },
   {
-    front: "What is virtual memory?",
-    back: "A memory management technique that gives each process the illusion of a large, contiguous address space",
+    front: "<p>What is virtual memory?</p>",
+    back: "<p>A memory management technique that gives each process the illusion of a large, contiguous address space</p>",
   },
   {
-    front: "What is a page fault?",
-    back: "An interrupt that occurs when a program accesses a memory page not currently in physical RAM",
+    front: "<p>What is a page fault?</p>",
+    back: "<p>An interrupt that occurs when a program accesses a memory page not currently in physical RAM</p>",
   },
   {
-    front: "What is TCP?",
-    back: "Transmission Control Protocol — a reliable, connection-oriented protocol that ensures ordered delivery of data",
+    front: "<p>What is TCP?</p>",
+    back: "<p>Transmission Control Protocol — a reliable, connection-oriented protocol that ensures ordered delivery of data</p>",
   },
   {
-    front: "What is UDP?",
-    back: "User Datagram Protocol — a connectionless protocol that sends packets without guaranteeing delivery or order",
+    front: "<p>What is UDP?</p>",
+    back: "<p>User Datagram Protocol — a connectionless protocol that sends packets without guaranteeing delivery or order</p>",
   },
   {
-    front: "What is DNS?",
-    back: "Domain Name System — translates human-readable domain names (e.g. google.com) into IP addresses",
+    front: "<p>What is DNS?</p>",
+    back: "<p>Domain Name System — translates human-readable domain names (e.g. google.com) into IP addresses</p>",
   },
   {
-    front: "What is HTTP?",
-    back: "HyperText Transfer Protocol — the foundation of data communication on the World Wide Web",
+    front: "<p>What is HTTP?</p>",
+    back: "<p>HyperText Transfer Protocol — the foundation of data communication on the World Wide Web</p>",
   },
   {
-    front: "What is REST?",
-    back: "Representational State Transfer — an architectural style for designing networked APIs using standard HTTP methods",
+    front: "<p>What is REST?</p>",
+    back: "<p>Representational State Transfer — an architectural style for designing networked APIs using standard HTTP methods</p>",
   },
   {
-    front: "What is a foreign key?",
-    back: "A column in a relational database table that references the primary key of another table",
+    front: "<p>What is a foreign key?</p>",
+    back: "<p>A column in a relational database table that references the primary key of another table</p>",
   },
   {
-    front: "What is normalization?",
-    back: "The process of organizing a database to reduce redundancy and improve data integrity",
+    front: "<p>What is normalization?</p>",
+    back: "<p>The process of organizing a database to reduce redundancy and improve data integrity</p>",
   },
   {
-    front: "What is an index in a database?",
-    back: "A data structure that improves the speed of data retrieval operations on a table at the cost of extra storage",
+    front: "<p>What is an index in a database?</p>",
+    back: "<p>A data structure that improves the speed of data retrieval operations on a table at the cost of extra storage</p>",
   },
   {
-    front: "What is ACID in databases?",
-    back: "Atomicity, Consistency, Isolation, Durability — properties that guarantee reliable database transactions",
+    front: "<p>What is ACID in databases?</p>",
+    back: "<p>Atomicity, Consistency, Isolation, Durability — properties that guarantee reliable database transactions</p>",
   },
   {
-    front: "What is a race condition?",
-    back: "A flaw where the system's behavior depends on the timing of uncontrollable events (e.g., thread scheduling)",
+    front: "<p>What is a race condition?</p>",
+    back: "<p>A flaw where the system's behavior depends on the timing of uncontrollable events (e.g., thread scheduling)</p>",
   },
   {
-    front: "What is a design pattern?",
-    back: "A reusable solution to a commonly occurring problem in software design",
+    front: "<p>What is a design pattern?</p>",
+    back: "<p>A reusable solution to a commonly occurring problem in software design</p>",
   },
   {
-    front: "What is the Singleton pattern?",
-    back: "A design pattern that restricts a class to a single instance and provides a global access point",
+    front: "<p>What is the Singleton pattern?</p>",
+    back: "<p>A design pattern that restricts a class to a single instance and provides a global access point</p>",
   },
   {
-    front: "What is the Observer pattern?",
-    back: "A design pattern where an object notifies its dependents automatically of any state changes",
+    front: "<p>What is the Observer pattern?</p>",
+    back: "<p>A design pattern where an object notifies its dependents automatically of any state changes</p>",
   },
   {
-    front: "What is the Factory pattern?",
-    back: "A design pattern that provides an interface for creating objects without specifying their concrete classes",
+    front: "<p>What is the Factory pattern?</p>",
+    back: "<p>A design pattern that provides an interface for creating objects without specifying their concrete classes</p>",
   },
   {
-    front: "What is a graph?",
-    back: "A non-linear data structure consisting of vertices (nodes) connected by edges",
+    front: "<p>What is a graph?</p>",
+    back: "<p>A non-linear data structure consisting of vertices (nodes) connected by edges</p>",
   },
   {
-    front: "What is BFS?",
-    back: "Breadth-First Search — a graph traversal that explores all neighbors at the current depth before moving deeper",
+    front: "<p>What is BFS?</p>",
+    back: "<p>Breadth-First Search — a graph traversal that explores all neighbors at the current depth before moving deeper</p>",
   },
   {
-    front: "What is DFS?",
-    back: "Depth-First Search — a graph traversal that explores as far as possible along each branch before backtracking",
+    front: "<p>What is DFS?</p>",
+    back: "<p>Depth-First Search — a graph traversal that explores as far as possible along each branch before backtracking</p>",
   },
   {
-    front: "What is dynamic programming?",
-    back: "An optimization technique that solves problems by breaking them into overlapping subproblems and caching results",
+    front: "<p>What is dynamic programming?</p>",
+    back: "<p>An optimization technique that solves problems by breaking them into overlapping subproblems and caching results</p>",
   },
   {
-    front: "What is memoization?",
-    back: "Caching the results of expensive function calls and returning the cached result for repeated inputs",
+    front: "<p>What is memoization?</p>",
+    back: "<p>Caching the results of expensive function calls and returning the cached result for repeated inputs</p>",
   },
   {
-    front: "What is a stack overflow?",
-    back: "An error that occurs when the call stack exceeds its maximum size, often caused by infinite recursion",
+    front: "<p>What is a stack overflow?</p>",
+    back: "<p>An error that occurs when the call stack exceeds its maximum size, often caused by infinite recursion</p>",
   },
   {
-    front: "What is garbage collection?",
-    back: "Automatic memory management that reclaims memory occupied by objects no longer in use",
+    front: "<p>What is garbage collection?</p>",
+    back: "<p>Automatic memory management that reclaims memory occupied by objects no longer in use</p>",
   },
   {
-    front: "What is a pointer?",
-    back: "A variable that stores the memory address of another variable",
+    front: "<p>What is a pointer?</p>",
+    back: "<p>A variable that stores the memory address of another variable</p>",
   },
   {
-    front: "What is the difference between a process and a thread?",
-    back: "A process is an independent program with its own memory space; a thread is a lightweight unit of execution within a process sharing the same memory",
+    front: "<p>What is the difference between a process and a thread?</p>",
+    back: "<p>A process is an independent program with its own memory space; a thread is a lightweight unit of execution within a process sharing the same memory</p>",
   },
   {
-    front: "What is an API?",
-    back: "Application Programming Interface — a set of rules and protocols for building and interacting with software",
+    front: "<p>What is an API?</p>",
+    back: "<p>Application Programming Interface — a set of rules and protocols for building and interacting with software</p>",
   },
   {
-    front: "What is a container?",
-    back: "A lightweight, standalone package that includes everything needed to run a piece of software (code, runtime, libraries)",
+    front: "<p>What is a container?</p>",
+    back: "<p>A lightweight, standalone package that includes everything needed to run a piece of software (code, runtime, libraries)</p>",
   },
   {
-    front: "What is a microservice?",
-    back: "An architectural style where an application is composed of small, independently deployable services",
+    front: "<p>What is a microservice?</p>",
+    back: "<p>An architectural style where an application is composed of small, independently deployable services</p>",
   },
   {
-    front: "What is latency?",
-    back: "The time delay between a request being sent and the response being received",
+    front: "<p>What is latency?</p>",
+    back: "<p>The time delay between a request being sent and the response being received</p>",
   },
   {
-    front: "What is throughput?",
-    back: "The amount of data or number of operations processed per unit of time",
+    front: "<p>What is throughput?</p>",
+    back: "<p>The amount of data or number of operations processed per unit of time</p>",
   },
   {
-    front: "What is a cache?",
-    back: "A high-speed storage layer that stores a subset of data so future requests are served faster",
+    front: "<p>What is a cache?</p>",
+    back: "<p>A high-speed storage layer that stores a subset of data so future requests are served faster</p>",
   },
   {
-    front: "What is a CDN?",
-    back: "Content Delivery Network — a geographically distributed group of servers that deliver content to users from the nearest location",
+    front: "<p>What is a CDN?</p>",
+    back: "<p>Content Delivery Network — a geographically distributed group of servers that deliver content to users from the nearest location</p>",
   },
   {
-    front: "What is sharding?",
-    back: "Splitting a database into smaller, faster pieces (shards) distributed across multiple servers",
+    front: "<p>What is sharding?</p>",
+    back: "<p>Splitting a database into smaller, faster pieces (shards) distributed across multiple servers</p>",
   },
   {
-    front: "What is a lambda function?",
-    back: "A small, anonymous function defined inline, often used for short-lived operations",
+    front: "<p>What is a lambda function?</p>",
+    back: "<p>A small, anonymous function defined inline, often used for short-lived operations</p>",
   },
   {
-    front: "What is type safety?",
-    back: "A property of a programming language that prevents type errors by enforcing type constraints at compile time or runtime",
+    front: "<p>What is type safety?</p>",
+    back: "<p>A property of a programming language that prevents type errors by enforcing type constraints at compile time or runtime</p>",
   },
   {
-    front: "What is a memory leak?",
-    back: "A bug where a program fails to release memory it no longer needs, causing increasing memory usage over time",
+    front: "<p>What is a memory leak?</p>",
+    back: "<p>A bug where a program fails to release memory it no longer needs, causing increasing memory usage over time</p>",
   },
   {
-    front: "What is idempotency?",
-    back: "A property where performing an operation multiple times produces the same result as performing it once",
+    front: "<p>What is idempotency?</p>",
+    back: "<p>A property where performing an operation multiple times produces the same result as performing it once</p>",
   },
   {
-    front: "What is a binary heap?",
-    back: "A complete binary tree that satisfies the heap property: parent nodes are always greater (max-heap) or smaller (min-heap) than children",
+    front: "<p>What is a binary heap?</p>",
+    back: "<p>A complete binary tree that satisfies the heap property: parent nodes are always greater (max-heap) or smaller (min-heap) than children</p>",
   },
   {
-    front: "What is a trie?",
-    back: "A tree-like data structure used to store strings where each node represents a character, enabling efficient prefix searches",
+    front: "<p>What is a trie?</p>",
+    back: "<p>A tree-like data structure used to store strings where each node represents a character, enabling efficient prefix searches</p>",
   },
   {
-    front: "What is a bloom filter?",
-    back: "A space-efficient probabilistic data structure that tests whether an element is a member of a set (may have false positives, never false negatives)",
+    front: "<p>What is a bloom filter?</p>",
+    back: "<p>A space-efficient probabilistic data structure that tests whether an element is a member of a set (may have false positives, never false negatives)</p>",
   },
   {
-    front: "What is eventual consistency?",
-    back: "A consistency model where, given enough time without new updates, all replicas will converge to the same value",
+    front: "<p>What is eventual consistency?</p>",
+    back: "<p>A consistency model where, given enough time without new updates, all replicas will converge to the same value</p>",
   },
   {
-    front: "What is the CAP theorem?",
-    back: "A distributed systems theorem stating you can only guarantee two of three: Consistency, Availability, Partition Tolerance",
+    front: "<p>What is the CAP theorem?</p>",
+    back: "<p>A distributed systems theorem stating you can only guarantee two of three: Consistency, Availability, Partition Tolerance</p>",
   },
   {
-    front: "What is a message queue?",
-    back: "A form of asynchronous communication where messages are stored in a queue until the receiving service is ready to process them",
+    front: "<p>What is a message queue?</p>",
+    back: "<p>A form of asynchronous communication where messages are stored in a queue until the receiving service is ready to process them</p>",
   },
   {
-    front: "What is WebSocket?",
-    back: "A protocol that provides full-duplex communication channels over a single TCP connection, enabling real-time data transfer",
+    front: "<p>What is WebSocket?</p>",
+    back: "<p>A protocol that provides full-duplex communication channels over a single TCP connection, enabling real-time data transfer</p>",
   },
   {
-    front: "What is GraphQL?",
-    back: "A query language for APIs that lets clients request exactly the data they need, avoiding over-fetching and under-fetching",
+    front: "<p>What is GraphQL?</p>",
+    back: "<p>A query language for APIs that lets clients request exactly the data they need, avoiding over-fetching and under-fetching</p>",
   },
 ];
 
 export const CS101_MC: Record<string, unknown>[] = [
   {
-    question: "What is the time complexity of binary search?",
+    question: "<p>What is the time complexity of binary search?</p>",
     choices: ["O(n)", "O(log n)", "O(n²)", "O(1)"],
     correctChoiceIndexes: [1],
   },
   {
-    question: "Which sorting algorithm has the best average-case time complexity?",
+    question: "<p>Which sorting algorithm has the best average-case time complexity?</p>",
     choices: [
       "Bubble Sort — O(n²)",
       "Merge Sort — O(n log n)",
@@ -254,12 +254,12 @@ export const CS101_MC: Record<string, unknown>[] = [
     correctChoiceIndexes: [1],
   },
   {
-    question: "What does HTTPS add on top of HTTP?",
+    question: "<p>What does HTTPS add on top of HTTP?</p>",
     choices: ["Speed", "Encryption via TLS/SSL", "Compression", "Caching"],
     correctChoiceIndexes: [1],
   },
   {
-    question: "Which layer of the OSI model does a router operate on?",
+    question: "<p>Which layer of the OSI model does a router operate on?</p>",
     choices: [
       "Data Link (Layer 2)",
       "Network (Layer 3)",
@@ -269,7 +269,7 @@ export const CS101_MC: Record<string, unknown>[] = [
     correctChoiceIndexes: [1],
   },
   {
-    question: "What is the primary purpose of a load balancer?",
+    question: "<p>What is the primary purpose of a load balancer?</p>",
     choices: [
       "Encrypt traffic",
       "Distribute requests across servers",
@@ -279,27 +279,27 @@ export const CS101_MC: Record<string, unknown>[] = [
     correctChoiceIndexes: [1],
   },
   {
-    question: "Which data structure is used by function calls in most languages?",
+    question: "<p>Which data structure is used by function calls in most languages?</p>",
     choices: ["Queue", "Stack", "Heap", "Linked List"],
     correctChoiceIndexes: [1],
   },
   {
-    question: "What type of database is MongoDB?",
+    question: "<p>What type of database is MongoDB?</p>",
     choices: ["Relational", "Document (NoSQL)", "Graph", "Key-Value"],
     correctChoiceIndexes: [1],
   },
   {
-    question: "What is the worst-case time complexity of quicksort?",
+    question: "<p>What is the worst-case time complexity of quicksort?</p>",
     choices: ["O(n log n)", "O(n)", "O(n²)", "O(log n)"],
     correctChoiceIndexes: [2],
   },
   {
-    question: "Which protocol is used to send email?",
+    question: "<p>Which protocol is used to send email?</p>",
     choices: ["FTP", "SMTP", "HTTP", "SSH"],
     correctChoiceIndexes: [1],
   },
   {
-    question: "What does CI/CD stand for?",
+    question: "<p>What does CI/CD stand for?</p>",
     choices: [
       "Continuous Integration / Continuous Deployment",
       "Code Inspection / Code Delivery",
@@ -309,22 +309,22 @@ export const CS101_MC: Record<string, unknown>[] = [
     correctChoiceIndexes: [0],
   },
   {
-    question: "Which of these is NOT a valid HTTP method?",
+    question: "<p>Which of these is NOT a valid HTTP method?</p>",
     choices: ["GET", "POST", "SEND", "DELETE"],
     correctChoiceIndexes: [2],
   },
   {
-    question: "In SQL, which keyword is used to filter grouped results?",
+    question: "<p>In SQL, which keyword is used to filter grouped results?</p>",
     choices: ["WHERE", "HAVING", "FILTER", "GROUP BY"],
     correctChoiceIndexes: [1],
   },
   {
-    question: "What is the space complexity of merge sort?",
+    question: "<p>What is the space complexity of merge sort?</p>",
     choices: ["O(1)", "O(log n)", "O(n)", "O(n²)"],
     correctChoiceIndexes: [2],
   },
   {
-    question: "Which principle states 'a class should have only one reason to change'?",
+    question: "<p>Which principle states 'a class should have only one reason to change'?</p>",
     choices: [
       "Open/Closed",
       "Single Responsibility",
@@ -334,27 +334,27 @@ export const CS101_MC: Record<string, unknown>[] = [
     correctChoiceIndexes: [1],
   },
   {
-    question: "What is the default port for HTTPS?",
+    question: "<p>What is the default port for HTTPS?</p>",
     choices: ["80", "443", "8080", "3000"],
     correctChoiceIndexes: [1],
   },
   {
-    question: "Which traversal of a BST gives nodes in sorted order?",
+    question: "<p>Which traversal of a BST gives nodes in sorted order?</p>",
     choices: ["Preorder", "Inorder", "Postorder", "Level-order"],
     correctChoiceIndexes: [1],
   },
   {
-    question: "What does the 'S' in SOLID stand for?",
+    question: "<p>What does the 'S' in SOLID stand for?</p>",
     choices: ["Singleton", "Single Responsibility", "Separation", "Stateless"],
     correctChoiceIndexes: [1],
   },
   {
-    question: "Which of these is a non-comparison-based sorting algorithm?",
+    question: "<p>Which of these is a non-comparison-based sorting algorithm?</p>",
     choices: ["Merge Sort", "Quick Sort", "Radix Sort", "Heap Sort"],
     correctChoiceIndexes: [2],
   },
   {
-    question: "What is a primary key?",
+    question: "<p>What is a primary key?</p>",
     choices: [
       "The most important column in a table",
       "A unique identifier for each row in a table",
@@ -364,7 +364,7 @@ export const CS101_MC: Record<string, unknown>[] = [
     correctChoiceIndexes: [1],
   },
   {
-    question: "What does 'idempotent' mean in the context of HTTP methods?",
+    question: "<p>What does 'idempotent' mean in the context of HTTP methods?</p>",
     choices: [
       "The request is encrypted",
       "Multiple identical requests have the same effect as a single one",
@@ -377,47 +377,53 @@ export const CS101_MC: Record<string, unknown>[] = [
 
 export const CS101_CLOZE: Record<string, unknown>[] = [
   {
-    text: "The two main types of memory are {{c1::RAM}} (volatile) and {{c2::ROM}} (non-volatile).",
+    text: "<p>The two main types of memory are {{c1::RAM}} (volatile) and {{c2::ROM}} (non-volatile).</p>",
   },
-  { text: "{{c1::TCP}} guarantees delivery while {{c2::UDP}} does not." },
+  { text: "<p>{{c1::TCP}} guarantees delivery while {{c2::UDP}} does not.</p>" },
   {
-    text: "In object-oriented programming, the four pillars are {{c1::encapsulation}}, {{c1::abstraction}}, {{c1::inheritance}}, and {{c1::polymorphism}}.",
-  },
-  {
-    text: "A {{c1::binary search tree}} has the property that left children are {{c2::less than}} the parent and right children are {{c2::greater than}} the parent.",
+    text: "<p>In object-oriented programming, the four pillars are {{c1::encapsulation}}, {{c1::abstraction}}, {{c1::inheritance}}, and {{c1::polymorphism}}.</p>",
   },
   {
-    text: "The {{c1::CAP theorem}} states that a distributed system can guarantee at most two of {{c2::Consistency}}, {{c2::Availability}}, and {{c2::Partition tolerance}}.",
-  },
-  { text: "{{c1::DNS}} resolves domain names to {{c2::IP addresses}}." },
-  { text: "A {{c1::hash table}} provides average-case {{c2::O(1)}} lookup time." },
-  { text: "{{c1::Git}} is a distributed {{c2::version control}} system." },
-  { text: "The {{c1::heap}} data structure is used to implement a {{c2::priority queue}}." },
-  {
-    text: "In SQL, {{c1::JOIN}} combines rows from two or more {{c2::tables}} based on a related column.",
+    text: "<p>A {{c1::binary search tree}} has the property that left children are {{c2::less than}} the parent and right children are {{c2::greater than}} the parent.</p>",
   },
   {
-    text: "{{c1::Dijkstra's algorithm}} finds the shortest path in a graph with {{c2::non-negative}} edge weights.",
+    text: "<p>The {{c1::CAP theorem}} states that a distributed system can guarantee at most two of {{c2::Consistency}}, {{c2::Availability}}, and {{c2::Partition tolerance}}.</p>",
   },
-  { text: "A {{c1::trie}} (prefix tree) is optimized for {{c2::string}} search operations." },
+  { text: "<p>{{c1::DNS}} resolves domain names to {{c2::IP addresses}}.</p>" },
+  { text: "<p>A {{c1::hash table}} provides average-case {{c2::O(1)}} lookup time.</p>" },
+  { text: "<p>{{c1::Git}} is a distributed {{c2::version control}} system.</p>" },
+  { text: "<p>The {{c1::heap}} data structure is used to implement a {{c2::priority queue}}.</p>" },
   {
-    text: "The HTTP status code {{c1::404}} means {{c2::Not Found}}, while {{c1::500}} means {{c2::Internal Server Error}}.",
-  },
-  {
-    text: "{{c1::Docker}} packages applications into {{c2::containers}} for consistent deployment across environments.",
-  },
-  {
-    text: "In networking, the {{c1::three-way handshake}} (SYN, SYN-ACK, ACK) establishes a {{c2::TCP}} connection.",
-  },
-  { text: "A {{c1::B-tree}} is a self-balancing tree commonly used in {{c2::database}} indexing." },
-  { text: "The {{c1::time complexity}} of inserting into a balanced BST is {{c2::O(log n)}}." },
-  {
-    text: "{{c1::Kubernetes}} orchestrates {{c2::containerized}} applications across a cluster of machines.",
+    text: "<p>In SQL, {{c1::JOIN}} combines rows from two or more {{c2::tables}} based on a related column.</p>",
   },
   {
-    text: "{{c1::OAuth 2.0}} is an authorization framework that enables third-party applications to obtain limited access to a {{c2::web service}}.",
+    text: "<p>{{c1::Dijkstra's algorithm}} finds the shortest path in a graph with {{c2::non-negative}} edge weights.</p>",
   },
   {
-    text: "A {{c1::microservice}} architecture decomposes an application into small, {{c2::independently deployable}} services.",
+    text: "<p>A {{c1::trie}} (prefix tree) is optimized for {{c2::string}} search operations.</p>",
+  },
+  {
+    text: "<p>The HTTP status code {{c1::404}} means {{c2::Not Found}}, while {{c1::500}} means {{c2::Internal Server Error}}.</p>",
+  },
+  {
+    text: "<p>{{c1::Docker}} packages applications into {{c2::containers}} for consistent deployment across environments.</p>",
+  },
+  {
+    text: "<p>In networking, the {{c1::three-way handshake}} (SYN, SYN-ACK, ACK) establishes a {{c2::TCP}} connection.</p>",
+  },
+  {
+    text: "<p>A {{c1::B-tree}} is a self-balancing tree commonly used in {{c2::database}} indexing.</p>",
+  },
+  {
+    text: "<p>The {{c1::time complexity}} of inserting into a balanced BST is {{c2::O(log n)}}.</p>",
+  },
+  {
+    text: "<p>{{c1::Kubernetes}} orchestrates {{c2::containerized}} applications across a cluster of machines.</p>",
+  },
+  {
+    text: "<p>{{c1::OAuth 2.0}} is an authorization framework that enables third-party applications to obtain limited access to a {{c2::web service}}.</p>",
+  },
+  {
+    text: "<p>A {{c1::microservice}} architecture decomposes an application into small, {{c2::independently deployable}} services.</p>",
   },
 ];

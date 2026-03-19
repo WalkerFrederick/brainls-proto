@@ -1,15 +1,21 @@
 export const BIOLOGY_FRONT_BACK = [
-  { front: "What is the powerhouse of the cell?", back: "The mitochondria" },
-  { front: "What is DNA?", back: "Deoxyribonucleic acid — carries genetic instructions" },
-  { front: "What is osmosis?", back: "Movement of water through a semipermeable membrane" },
+  { front: "<p>What is the powerhouse of the cell?</p>", back: "<p>The mitochondria</p>" },
+  {
+    front: "<p>What is DNA?</p>",
+    back: "<p>Deoxyribonucleic acid — carries genetic instructions</p>",
+  },
+  {
+    front: "<p>What is osmosis?</p>",
+    back: "<p>Movement of water through a semipermeable membrane</p>",
+  },
 ];
 
 export const BIOLOGY_CLOZE = [
-  { text: "The {{c1::mitochondria}} is the powerhouse of the {{c2::cell}}." },
+  { text: "<p>The {{c1::mitochondria}} is the powerhouse of the {{c2::cell}}.</p>" },
   {
-    text: "{{c1::Photosynthesis}} converts {{c2::light energy}} into {{c3::chemical energy}} in plants.",
+    text: "<p>{{c1::Photosynthesis}} converts {{c2::light energy}} into {{c3::chemical energy}} in plants.</p>",
   },
   {
-    text: "The four nucleotide bases are {{c1::Adenine}}, {{c1::Thymine}}, {{c1::Guanine}}, and {{c1::Cytosine}}.",
+    text: "<p>The four nucleotide bases are {{c1::Adenine}}, {{c1::Thymine}}, {{c1::Guanine}}, and {{c1::Cytosine}}.</p>",
   },
 ];

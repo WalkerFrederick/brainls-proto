@@ -16,12 +16,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MarkdownEditor } from "@/components/markdown-editor";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { ShortcutRecorder } from "@/components/shortcut-recorder";
 import { MAX_FIELD_LENGTH } from "@/lib/schemas/card-content";
 import type { ShortcutCombo } from "@/lib/shortcut-blocklist";
 import { getUniqueClozeIndices, renderClozeHidden } from "@/lib/cloze";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { HtmlRenderer } from "@/components/html-renderer";
 import {
   Select,
   SelectContent,
@@ -294,20 +294,20 @@ export function CreateCardDialog({
 
             {cardType === "front_back" ? (
               <>
-                <MarkdownEditor
+                <RichTextEditor
                   label="Front"
                   value={front}
                   onChange={setFront}
-                  placeholder="Front (supports **Markdown**)"
+                  placeholder="Front side of the card"
                   required
                   maxLength={MAX_FIELD_LENGTH}
                   maxAttachments={10}
                 />
-                <MarkdownEditor
+                <RichTextEditor
                   label="Back"
                   value={back}
                   onChange={setBack}
-                  placeholder="Back (supports **Markdown**)"
+                  placeholder="Back side of the card"
                   required
                   maxLength={MAX_FIELD_LENGTH}
                   maxAttachments={10}
@@ -324,11 +324,11 @@ export function CreateCardDialog({
               </>
             ) : cardType === "multiple_choice" ? (
               <>
-                <MarkdownEditor
+                <RichTextEditor
                   label="Question"
                   value={question}
                   onChange={setQuestion}
-                  placeholder="What is...? (supports **Markdown**)"
+                  placeholder="What is...?"
                   required
                   maxLength={MAX_FIELD_LENGTH}
                   maxAttachments={10}
@@ -384,12 +384,13 @@ export function CreateCardDialog({
               </>
             ) : cardType === "cloze" ? (
               <>
-                <MarkdownEditor
+                <RichTextEditor
                   label="Cloze Text"
                   value={clozeText}
                   onChange={setClozeText}
                   placeholder={"The {{c1::mitochondria}} is the {{c2::powerhouse}} of the cell."}
                   required
+                  cloze
                   maxLength={MAX_FIELD_LENGTH}
                   maxAttachments={10}
                   renderPreview={(text) => {
@@ -415,7 +416,7 @@ export function CreateCardDialog({
                           <div key={idx} className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Card c{idx}</p>
                             <div className="rounded-md border bg-muted/30 p-2.5">
-                              <MarkdownRenderer content={renderClozeHidden(text, idx)} />
+                              <HtmlRenderer content={renderClozeHidden(text, idx)} />
                             </div>
                           </div>
                         ))}
@@ -440,11 +441,11 @@ export function CreateCardDialog({
               </>
             ) : (
               <>
-                <MarkdownEditor
+                <RichTextEditor
                   label="Prompt"
                   value={prompt}
                   onChange={setPrompt}
-                  placeholder="e.g. Undo the last action (supports **Markdown**)"
+                  placeholder="e.g. Undo the last action"
                   required
                   maxLength={MAX_FIELD_LENGTH}
                   maxAttachments={10}

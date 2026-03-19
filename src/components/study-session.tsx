@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { submitReview } from "@/actions/study";
 import { Trophy, Info } from "lucide-react";
-import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { HtmlRenderer } from "@/components/html-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
 import {
   type ShortcutCombo,
@@ -365,13 +365,13 @@ function FrontBackStudy({
     <>
       <CardHeader>
         <div className="text-center">
-          <MarkdownRenderer content={String(content.front ?? "")} />
+          <HtmlRenderer content={String(content.front ?? "")} />
         </div>
       </CardHeader>
       <CardContent className="text-center">
         {showAnswer && (
           <div className="rounded-lg bg-muted p-4">
-            <MarkdownRenderer content={String(content.back ?? "")} />
+            <HtmlRenderer content={String(content.back ?? "")} />
           </div>
         )}
       </CardContent>
@@ -400,7 +400,7 @@ function MultipleChoiceStudy({
     <>
       <CardHeader>
         <div className="text-center">
-          <MarkdownRenderer content={String(content.question ?? "")} />
+          <HtmlRenderer content={String(content.question ?? "")} />
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -487,7 +487,7 @@ function KeyboardShortcutStudy({
     <>
       <CardHeader>
         <div key={shakeKey} className={`text-center ${shakeKey > 0 ? "animate-shake" : ""}`}>
-          <MarkdownRenderer content={String(content.prompt ?? "")} />
+          <HtmlRenderer content={String(content.prompt ?? "")} />
         </div>
       </CardHeader>
       <CardContent className="text-center">
@@ -504,7 +504,7 @@ function KeyboardShortcutStudy({
             {shortcutCorrect && <p className="text-sm font-medium text-green-600">Correct!</p>}
             {explanationText.trim() && (
               <div className="mx-auto max-w-md rounded-lg bg-muted p-3 text-left">
-                <MarkdownRenderer content={explanationText} />
+                <HtmlRenderer content={explanationText} />
               </div>
             )}
           </div>
@@ -548,7 +548,7 @@ function ClozeStudy({
     <>
       <CardHeader>
         <div className="text-center">
-          <MarkdownRenderer
+          <HtmlRenderer
             content={
               showAnswer
                 ? renderClozeRevealed(text, clozeIndex)

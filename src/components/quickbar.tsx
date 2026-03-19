@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -114,35 +114,45 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
   return (
     <>
-      {/* Always-mounted dialogs for hotkey access */}
-      <CreateCardDialog
-        deckDefinitionId={contextDeckId}
-        open={cardDialogOpen}
-        onOpenChange={(v) => {
-          setCardDialogOpen(v);
-          if (!v) setFabOpen(false);
-        }}
-        trigger={<button type="button" className="hidden" />}
-      />
-      <CreateDeckDialog
-        folderId={contextFolderId}
-        open={deckDialogOpen}
-        onOpenChange={(v) => {
-          setDeckDialogOpen(v);
-          if (!v) setFabOpen(false);
-        }}
-        trigger={<button type="button" className="hidden" />}
-      />
-      <CreateFolderDialog
-        open={folderDialogOpen}
-        onOpenChange={(v) => {
-          setFolderDialogOpen(v);
-          if (!v) setFabOpen(false);
-        }}
-        trigger={<button type="button" className="hidden" />}
-      />
+      {/* Always-mounted dialogs for hotkey access (deferred to avoid hydration ID mismatch) */}
+      {mounted && (
+        <>
+          <CreateCardDialog
+            deckDefinitionId={contextDeckId}
+            open={cardDialogOpen}
+            onOpenChange={(v) => {
+              setCardDialogOpen(v);
+              if (!v) setFabOpen(false);
+            }}
+            trigger={<button type="button" className="hidden" />}
+          />
+          <CreateDeckDialog
+            folderId={contextFolderId}
+            open={deckDialogOpen}
+            onOpenChange={(v) => {
+              setDeckDialogOpen(v);
+              if (!v) setFabOpen(false);
+            }}
+            trigger={<button type="button" className="hidden" />}
+          />
+          <CreateFolderDialog
+            open={folderDialogOpen}
+            onOpenChange={(v) => {
+              setFolderDialogOpen(v);
+              if (!v) setFabOpen(false);
+            }}
+            trigger={<button type="button" className="hidden" />}
+          />
+        </>
+      )}
 
       <CommandPalette
         open={paletteOpen}

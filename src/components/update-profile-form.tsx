@@ -39,11 +39,11 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
     route: "avatar",
     maxFileBytes: MAX_AVATAR_BYTES,
     acceptedTypes: ACCEPTED_TYPES,
-    onSuccess: (files) => {
+    onSuccess: async (files) => {
       if (files[0]) {
         setImage(files[0].url);
         setMessage("Avatar updated.");
-        refetch();
+        await refetch();
         router.refresh();
       }
     },
@@ -60,7 +60,7 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
     } else {
       setImage(null);
       setMessage("Avatar removed.");
-      refetch();
+      await refetch();
       router.refresh();
     }
 
@@ -85,7 +85,7 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
       setMessage(result.error.message ?? "Update failed");
     } else {
       setMessage("Profile updated.");
-      refetch();
+      await refetch();
       router.refresh();
     }
 

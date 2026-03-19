@@ -160,9 +160,26 @@ export function LinkBubble({ editor, handleRef }: LinkBubbleProps) {
       pluginKey="linkBubble"
       shouldShow={({ editor: e }) => {
         if (e.isActive("link")) return true;
-        if (shouldShowRef.current && !e.state.selection.empty) return true;
-        shouldShowRef.current = false;
+        if (shouldShowRef.current) return true;
         return false;
+      }}
+      getReferencedVirtualElement={() => {
+        if (!editor.state.selection.empty || editor.isActive("link")) return null;
+
+        const coords = editor.view.coordsAtPos(editor.state.selection.from);
+        return {
+          getBoundingClientRect: () => ({
+            top: coords.top,
+            bottom: coords.bottom,
+            left: coords.left,
+            right: coords.left,
+            width: 0,
+            height: coords.bottom - coords.top,
+            x: coords.left,
+            y: coords.top,
+            toJSON: () => ({}),
+          }),
+        };
       }}
       options={{
         placement: "bottom-start",

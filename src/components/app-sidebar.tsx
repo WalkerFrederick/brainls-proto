@@ -37,7 +37,9 @@ export function SidebarNav({ showProfile = true }: { showProfile?: boolean }) {
                 size="sm"
               />
               <p className="min-w-0 truncate text-sm font-medium">
-                {session.user.name ?? session.user.email}
+                {(session.user.name ?? session.user.email).length > 20
+                  ? (session.user.name ?? session.user.email).slice(0, 20) + "…"
+                  : (session.user.name ?? session.user.email)}
               </p>
             </Link>
           ) : (
@@ -81,7 +83,7 @@ export function AppSidebar() {
     <aside className="hidden h-screen w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
       <div className="flex items-center gap-2 px-4 py-4">
         <Brain className="h-6 w-6 text-primary" />
-        <span className="text-lg font-semibold">BrainLS</span>
+        <span className="font-serif text-lg font-bold">BrainLS</span>
       </div>
       <Separator />
       <SidebarNav showProfile={false} />

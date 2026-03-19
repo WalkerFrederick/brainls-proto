@@ -1,4 +1,4 @@
-import { forgettingCurve } from "@/lib/srs/fsrs";
+import { forgettingCurve } from "@brainls/fsrs";
 
 const W = 700;
 const H = 380;

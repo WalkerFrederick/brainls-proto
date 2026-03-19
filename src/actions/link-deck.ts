@@ -14,7 +14,7 @@ import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { canViewDeck, requireFolderRole, canEditDeck } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
-import { getDefaultCardState } from "@/lib/srs";
+import { getDefaultCardState } from "@brainls/fsrs";
 
 export async function linkDeckToFolder(
   sourceDeckId: string,

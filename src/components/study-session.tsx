@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { submitReview } from "@/actions/study";
-import { Trophy, Info } from "lucide-react";
+import { Trophy, Info, AlertTriangle } from "lucide-react";
 import { HtmlRenderer } from "@/components/html-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
 import {
@@ -23,7 +23,7 @@ import {
   DEFAULT_PARAMETERS,
   type CardState,
   type Rating as SrsRating,
-} from "@/lib/srs";
+} from "@brainls/fsrs";
 
 interface StudyCard {
   userCardStateId: string;
@@ -37,6 +37,7 @@ interface StudyCard {
   reps: number | null;
   lapses: number | null;
   learningStep: number | null;
+  isLeech?: boolean;
 }
 
 interface Props {
@@ -215,6 +216,13 @@ export function StudySessionClient({
         </div>
       )}
 
+      {currentCard?.isLeech && (
+        <div className="flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-sm text-orange-700 dark:text-orange-400">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          This card is a leech &mdash; consider editing or suspending it
+        </div>
+      )}
+
       <Card className="min-h-[300px]">
         {currentCard.cardType === "front_back" ? (
           <FrontBackStudy content={content} showAnswer={showAnswer} />
@@ -266,7 +274,11 @@ export function StudySessionClient({
         />
       ) : (
         <div className="rounded-xl border bg-card p-4">
-          <Button variant="outline" className="w-full" onClick={() => setShowAnswer(true)}>
+          <Button
+            variant="outline"
+            className="w-full py-6 h-auto text-base"
+            onClick={() => setShowAnswer(true)}
+          >
             Show Answer
             <ShortcutHint keyChar="space" />
           </Button>

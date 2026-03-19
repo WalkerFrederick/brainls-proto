@@ -64,20 +64,20 @@ const body = {
   backgroundColor: "#ede4d3",
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   margin: "0",
-  padding: "16px",
-  width: "100%",
+  padding: "24px 12px",
   textAlign: "center" as const,
+  WebkitTextSizeAdjust: "100%" as const,
+  MsTextSizeAdjust: "100%" as const,
 };
 
 const container = {
   margin: "0 auto",
-  padding: "40px 28px",
+  padding: "32px 24px",
+  width: "100%",
   maxWidth: "480px",
   backgroundColor: "#f5eed9",
   borderRadius: "12px",
   border: "1px solid #d9cdb8",
-  marginTop: "32px",
-  marginBottom: "32px",
   textAlign: "center" as const,
 };
 
@@ -110,11 +110,11 @@ const button = {
   backgroundColor: "#a0550d",
   borderRadius: "8px",
   color: "#f5eed9",
-  fontSize: "15px",
+  fontSize: "16px",
   fontWeight: "600" as const,
   textDecoration: "none",
-  padding: "12px 32px",
-  display: "inline-block",
+  padding: "14px 40px",
+  textAlign: "center" as const,
 };
 
 const link = {

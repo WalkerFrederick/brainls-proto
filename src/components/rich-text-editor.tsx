@@ -84,14 +84,6 @@ export function RichTextEditor({
         class: "prose prose-sm max-w-none focus:outline-none",
         style: `min-height: ${minHeight}`,
       },
-      handleClick: (_view, _pos, event) => {
-        const anchor = (event.target as HTMLElement).closest("a");
-        if (anchor) {
-          event.preventDefault();
-          return true;
-        }
-        return false;
-      },
     },
     onUpdate: ({ editor: e }) => {
       isUpdatingRef.current = true;

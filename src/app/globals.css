@@ -734,7 +734,7 @@
 }
 
 .tiptap a {
-  cursor: text;
+  pointer-events: none;
 }
 
 /* Cloze deletion styles */

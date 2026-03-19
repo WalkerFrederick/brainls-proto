@@ -41,14 +41,31 @@ export function LinkBubble({ editor, handleRef }: LinkBubbleProps) {
   const [url, setUrl] = useState("");
   const [linkText, setLinkText] = useState("");
   const [insertMode, setInsertMode] = useState(false);
+  const [activeHref, setActiveHref] = useState("");
   const urlInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const shouldShowRef = useRef(false);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
 
-  const activeHref = editor.isActive("link")
-    ? ((editor.getAttributes("link").href as string) ?? "")
-    : "";
+  useEffect(() => {
+    const onSelectionUpdate = () => {
+      const href = editor.isActive("link")
+        ? ((editor.getAttributes("link").href as string) ?? "")
+        : "";
+      setActiveHref(href);
+    };
+    editor.on("selectionUpdate", onSelectionUpdate);
+    editor.on("update", onSelectionUpdate);
+    return () => {
+      editor.off("selectionUpdate", onSelectionUpdate);
+      editor.off("update", onSelectionUpdate);
+    };
+  }, [editor]);
+
+  const activeHrefRef = useRef(activeHref);
+  useEffect(() => {
+    activeHrefRef.current = activeHref;
+  }, [activeHref]);
 
   useEffect(() => {
     if (!editing) return;
@@ -107,11 +124,11 @@ export function LinkBubble({ editor, handleRef }: LinkBubbleProps) {
   }, [editor]);
 
   const startEditing = useCallback(() => {
-    setUrl(activeHref);
+    setUrl(activeHrefRef.current);
     setLinkText("");
     setInsertMode(false);
     setEditing(true);
-  }, [activeHref]);
+  }, []);
 
   const cancel = useCallback(() => {
     shouldShowRef.current = false;
@@ -127,7 +144,7 @@ export function LinkBubble({ editor, handleRef }: LinkBubbleProps) {
     const hasSelection = saved != null && saved.from !== saved.to;
     const onExistingLink = editor.isActive("link");
 
-    setUrl(onExistingLink ? activeHref : "");
+    setUrl(onExistingLink ? activeHrefRef.current : "");
     setLinkText("");
     setInsertMode(!hasSelection && !onExistingLink);
     setEditing(true);
@@ -140,7 +157,7 @@ export function LinkBubble({ editor, handleRef }: LinkBubbleProps) {
     savedSelectionRef.current = null;
 
     editor.view.dispatch(editor.state.tr);
-  }, [editor, activeHref]);
+  }, [editor]);
 
   useImperativeHandle(
     handleRef,

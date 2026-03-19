@@ -277,8 +277,8 @@ async function seed() {
         deckDefinitionId: deck.id,
         cardType: "front_back",
         contentJson: {
-          front: "What is **spaced repetition**?",
-          back: "A study technique where you review material at increasing intervals. Cards you know well appear less often; cards you struggle with come back sooner.",
+          front: "<p>What is <strong>spaced repetition</strong>?</p>",
+          back: "<p>A study technique where you review material at increasing intervals. Cards you know well appear less often; cards you struggle with come back sooner.</p>",
         },
         createdByUserId: userId,
         updatedByUserId: userId,
@@ -291,7 +291,7 @@ async function seed() {
         deckDefinitionId: deck.id,
         cardType: "multiple_choice",
         contentJson: {
-          question: "Which of these is a benefit of spaced repetition?",
+          question: "<p>Which of these is a benefit of spaced repetition?</p>",
           choices: [
             "It lets you cram everything the night before",
             "It reduces total study time while improving retention",
@@ -306,7 +306,7 @@ async function seed() {
       .returning({ id: schema.cardDefinitions.id });
 
     const clozeText =
-      "The {{c1::hippocampus}} is the brain region responsible for forming new {{c2::memories}}.";
+      "<p>The {{c1::hippocampus}} is the brain region responsible for forming new {{c2::memories}}.</p>";
     const [clozeParent] = await db
       .insert(schema.cardDefinitions)
       .values({
@@ -348,9 +348,9 @@ async function seed() {
         deckDefinitionId: deck.id,
         cardType: "keyboard_shortcut",
         contentJson: {
-          prompt: "Copy to clipboard",
+          prompt: "<p>Copy to clipboard</p>",
           shortcut: { key: "c", ctrl: true, shift: false, alt: false, meta: false },
-          explanation: "Ctrl+C copies the current selection to the clipboard.",
+          explanation: "<p>Ctrl+C copies the current selection to the clipboard.</p>",
         },
         createdByUserId: userId,
         updatedByUserId: userId,

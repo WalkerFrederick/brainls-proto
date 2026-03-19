@@ -9,14 +9,3 @@ export function isAllowedImageUrl(url: string): boolean {
     return false;
   }
 }
-
-/**
- * Removes markdown image references (`![alt](url)`) whose URL
- * doesn't point to an allowed UploadThing host.
- * Preserves alt text as plain text so the user doesn't lose it silently.
- */
-export function stripDisallowedImages(text: string): string {
-  return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, _alt, url) => {
-    return isAllowedImageUrl(url) ? match : "";
-  });
-}

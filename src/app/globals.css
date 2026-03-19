@@ -714,6 +714,29 @@
   animation: shake 0.4s ease-in-out;
 }
 
+/* ── Tiptap editor styles ───────────────────────────────────────── */
+.tiptap {
+  outline: none;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap img {
+  max-height: 16rem;
+  border-radius: 0.375rem;
+  object-fit: contain;
+}
+
+.tiptap a {
+  cursor: text;
+}
+
 /* Cloze deletion styles */
 .cloze-blank {
   display: inline;

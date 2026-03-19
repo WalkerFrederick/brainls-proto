@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient, useSession } from "@/lib/auth-client";
+import { validateName } from "@/lib/validation";
 import { removeAvatar } from "@/actions/avatar";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { UserAvatar } from "@/components/user-avatar";
@@ -69,9 +70,16 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMessage("");
+
+    const validated = validateName(name);
+    if (!validated.valid) {
+      setMessage(validated.error);
+      return;
+    }
+
     setLoading(true);
 
-    const result = await authClient.updateUser({ name });
+    const result = await authClient.updateUser({ name: validated.name });
 
     if (result.error) {
       setMessage(result.error.message ?? "Update failed");
@@ -137,7 +145,14 @@ export function UpdateProfileForm({ name: initialName, email, image: initialImag
       </div>
       <div className="space-y-2">
         <Label htmlFor="settings-name">Display Name</Label>
-        <Input id="settings-name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <Input
+          id="settings-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          maxLength={50}
+          autoComplete="name"
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="settings-email">Email</Label>

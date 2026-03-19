@@ -3,7 +3,7 @@ import Link from "next/link";
 import { BarChart3, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicShell } from "@/components/public-shell";
-import { SrsCurveDemo } from "@/components/srs-curve-demo";
+import { ForgettingCurveIllustration } from "@/components/forgetting-curve-illustration";
 
 export const metadata: Metadata = {
   title: "How Spaced Repetition Works",
@@ -31,11 +31,12 @@ export default function HowItWorksPage() {
             The Forgetting Curve
           </h2>
           <p className="mx-auto mb-8 max-w-2xl text-center text-muted-foreground">
-            Each card has its own forgetting curve. Rate how well you remember, and watch how the
-            algorithm schedules your next review. Try it — click a rating to begin.
+            Without review, you forget most of what you learn within days. Spaced repetition
+            schedules reviews right as your memory starts to fade — each time, the interval grows
+            longer.
           </p>
           <div className="rounded-xl border bg-background p-5 sm:p-6">
-            <SrsCurveDemo />
+            <ForgettingCurveIllustration />
           </div>
         </div>
       </section>

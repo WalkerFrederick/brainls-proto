@@ -8,14 +8,16 @@ import {
   Globe,
   Sparkles,
   ArrowLeftRight,
-  Check,
+  GraduationCap,
   Shuffle,
   ShieldCheck,
   MessageCircleQuestion,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicShell } from "@/components/public-shell";
-import { SrsCurveDemo } from "@/components/srs-curve-demo";
+import { ForgettingCurveIllustration } from "@/components/forgetting-curve-illustration";
+import { PricingCard } from "@/components/pricing-card";
+import { PRICING_TIERS } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "BrainLS — Remember Everything You Learn",
@@ -99,11 +101,12 @@ export default async function LandingPage() {
             The Forgetting Curve
           </h2>
           <p className="mx-auto mb-8 max-w-2xl text-center text-muted-foreground">
-            Each card has its own forgetting curve. Rate how well you remember, and watch how the
-            algorithm schedules your next review. Try it — click a rating to begin.
+            Without review, you forget most of what you learn within days. Spaced repetition
+            schedules reviews at the exact moment your memory starts to fade — each time, the
+            interval grows longer until the knowledge is permanent.
           </p>
           <div className="rounded-xl border bg-background p-5 sm:p-6">
-            <SrsCurveDemo />
+            <ForgettingCurveIllustration />
           </div>
         </div>
       </section>
@@ -249,68 +252,21 @@ export default async function LandingPage() {
             Start for free. Upgrade when you need AI-powered features or more storage.
           </p>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <PricingCard
-              name="Free"
-              price="$0"
-              period="/mo"
-              description="Everything you need to get started with spaced repetition."
-              features={[
-                "Unlimited decks & cards",
-                "Spaced repetition (SRS)",
-                "Markdown & images",
-                "Public & shared decks",
-                "1 GB media storage",
-              ]}
-              cta="Get Started"
-              ctaHref="/sign-up"
-            />
-            <PricingCard
-              name="AI Basic"
-              price="$9"
-              period="/mo"
-              description="Add AI to your study workflow."
-              features={[
-                "Everything in Free",
-                "AI card generation",
-                "AI explanations",
-                "5,000 AI tokens/mo",
-                "10 GB media storage",
-              ]}
-              cta="Coming Soon"
-              disabled
-            />
-            <PricingCard
-              name="AI Pro"
-              price="$29"
-              period="/mo"
-              description="For power users who study seriously."
-              features={[
-                "Everything in Basic",
-                "Priority AI models",
-                "Advanced analytics",
-                "50,000 AI tokens/mo",
-                "50 GB media storage",
-              ]}
-              cta="Coming Soon"
-              highlighted
-              disabled
-            />
-            <PricingCard
-              name="Enterprise"
-              price="Custom"
-              description="For teams and organizations with custom needs."
-              features={[
-                "Everything in Pro",
-                "Unlimited AI tokens",
-                "Unlimited storage",
-                "SSO & admin controls",
-                "Dedicated support & SLA",
-              ]}
-              cta="Coming Soon"
-              outlineButton
-              disabled
-            />
+            {PRICING_TIERS.map((tier) => (
+              <PricingCard key={tier.name} {...tier} />
+            ))}
           </div>
+          <Link href="/education" className="mt-6 block">
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-5 text-center transition-colors hover:bg-primary/10 sm:flex-row sm:justify-between sm:text-left">
+              <div className="flex items-center gap-3">
+                <GraduationCap className="h-5 w-5 text-primary" />
+                <span className="text-sm font-medium">
+                  Are you a student? Get 30% off our AI plans
+                </span>
+              </div>
+              <span className="text-sm font-medium text-primary">Learn more &rarr;</span>
+            </div>
+          </Link>
         </div>
       </section>
 
@@ -343,67 +299,6 @@ function FeatureCard({
       {icon}
       <h3 className="font-semibold">{title}</h3>
       <p className="text-sm text-muted-foreground">{description}</p>
-    </div>
-  );
-}
-
-function PricingCard({
-  name,
-  price,
-  period,
-  description,
-  features,
-  cta,
-  ctaHref,
-  highlighted,
-  outlineButton,
-  disabled,
-}: {
-  name: string;
-  price: string;
-  period?: string;
-  description: string;
-  features: string[];
-  cta: string;
-  ctaHref?: string;
-  highlighted?: boolean;
-  outlineButton?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <div
-      className={`relative flex flex-col rounded-lg border p-6 ${highlighted ? "border-primary shadow-md" : ""}`}
-    >
-      {highlighted && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
-          Popular
-        </span>
-      )}
-      <h3 className="font-semibold">{name}</h3>
-      <div className="mt-2 flex items-baseline gap-1">
-        <span className="font-serif text-3xl font-bold">{price}</span>
-        {period && <span className="text-sm text-muted-foreground">{period}</span>}
-      </div>
-      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-      <ul className="mt-6 flex-1 space-y-2.5">
-        {features.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            {f}
-          </li>
-        ))}
-      </ul>
-      {disabled ? (
-        <Button variant={outlineButton ? "outline" : "default"} className="mt-8 w-full" disabled>
-          {cta}
-        </Button>
-      ) : (
-        <Link href={ctaHref ?? "/sign-up"} className="mt-8">
-          <Button variant={outlineButton ? "outline" : "default"} className="w-full">
-            {cta}
-          </Button>
-        </Link>
-      )}
     </div>
   );
 }

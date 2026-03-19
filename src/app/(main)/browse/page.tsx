@@ -42,7 +42,7 @@ export default async function BrowsePage({ searchParams }: Props) {
   const allTags = [...new Set([...platformDecks, ...communityDecks].flatMap((d) => d.tags))].sort();
 
   return (
-    <div className={session ? "space-y-6" : "mx-auto max-w-6xl space-y-8 px-6 py-10 md:px-12"}>
+    <div className={session ? "space-y-6" : "mx-auto max-w-5xl space-y-8 px-6 py-10 md:px-12"}>
       <div>
         <div className="flex items-center gap-3">
           <Globe className="h-6 w-6" />

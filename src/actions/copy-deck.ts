@@ -9,144 +9,148 @@ import { canViewDeck, requireFolderRole } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
 import { getDefaultCardState } from "@brainls/fsrs";
+import { safeAction } from "@/lib/errors";
 
-export async function copyDeck(
-  sourceDeckId: string,
-  targetFolderId: string,
-  retainSrsData: boolean = false,
-): Promise<Result<{ id: string }>> {
-  if (!isValidUuid(sourceDeckId)) return err("Invalid source deck ID");
-  if (!isValidUuid(targetFolderId)) return err("Invalid target folder ID");
-  const session = await requireSession();
+export const copyDeck = safeAction(
+  "copyDeck",
+  async (
+    sourceDeckId: string,
+    targetFolderId: string,
+    retainSrsData: boolean = false,
+  ): Promise<Result<{ id: string }>> => {
+    if (!isValidUuid(sourceDeckId)) return err("VALIDATION_FAILED", "Invalid source deck ID");
+    if (!isValidUuid(targetFolderId)) return err("VALIDATION_FAILED", "Invalid target folder ID");
+    const session = await requireSession();
 
-  const canView = await canViewDeck(sourceDeckId, session.user.id);
-  if (!canView) return err("Not allowed to copy this deck");
+    const canView = await canViewDeck(sourceDeckId, session.user.id);
+    if (!canView) return err("PERMISSION_DENIED", "Not allowed to copy this deck");
 
-  const perm = await requireFolderRole(targetFolderId, session.user.id, "editor");
-  if (!perm.allowed) return err(perm.error);
+    const perm = await requireFolderRole(targetFolderId, session.user.id, "editor");
+    if (!perm.allowed) return err(perm.code, perm.error);
 
-  const [sourceDeck] = await db
-    .select()
-    .from(deckDefinitions)
-    .where(eq(deckDefinitions.id, sourceDeckId));
+    const [sourceDeck] = await db
+      .select()
+      .from(deckDefinitions)
+      .where(eq(deckDefinitions.id, sourceDeckId));
 
-  if (!sourceDeck) return err("Source deck not found");
+    if (!sourceDeck) return err("NOT_FOUND", "Source deck not found");
 
-  const { sourceDeckId: cardSourceId } = await resolveSourceDeck(sourceDeckId);
+    const { sourceDeckId: cardSourceId } = await resolveSourceDeck(sourceDeckId);
 
-  const [copiedDeck] = await db
-    .insert(deckDefinitions)
-    .values({
-      folderId: targetFolderId,
-      title: `${sourceDeck.title} (copy)`,
-      slug: `${sourceDeck.slug}-copy-${Date.now()}`,
-      description: sourceDeck.description,
-      copiedFromDeckDefinitionId: sourceDeckId,
-      createdByUserId: session.user.id,
-      updatedByUserId: session.user.id,
-    })
-    .returning({ id: deckDefinitions.id });
-
-  const sourceCards = await db
-    .select()
-    .from(cardDefinitions)
-    .where(
-      and(
-        eq(cardDefinitions.deckDefinitionId, cardSourceId),
-        isNull(cardDefinitions.archivedAt),
-        eq(cardDefinitions.status, "active"),
-      ),
-    );
-
-  const clozeParents = sourceCards.filter((c) => c.cardType === "cloze" && !c.parentCardId);
-  const clozeChildren = sourceCards.filter((c) => c.cardType === "cloze" && c.parentCardId);
-  const regularCards = sourceCards.filter((c) => c.cardType !== "cloze");
-
-  const sourceToNewCardId = new Map<string, string>();
-
-  if (regularCards.length > 0) {
-    const inserted = await db
-      .insert(cardDefinitions)
-      .values(
-        regularCards.map((card) => ({
-          deckDefinitionId: copiedDeck.id,
-          cardType: card.cardType,
-          contentJson: card.contentJson,
-          createdByUserId: session.user.id,
-          updatedByUserId: session.user.id,
-        })),
-      )
-      .returning({ id: cardDefinitions.id });
-    regularCards.forEach((card, i) => {
-      sourceToNewCardId.set(card.id, inserted[i].id);
-    });
-  }
-
-  for (const parent of clozeParents) {
-    const [newParent] = await db
-      .insert(cardDefinitions)
+    const [copiedDeck] = await db
+      .insert(deckDefinitions)
       .values({
-        deckDefinitionId: copiedDeck.id,
-        cardType: "cloze",
-        contentJson: parent.contentJson,
+        folderId: targetFolderId,
+        title: `${sourceDeck.title} (copy)`,
+        slug: `${sourceDeck.slug}-copy-${Date.now()}`,
+        description: sourceDeck.description,
+        copiedFromDeckDefinitionId: sourceDeckId,
         createdByUserId: session.user.id,
         updatedByUserId: session.user.id,
       })
-      .returning({ id: cardDefinitions.id });
+      .returning({ id: deckDefinitions.id });
 
-    sourceToNewCardId.set(parent.id, newParent.id);
+    const sourceCards = await db
+      .select()
+      .from(cardDefinitions)
+      .where(
+        and(
+          eq(cardDefinitions.deckDefinitionId, cardSourceId),
+          isNull(cardDefinitions.archivedAt),
+          eq(cardDefinitions.status, "active"),
+        ),
+      );
 
-    const children = clozeChildren.filter((c) => c.parentCardId === parent.id);
-    if (children.length > 0) {
+    const clozeParents = sourceCards.filter((c) => c.cardType === "cloze" && !c.parentCardId);
+    const clozeChildren = sourceCards.filter((c) => c.cardType === "cloze" && c.parentCardId);
+    const regularCards = sourceCards.filter((c) => c.cardType !== "cloze");
+
+    const sourceToNewCardId = new Map<string, string>();
+
+    if (regularCards.length > 0) {
       const inserted = await db
         .insert(cardDefinitions)
         .values(
-          children.map((child) => ({
+          regularCards.map((card) => ({
             deckDefinitionId: copiedDeck.id,
-            cardType: "cloze",
-            contentJson: child.contentJson,
-            parentCardId: newParent.id,
+            cardType: card.cardType,
+            contentJson: card.contentJson,
             createdByUserId: session.user.id,
             updatedByUserId: session.user.id,
           })),
         )
         .returning({ id: cardDefinitions.id });
-      children.forEach((child, i) => {
-        sourceToNewCardId.set(child.id, inserted[i].id);
+      regularCards.forEach((card, i) => {
+        sourceToNewCardId.set(card.id, inserted[i].id);
       });
     }
-  }
 
-  if (retainSrsData) {
-    await migrateUserCardStates(session.user.id, cardSourceId, copiedDeck.id, sourceToNewCardId);
-  } else {
-    const [ud] = await db
-      .insert(userDecks)
-      .values({ userId: session.user.id, deckDefinitionId: copiedDeck.id })
-      .returning({ id: userDecks.id });
+    for (const parent of clozeParents) {
+      const [newParent] = await db
+        .insert(cardDefinitions)
+        .values({
+          deckDefinitionId: copiedDeck.id,
+          cardType: "cloze",
+          contentJson: parent.contentJson,
+          createdByUserId: session.user.id,
+          updatedByUserId: session.user.id,
+        })
+        .returning({ id: cardDefinitions.id });
 
-    const studyableSourceCards = sourceCards.filter(
-      (c) => c.cardType !== "cloze" || c.parentCardId !== null,
-    );
+      sourceToNewCardId.set(parent.id, newParent.id);
 
-    if (studyableSourceCards.length > 0) {
-      const defaultState = getDefaultCardState();
-      await db.insert(userCardStates).values(
-        studyableSourceCards.map((c) => ({
-          userDeckId: ud.id,
-          cardDefinitionId: sourceToNewCardId.get(c.id)!,
-          srsState: defaultState.srsState,
-          stability: String(defaultState.stability),
-          difficulty: String(defaultState.difficulty),
-          reps: 0,
-          lapses: 0,
-        })),
-      );
+      const children = clozeChildren.filter((c) => c.parentCardId === parent.id);
+      if (children.length > 0) {
+        const inserted = await db
+          .insert(cardDefinitions)
+          .values(
+            children.map((child) => ({
+              deckDefinitionId: copiedDeck.id,
+              cardType: "cloze",
+              contentJson: child.contentJson,
+              parentCardId: newParent.id,
+              createdByUserId: session.user.id,
+              updatedByUserId: session.user.id,
+            })),
+          )
+          .returning({ id: cardDefinitions.id });
+        children.forEach((child, i) => {
+          sourceToNewCardId.set(child.id, inserted[i].id);
+        });
+      }
     }
-  }
 
-  return ok({ id: copiedDeck.id });
-}
+    if (retainSrsData) {
+      await migrateUserCardStates(session.user.id, cardSourceId, copiedDeck.id, sourceToNewCardId);
+    } else {
+      const [ud] = await db
+        .insert(userDecks)
+        .values({ userId: session.user.id, deckDefinitionId: copiedDeck.id })
+        .returning({ id: userDecks.id });
+
+      const studyableSourceCards = sourceCards.filter(
+        (c) => c.cardType !== "cloze" || c.parentCardId !== null,
+      );
+
+      if (studyableSourceCards.length > 0) {
+        const defaultState = getDefaultCardState();
+        await db.insert(userCardStates).values(
+          studyableSourceCards.map((c) => ({
+            userDeckId: ud.id,
+            cardDefinitionId: sourceToNewCardId.get(c.id)!,
+            srsState: defaultState.srsState,
+            stability: String(defaultState.stability),
+            difficulty: String(defaultState.difficulty),
+            reps: 0,
+            lapses: 0,
+          })),
+        );
+      }
+    }
+
+    return ok({ id: copiedDeck.id });
+  },
+);
 
 async function migrateUserCardStates(
   userId: string,

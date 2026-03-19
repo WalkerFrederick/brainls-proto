@@ -6,13 +6,14 @@ import { assets, users } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { utapi } from "@/lib/uploadthing";
+import { safeAction } from "@/lib/errors";
 
-export async function removeAvatar(): Promise<Result<null>> {
+export const removeAvatar = safeAction("removeAvatar", async (): Promise<Result<null>> => {
   const session = await requireSession();
   const { id: userId, personalFolderId } = session.user;
 
   if (!personalFolderId) {
-    return err("No personal folder found");
+    return err("BAD_REQUEST", "No personal folder found");
   }
 
   const avatarAssets = await db
@@ -32,4 +33,4 @@ export async function removeAvatar(): Promise<Result<null>> {
   await db.update(users).set({ image: null }).where(eq(users.id, userId));
 
   return ok(null);
-}
+});

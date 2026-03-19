@@ -36,10 +36,18 @@ export async function requireFolderRole(
 ) {
   const member = await getFolderMember(folderId, userId);
   if (!member) {
-    return { allowed: false as const, error: "Not a member of this folder" };
+    return {
+      allowed: false as const,
+      error: "Not a member of this folder",
+      code: "PERMISSION_DENIED" as const,
+    };
   }
   if (!hasMinRole(member.role as FolderRole, requiredRole)) {
-    return { allowed: false as const, error: "Insufficient permissions" };
+    return {
+      allowed: false as const,
+      error: "Insufficient permissions",
+      code: "PERMISSION_DENIED" as const,
+    };
   }
   return { allowed: true as const, member };
 }

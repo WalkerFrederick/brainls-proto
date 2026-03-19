@@ -5,204 +5,215 @@ import { db } from "@/db";
 import { deckDefinitions, cardDefinitions, deckTags, tags } from "@/db/schema";
 import { users } from "@/db/schema";
 import { ok, err, type Result } from "@/lib/result";
+import { safeAction } from "@/lib/errors";
 import { isValidUuid } from "@/lib/validate-uuid";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
 import { PLATFORM_USER_ID } from "@/lib/platform";
 
 const PUBLIC_VIEW_POLICIES = new Set(["public", "link"]);
 
-export async function getPublicDeck(
-  deckId: string,
-): Promise<Result<typeof deckDefinitions.$inferSelect>> {
-  if (!isValidUuid(deckId)) return err("Invalid deck ID");
+export const getPublicDeck = safeAction(
+  "getPublicDeck",
+  async (deckId: string): Promise<Result<typeof deckDefinitions.$inferSelect>> => {
+    if (!isValidUuid(deckId)) return err("VALIDATION_FAILED", "Invalid deck ID");
 
-  const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
+    const [deck] = await db.select().from(deckDefinitions).where(eq(deckDefinitions.id, deckId));
 
-  if (!deck) return err("Deck not found");
-  if (deck.archivedAt) return err("The author has archived this deck");
-  if (!PUBLIC_VIEW_POLICIES.has(deck.viewPolicy)) {
-    return err("This deck is not publicly viewable");
-  }
+    if (!deck) return err("NOT_FOUND", "Deck not found");
+    if (deck.archivedAt) return err("NOT_FOUND", "The author has archived this deck");
+    if (!PUBLIC_VIEW_POLICIES.has(deck.viewPolicy)) {
+      return err("PERMISSION_DENIED", "This deck is not publicly viewable");
+    }
 
-  return ok(deck);
-}
+    return ok(deck);
+  },
+);
 
 const PUBLIC_CARD_PREVIEW_LIMIT = 8;
 
-export async function listPublicCards(
-  deckId: string,
-): Promise<Result<Array<typeof cardDefinitions.$inferSelect>>> {
-  if (!isValidUuid(deckId)) return err("Invalid deck ID");
+export const listPublicCards = safeAction(
+  "listPublicCards",
+  async (deckId: string): Promise<Result<Array<typeof cardDefinitions.$inferSelect>>> => {
+    if (!isValidUuid(deckId)) return err("VALIDATION_FAILED", "Invalid deck ID");
 
-  const [deck] = await db
-    .select({ viewPolicy: deckDefinitions.viewPolicy })
-    .from(deckDefinitions)
-    .where(eq(deckDefinitions.id, deckId));
-
-  if (!deck) return err("Deck not found");
-  if (!PUBLIC_VIEW_POLICIES.has(deck.viewPolicy)) {
-    return err("This deck is not publicly viewable");
-  }
-
-  const { sourceDeckId } = await resolveSourceDeck(deckId);
-
-  const rows = await db
-    .select()
-    .from(cardDefinitions)
-    .where(
-      and(
-        eq(cardDefinitions.deckDefinitionId, sourceDeckId),
-        isNull(cardDefinitions.archivedAt),
-        isNull(cardDefinitions.parentCardId),
-      ),
-    );
-
-  return ok(rows);
-}
-
-export async function previewPublicCards(
-  deckId: string,
-): Promise<Result<{ cards: Array<typeof cardDefinitions.$inferSelect>; totalCount: number }>> {
-  if (!isValidUuid(deckId)) return err("Invalid deck ID");
-
-  const [deck] = await db
-    .select({ viewPolicy: deckDefinitions.viewPolicy })
-    .from(deckDefinitions)
-    .where(eq(deckDefinitions.id, deckId));
-
-  if (!deck) return err("Deck not found");
-  if (!PUBLIC_VIEW_POLICIES.has(deck.viewPolicy)) {
-    return err("This deck is not publicly viewable");
-  }
-
-  const { sourceDeckId } = await resolveSourceDeck(deckId);
-
-  const baseWhere = and(
-    eq(cardDefinitions.deckDefinitionId, sourceDeckId),
-    isNull(cardDefinitions.archivedAt),
-    isNull(cardDefinitions.parentCardId),
-  );
-
-  const [[countRow], cards] = await Promise.all([
-    db
-      .select({ count: sql<number>`count(*)` })
-      .from(cardDefinitions)
-      .where(baseWhere),
-    db.select().from(cardDefinitions).where(baseWhere).limit(PUBLIC_CARD_PREVIEW_LIMIT),
-  ]);
-
-  return ok({ cards, totalCount: Number(countRow.count) });
-}
-
-export async function listPublicDecks(opts?: { tag?: string }): Promise<
-  Result<
-    Array<{
-      id: string;
-      title: string;
-      description: string | null;
-      cardCount: number;
-      createdByName: string;
-      createdByUserId: string;
-      createdAt: Date;
-      tags: string[];
-    }>
-  >
-> {
-  const tagFilter = opts?.tag?.trim().toLowerCase();
-
-  let deckRows;
-
-  if (tagFilter) {
-    deckRows = await db
-      .select({
-        id: deckDefinitions.id,
-        title: deckDefinitions.title,
-        description: deckDefinitions.description,
-        createdByName: users.name,
-        createdByUserId: deckDefinitions.createdByUserId,
-        createdAt: deckDefinitions.createdAt,
-      })
+    const [deck] = await db
+      .select({ viewPolicy: deckDefinitions.viewPolicy })
       .from(deckDefinitions)
-      .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
-      .innerJoin(deckTags, eq(deckTags.deckDefinitionId, deckDefinitions.id))
-      .innerJoin(tags, eq(deckTags.tagId, tags.id))
+      .where(eq(deckDefinitions.id, deckId));
+
+    if (!deck) return err("NOT_FOUND", "Deck not found");
+    if (!PUBLIC_VIEW_POLICIES.has(deck.viewPolicy)) {
+      return err("PERMISSION_DENIED", "This deck is not publicly viewable");
+    }
+
+    const { sourceDeckId } = await resolveSourceDeck(deckId);
+
+    const rows = await db
+      .select()
+      .from(cardDefinitions)
       .where(
         and(
-          eq(deckDefinitions.viewPolicy, "public"),
-          isNull(deckDefinitions.archivedAt),
-          eq(tags.name, tagFilter),
+          eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+          isNull(cardDefinitions.archivedAt),
+          isNull(cardDefinitions.parentCardId),
         ),
-      )
-      .orderBy(desc(deckDefinitions.createdAt));
-  } else {
-    deckRows = await db
-      .select({
-        id: deckDefinitions.id,
-        title: deckDefinitions.title,
-        description: deckDefinitions.description,
-        createdByName: users.name,
-        createdByUserId: deckDefinitions.createdByUserId,
-        createdAt: deckDefinitions.createdAt,
-      })
-      .from(deckDefinitions)
-      .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
-      .where(and(eq(deckDefinitions.viewPolicy, "public"), isNull(deckDefinitions.archivedAt)))
-      .orderBy(desc(deckDefinitions.createdAt));
-  }
-
-  const allDeckIds = deckRows.map((d) => d.id);
-  const deckTagMap = new Map<string, string[]>();
-
-  if (allDeckIds.length > 0) {
-    const tagRows = await db
-      .select({
-        deckDefinitionId: deckTags.deckDefinitionId,
-        tagName: tags.name,
-      })
-      .from(deckTags)
-      .innerJoin(tags, eq(deckTags.tagId, tags.id))
-      .where(
-        sql`${deckTags.deckDefinitionId} IN (${sql.join(
-          allDeckIds.map((id) => sql`${id}`),
-          sql`, `,
-        )})`,
       );
 
-    for (const row of tagRows) {
-      const existing = deckTagMap.get(row.deckDefinitionId) ?? [];
-      existing.push(row.tagName);
-      deckTagMap.set(row.deckDefinitionId, existing);
-    }
-  }
+    return ok(rows);
+  },
+);
 
-  const result = await Promise.all(
-    deckRows.map(async (deck) => {
-      const [countResult] = await db
+export const previewPublicCards = safeAction(
+  "previewPublicCards",
+  async (
+    deckId: string,
+  ): Promise<Result<{ cards: Array<typeof cardDefinitions.$inferSelect>; totalCount: number }>> => {
+    if (!isValidUuid(deckId)) return err("VALIDATION_FAILED", "Invalid deck ID");
+
+    const [deck] = await db
+      .select({ viewPolicy: deckDefinitions.viewPolicy })
+      .from(deckDefinitions)
+      .where(eq(deckDefinitions.id, deckId));
+
+    if (!deck) return err("NOT_FOUND", "Deck not found");
+    if (!PUBLIC_VIEW_POLICIES.has(deck.viewPolicy)) {
+      return err("PERMISSION_DENIED", "This deck is not publicly viewable");
+    }
+
+    const { sourceDeckId } = await resolveSourceDeck(deckId);
+
+    const baseWhere = and(
+      eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+      isNull(cardDefinitions.archivedAt),
+      isNull(cardDefinitions.parentCardId),
+    );
+
+    const [[countRow], cards] = await Promise.all([
+      db
         .select({ count: sql<number>`count(*)` })
         .from(cardDefinitions)
+        .where(baseWhere),
+      db.select().from(cardDefinitions).where(baseWhere).limit(PUBLIC_CARD_PREVIEW_LIMIT),
+    ]);
+
+    return ok({ cards, totalCount: Number(countRow.count) });
+  },
+);
+
+export const listPublicDecks = safeAction(
+  "listPublicDecks",
+  async (opts?: {
+    tag?: string;
+  }): Promise<
+    Result<
+      Array<{
+        id: string;
+        title: string;
+        description: string | null;
+        cardCount: number;
+        createdByName: string;
+        createdByUserId: string;
+        createdAt: Date;
+        tags: string[];
+      }>
+    >
+  > => {
+    const tagFilter = opts?.tag?.trim().toLowerCase();
+
+    let deckRows;
+
+    if (tagFilter) {
+      deckRows = await db
+        .select({
+          id: deckDefinitions.id,
+          title: deckDefinitions.title,
+          description: deckDefinitions.description,
+          createdByName: users.name,
+          createdByUserId: deckDefinitions.createdByUserId,
+          createdAt: deckDefinitions.createdAt,
+        })
+        .from(deckDefinitions)
+        .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
+        .innerJoin(deckTags, eq(deckTags.deckDefinitionId, deckDefinitions.id))
+        .innerJoin(tags, eq(deckTags.tagId, tags.id))
         .where(
           and(
-            eq(cardDefinitions.deckDefinitionId, deck.id),
-            isNull(cardDefinitions.archivedAt),
-            isNull(cardDefinitions.parentCardId),
+            eq(deckDefinitions.viewPolicy, "public"),
+            isNull(deckDefinitions.archivedAt),
+            eq(tags.name, tagFilter),
           ),
+        )
+        .orderBy(desc(deckDefinitions.createdAt));
+    } else {
+      deckRows = await db
+        .select({
+          id: deckDefinitions.id,
+          title: deckDefinitions.title,
+          description: deckDefinitions.description,
+          createdByName: users.name,
+          createdByUserId: deckDefinitions.createdByUserId,
+          createdAt: deckDefinitions.createdAt,
+        })
+        .from(deckDefinitions)
+        .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
+        .where(and(eq(deckDefinitions.viewPolicy, "public"), isNull(deckDefinitions.archivedAt)))
+        .orderBy(desc(deckDefinitions.createdAt));
+    }
+
+    const allDeckIds = deckRows.map((d) => d.id);
+    const deckTagMap = new Map<string, string[]>();
+
+    if (allDeckIds.length > 0) {
+      const tagRows = await db
+        .select({
+          deckDefinitionId: deckTags.deckDefinitionId,
+          tagName: tags.name,
+        })
+        .from(deckTags)
+        .innerJoin(tags, eq(deckTags.tagId, tags.id))
+        .where(
+          sql`${deckTags.deckDefinitionId} IN (${sql.join(
+            allDeckIds.map((id) => sql`${id}`),
+            sql`, `,
+          )})`,
         );
 
-      return {
-        id: deck.id,
-        title: deck.title,
-        description: deck.description,
-        cardCount: Number(countResult.count),
-        createdByName: deck.createdByName ?? "Unknown",
-        createdByUserId: deck.createdByUserId,
-        createdAt: deck.createdAt,
-        tags: (deckTagMap.get(deck.id) ?? []).sort(),
-      };
-    }),
-  );
+      for (const row of tagRows) {
+        const existing = deckTagMap.get(row.deckDefinitionId) ?? [];
+        existing.push(row.tagName);
+        deckTagMap.set(row.deckDefinitionId, existing);
+      }
+    }
 
-  return ok(result);
-}
+    const result = await Promise.all(
+      deckRows.map(async (deck) => {
+        const [countResult] = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(cardDefinitions)
+          .where(
+            and(
+              eq(cardDefinitions.deckDefinitionId, deck.id),
+              isNull(cardDefinitions.archivedAt),
+              isNull(cardDefinitions.parentCardId),
+            ),
+          );
+
+        return {
+          id: deck.id,
+          title: deck.title,
+          description: deck.description,
+          cardCount: Number(countResult.count),
+          createdByName: deck.createdByName ?? "Unknown",
+          createdByUserId: deck.createdByUserId,
+          createdAt: deck.createdAt,
+          tags: (deckTagMap.get(deck.id) ?? []).sort(),
+        };
+      }),
+    );
+
+    return ok(result);
+  },
+);
 
 type PublicDeckSummary = {
   id: string;
@@ -277,57 +288,10 @@ async function enrichDecks(
   );
 }
 
-export async function listPlatformDecks(): Promise<Result<PublicDeckSummary[]>> {
-  const rows = await db
-    .select({
-      id: deckDefinitions.id,
-      title: deckDefinitions.title,
-      description: deckDefinitions.description,
-      createdByName: users.name,
-      createdByUserId: deckDefinitions.createdByUserId,
-      createdAt: deckDefinitions.createdAt,
-    })
-    .from(deckDefinitions)
-    .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
-    .where(
-      and(
-        eq(deckDefinitions.viewPolicy, "public"),
-        isNull(deckDefinitions.archivedAt),
-        eq(deckDefinitions.createdByUserId, PLATFORM_USER_ID),
-      ),
-    )
-    .orderBy(desc(deckDefinitions.createdAt));
-
-  return ok(await enrichDecks(rows));
-}
-
-export async function listCommunityDecksPaginated(opts: {
-  page: number;
-  pageSize: number;
-  tag?: string;
-}): Promise<Result<{ decks: PublicDeckSummary[]; totalCount: number }>> {
-  const { page, pageSize, tag } = opts;
-  const offset = (page - 1) * pageSize;
-  const tagFilter = tag?.trim().toLowerCase();
-
-  const baseConditions = and(
-    eq(deckDefinitions.viewPolicy, "public"),
-    isNull(deckDefinitions.archivedAt),
-    ne(deckDefinitions.createdByUserId, PLATFORM_USER_ID),
-  );
-
-  let countQuery;
-  let deckQuery;
-
-  if (tagFilter) {
-    countQuery = db
-      .select({ count: sql<number>`count(distinct ${deckDefinitions.id})` })
-      .from(deckDefinitions)
-      .innerJoin(deckTags, eq(deckTags.deckDefinitionId, deckDefinitions.id))
-      .innerJoin(tags, eq(deckTags.tagId, tags.id))
-      .where(and(baseConditions, eq(tags.name, tagFilter)));
-
-    deckQuery = db
+export const listPlatformDecks = safeAction(
+  "listPlatformDecks",
+  async (): Promise<Result<PublicDeckSummary[]>> => {
+    const rows = await db
       .select({
         id: deckDefinitions.id,
         title: deckDefinitions.title,
@@ -338,37 +302,90 @@ export async function listCommunityDecksPaginated(opts: {
       })
       .from(deckDefinitions)
       .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
-      .innerJoin(deckTags, eq(deckTags.deckDefinitionId, deckDefinitions.id))
-      .innerJoin(tags, eq(deckTags.tagId, tags.id))
-      .where(and(baseConditions, eq(tags.name, tagFilter)))
-      .orderBy(desc(deckDefinitions.createdAt))
-      .limit(pageSize)
-      .offset(offset);
-  } else {
-    countQuery = db
-      .select({ count: sql<number>`count(*)` })
-      .from(deckDefinitions)
-      .where(baseConditions);
+      .where(
+        and(
+          eq(deckDefinitions.viewPolicy, "public"),
+          isNull(deckDefinitions.archivedAt),
+          eq(deckDefinitions.createdByUserId, PLATFORM_USER_ID),
+        ),
+      )
+      .orderBy(desc(deckDefinitions.createdAt));
 
-    deckQuery = db
-      .select({
-        id: deckDefinitions.id,
-        title: deckDefinitions.title,
-        description: deckDefinitions.description,
-        createdByName: users.name,
-        createdByUserId: deckDefinitions.createdByUserId,
-        createdAt: deckDefinitions.createdAt,
-      })
-      .from(deckDefinitions)
-      .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
-      .where(baseConditions)
-      .orderBy(desc(deckDefinitions.createdAt))
-      .limit(pageSize)
-      .offset(offset);
-  }
+    return ok(await enrichDecks(rows));
+  },
+);
 
-  const [[countRow], deckRows] = await Promise.all([countQuery, deckQuery]);
-  const totalCount = Number(countRow?.count ?? 0);
+export const listCommunityDecksPaginated = safeAction(
+  "listCommunityDecksPaginated",
+  async (opts: {
+    page: number;
+    pageSize: number;
+    tag?: string;
+  }): Promise<Result<{ decks: PublicDeckSummary[]; totalCount: number }>> => {
+    const { page, pageSize, tag } = opts;
+    const offset = (page - 1) * pageSize;
+    const tagFilter = tag?.trim().toLowerCase();
 
-  return ok({ decks: await enrichDecks(deckRows), totalCount });
-}
+    const baseConditions = and(
+      eq(deckDefinitions.viewPolicy, "public"),
+      isNull(deckDefinitions.archivedAt),
+      ne(deckDefinitions.createdByUserId, PLATFORM_USER_ID),
+    );
+
+    let countQuery;
+    let deckQuery;
+
+    if (tagFilter) {
+      countQuery = db
+        .select({ count: sql<number>`count(distinct ${deckDefinitions.id})` })
+        .from(deckDefinitions)
+        .innerJoin(deckTags, eq(deckTags.deckDefinitionId, deckDefinitions.id))
+        .innerJoin(tags, eq(deckTags.tagId, tags.id))
+        .where(and(baseConditions, eq(tags.name, tagFilter)));
+
+      deckQuery = db
+        .select({
+          id: deckDefinitions.id,
+          title: deckDefinitions.title,
+          description: deckDefinitions.description,
+          createdByName: users.name,
+          createdByUserId: deckDefinitions.createdByUserId,
+          createdAt: deckDefinitions.createdAt,
+        })
+        .from(deckDefinitions)
+        .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
+        .innerJoin(deckTags, eq(deckTags.deckDefinitionId, deckDefinitions.id))
+        .innerJoin(tags, eq(deckTags.tagId, tags.id))
+        .where(and(baseConditions, eq(tags.name, tagFilter)))
+        .orderBy(desc(deckDefinitions.createdAt))
+        .limit(pageSize)
+        .offset(offset);
+    } else {
+      countQuery = db
+        .select({ count: sql<number>`count(*)` })
+        .from(deckDefinitions)
+        .where(baseConditions);
+
+      deckQuery = db
+        .select({
+          id: deckDefinitions.id,
+          title: deckDefinitions.title,
+          description: deckDefinitions.description,
+          createdByName: users.name,
+          createdByUserId: deckDefinitions.createdByUserId,
+          createdAt: deckDefinitions.createdAt,
+        })
+        .from(deckDefinitions)
+        .innerJoin(users, eq(deckDefinitions.createdByUserId, users.id))
+        .where(baseConditions)
+        .orderBy(desc(deckDefinitions.createdAt))
+        .limit(pageSize)
+        .offset(offset);
+    }
+
+    const [[countRow], deckRows] = await Promise.all([countQuery, deckQuery]);
+    const totalCount = Number(countRow?.count ?? 0);
+
+    return ok({ decks: await enrichDecks(deckRows), totalCount });
+  },
+);

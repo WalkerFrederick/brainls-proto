@@ -22,9 +22,11 @@ import {
   getDefaultCardState,
   nextInterval,
   DEFAULT_PARAMETERS,
+  CURRENT_SRS_VERSION,
+  LEECH_THRESHOLD,
   type Rating,
   type CardState,
-} from "@/lib/srs";
+} from "@brainls/fsrs";
 import { isValidUuid } from "@/lib/validate-uuid";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
 
@@ -112,6 +114,7 @@ export async function getStudySession(
       reps: number | null;
       lapses: number | null;
       learningStep: number | null;
+      isLeech: boolean;
     }>;
     totalDue: number;
   }>
@@ -141,7 +144,8 @@ export async function getStudySession(
 
   await syncNewCards(userDeckId, userDeck.deckDefinitionId);
 
-  const limit = opts?.limit ?? 20;
+  const maxReviews = userDeck.maxReviewsPerDay ?? 200;
+  const limit = Math.min(opts?.limit ?? 20, maxReviews);
   const effectiveNow = new Date();
   const nowIso = effectiveNow.toISOString();
 
@@ -157,6 +161,7 @@ export async function getStudySession(
     reps: userCardStates.reps,
     lapses: userCardStates.lapses,
     learningStep: userCardStates.learningStep,
+    isLeech: userCardStates.isLeech,
   };
 
   const dueCards = await db
@@ -278,19 +283,28 @@ export async function submitReview(
   const effectiveNow = new Date();
   const result = processReview(currentState, rating as Rating, DEFAULT_PARAMETERS, effectiveNow);
 
+  const fuzzedDueAt = applyFuzz(result.nextDueAt, effectiveNow, userCardStateId);
+  const intervalDaysAfter = nextInterval(
+    result.nextState.stability,
+    DEFAULT_PARAMETERS.desiredRetention,
+  );
+
+  const isLeech = rating === "again" && result.nextState.lapses >= LEECH_THRESHOLD;
+
   if (!skipSrsUpdate) {
     await db
       .update(userCardStates)
       .set({
         srsState: result.nextState.srsState,
-        dueAt: result.nextDueAt,
-        intervalDays: nextInterval(result.nextState.stability, DEFAULT_PARAMETERS.desiredRetention),
+        dueAt: fuzzedDueAt,
+        intervalDays: intervalDaysAfter,
         stability: String(result.nextState.stability),
         difficulty: String(result.nextState.difficulty),
         reps: result.nextState.reps,
         lapses: result.nextState.lapses,
         learningStep: result.nextState.learningStep,
         lastReviewedAt: effectiveNow,
+        ...(isLeech ? { isLeech: true } : {}),
         updatedAt: new Date(),
       })
       .where(eq(userCardStates.id, userCardStateId));
@@ -308,15 +322,12 @@ export async function submitReview(
     srsStateBefore: currentState.srsState,
     srsStateAfter: result.nextState.srsState,
     intervalDaysBefore: cardState.intervalDays,
-    intervalDaysAfter: nextInterval(
-      result.nextState.stability,
-      DEFAULT_PARAMETERS.desiredRetention,
-    ),
+    intervalDaysAfter,
     stabilityBefore: String(currentState.stability),
     stabilityAfter: String(result.nextState.stability),
     difficultyBefore: String(currentState.difficulty),
     difficultyAfter: String(result.nextState.difficulty),
-    srsVersionUsed: userDeck.srsConfigVersion,
+    srsVersionUsed: CURRENT_SRS_VERSION,
   });
 
   if (!skipSrsUpdate) {
@@ -328,7 +339,7 @@ export async function submitReview(
 
   return ok({
     userCardStateId,
-    nextDueAt: result.nextDueAt.toISOString(),
+    nextDueAt: fuzzedDueAt.toISOString(),
   });
 }
 
@@ -729,6 +740,28 @@ export async function getCardStudyStates(
   return ok(rows);
 }
 
+/**
+ * Deterministic fuzz for review intervals > 2 days to prevent review clustering.
+ * Uses a simple hash of the card state ID + interval for reproducibility.
+ */
+function applyFuzz(dueAt: Date, reviewedAt: Date, cardStateId: string): Date {
+  const intervalMs = dueAt.getTime() - reviewedAt.getTime();
+  const intervalDays = intervalMs / (1000 * 60 * 60 * 24);
+
+  if (intervalDays <= 2) return dueAt;
+
+  let hash = 0;
+  const seed = `${cardStateId}:${Math.round(intervalDays)}`;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+  const fuzzPct = ((Math.abs(hash) % 1000) / 1000) * 0.05;
+  const fuzzMs = intervalMs * fuzzPct;
+  const sign = hash % 2 === 0 ? 1 : -1;
+
+  return new Date(dueAt.getTime() + sign * fuzzMs);
+}
+
 async function syncNewCards(userDeckId: string, deckDefinitionId: string) {
   const { sourceDeckId } = await resolveSourceDeck(deckDefinitionId);
 
@@ -914,6 +947,7 @@ export async function getCustomStudySession(input: unknown): Promise<
       reps: number | null;
       lapses: number | null;
       learningStep: number | null;
+      isLeech: boolean;
     }>;
     totalDue: number;
   }>
@@ -977,6 +1011,7 @@ export async function getCustomStudySession(input: unknown): Promise<
       reps: userCardStates.reps,
       lapses: userCardStates.lapses,
       learningStep: userCardStates.learningStep,
+      isLeech: userCardStates.isLeech,
       dueAt: userCardStates.dueAt,
     })
     .from(userCardStates)

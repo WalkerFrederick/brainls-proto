@@ -8,7 +8,7 @@ import { ok, err, type Result } from "@/lib/result";
 import { canViewDeck, requireFolderRole } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
 import { resolveSourceDeck } from "@/lib/deck-resolver";
-import { getDefaultCardState } from "@/lib/srs";
+import { getDefaultCardState } from "@brainls/fsrs";
 
 export async function copyDeck(
   sourceDeckId: string,

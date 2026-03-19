@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@brainls/fsrs": ["./packages/fsrs/src/index.ts"]
     }
   },
   "include": [

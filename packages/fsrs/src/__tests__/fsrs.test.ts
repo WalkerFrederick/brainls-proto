@@ -10,9 +10,11 @@ import {
   nextStability,
   sameDayStability,
   DEFAULT_PARAMETERS,
+  MAX_INTERVAL,
+  LEECH_THRESHOLD,
   type CardState,
   type Rating,
-} from "@/lib/srs/fsrs";
+} from "../fsrs";
 
 const now = new Date("2025-01-01T12:00:00Z");
 const params = DEFAULT_PARAMETERS;
@@ -23,7 +25,7 @@ function daysLater(date: Date, days: number): Date {
   return d;
 }
 
-describe("FSRS-5 pure functions", () => {
+describe("FSRS-6 pure functions", () => {
   describe("forgettingCurve", () => {
     it("returns 1 at elapsed=0", () => {
       expect(forgettingCurve(0, 5)).toBeCloseTo(1, 5);
@@ -31,7 +33,14 @@ describe("FSRS-5 pure functions", () => {
 
     it("returns ~0.9 at elapsed=stability (by definition of FSRS stability)", () => {
       const r = forgettingCurve(5, 5);
-      expect(r).toBeCloseTo(0.9, 1);
+      expect(r).toBeCloseTo(0.9, 4);
+    });
+
+    it("returns ~0.9 at elapsed=stability for various decay values", () => {
+      for (const decay of [0.1, 0.15, 0.3, 0.5, 0.8]) {
+        const r = forgettingCurve(10, 10, decay);
+        expect(r).toBeCloseTo(0.9, 4);
+      }
     });
 
     it("decreases as elapsed time increases", () => {
@@ -66,6 +75,16 @@ describe("FSRS-5 pure functions", () => {
       const i1 = nextInterval(10, 0.85);
       const i2 = nextInterval(10, 0.95);
       expect(i2).toBeLessThan(i1);
+    });
+
+    it("returns stability when retention is 0.9", () => {
+      const interval = nextInterval(10, 0.9);
+      expect(interval).toBe(10);
+    });
+
+    it("never exceeds MAX_INTERVAL no matter how high stability gets", () => {
+      const interval = nextInterval(999999, 0.9);
+      expect(interval).toBe(MAX_INTERVAL);
     });
   });
 
@@ -137,6 +156,21 @@ describe("FSRS-5 pure functions", () => {
       }
       expect(d).toBeLessThanOrEqual(10);
     });
+
+    it("difficulty cannot escape [1, 10] even after 30 consecutive Again ratings", () => {
+      let d = 9;
+      for (let i = 0; i < 30; i++) {
+        d = nextDifficulty(d, "again", params);
+        expect(d).toBeGreaterThanOrEqual(1);
+        expect(d).toBeLessThanOrEqual(10);
+      }
+    });
+
+    it("linear damping: Again at D=9 changes less than Again at D=3", () => {
+      const deltaHigh = nextDifficulty(9, "again", params) - 9;
+      const deltaLow = nextDifficulty(3, "again", params) - 3;
+      expect(Math.abs(deltaHigh)).toBeLessThan(Math.abs(deltaLow));
+    });
   });
 
   describe("nextStability", () => {
@@ -193,10 +227,53 @@ describe("FSRS-5 pure functions", () => {
       const sNext = sameDayStability(0.1, "again", params);
       expect(sNext).toBeGreaterThanOrEqual(0.1);
     });
+
+    it("Good never decreases stability (SInc >= 1 guard)", () => {
+      for (const s of [1, 10, 100, 1000]) {
+        const sNext = sameDayStability(s, "good", params);
+        expect(sNext).toBeGreaterThanOrEqual(s);
+      }
+    });
+
+    it("Easy never decreases stability (SInc >= 1 guard)", () => {
+      for (const s of [1, 10, 100, 1000]) {
+        const sNext = sameDayStability(s, "easy", params);
+        expect(sNext).toBeGreaterThanOrEqual(s);
+      }
+    });
+
+    it("growth ratio shrinks for high-stability cards (w[19] decay)", () => {
+      const ratioLow = sameDayStability(5, "easy", params) / 5;
+      const ratioHigh = sameDayStability(500, "easy", params) / 500;
+      expect(ratioLow).toBeGreaterThan(ratioHigh);
+    });
+  });
+
+  describe("constants", () => {
+    it("MAX_INTERVAL is 36500", () => {
+      expect(MAX_INTERVAL).toBe(36500);
+    });
+
+    it("LEECH_THRESHOLD is 8", () => {
+      expect(LEECH_THRESHOLD).toBe(8);
+    });
+
+    it("DEFAULT_PARAMETERS has 21 weights", () => {
+      expect(params.w).toHaveLength(21);
+    });
+
+    it("DEFAULT_PARAMETERS desiredRetention is 0.9", () => {
+      expect(params.desiredRetention).toBe(0.9);
+    });
+
+    it("DEFAULT_PARAMETERS has separate relearningSteps", () => {
+      expect(params.relearningSteps).toEqual([10]);
+      expect(params.learningSteps).toEqual([1, 10]);
+    });
   });
 });
 
-describe("FSRS-5 processReview", () => {
+describe("FSRS-6 processReview", () => {
   describe("new card reviews", () => {
     it("transitions to learning step 0 on again", () => {
       const state = getDefaultCardState();
@@ -269,26 +346,24 @@ describe("FSRS-5 processReview", () => {
   });
 
   describe("learning to review graduation", () => {
-    it("graduates from learning step 1 to review on good", () => {
+    it("a new card rated Good twice graduates to review with a multi-day interval", () => {
       const state = getDefaultCardState();
-      // good -> learning step 1
       const r1 = processReview(state, "good", params, now);
       expect(r1.nextState.srsState).toBe("learning");
       expect(r1.nextState.learningStep).toBe(1);
 
-      // good on step 1 (last step) -> graduate to review
       const r2 = processReview(r1.nextState, "good", params, new Date(now.getTime() + 10 * 60_000));
       expect(r2.nextState.srsState).toBe("review");
       expect(r2.nextState.learningStep).toBe(0);
+      const intervalMs = r2.nextDueAt.getTime() - (now.getTime() + 10 * 60_000);
+      expect(intervalMs).toBeGreaterThan(24 * 60 * 60_000);
     });
 
     it("stays in learning on hard (repeats current step)", () => {
       const state = getDefaultCardState();
-      // hard -> learning step 0
       const r1 = processReview(state, "hard", params, now);
       expect(r1.nextState.learningStep).toBe(0);
 
-      // hard again -> still step 0
       const r2 = processReview(r1.nextState, "hard", params, new Date(now.getTime() + 1 * 60_000));
       expect(r2.nextState.srsState).toBe("learning");
       expect(r2.nextState.learningStep).toBe(0);
@@ -297,11 +372,9 @@ describe("FSRS-5 processReview", () => {
 
     it("resets to step 0 on again during learning", () => {
       const state = getDefaultCardState();
-      // good -> step 1
       const r1 = processReview(state, "good", params, now);
       expect(r1.nextState.learningStep).toBe(1);
 
-      // again -> reset to step 0
       const r2 = processReview(
         r1.nextState,
         "again",
@@ -315,11 +388,9 @@ describe("FSRS-5 processReview", () => {
 
     it("graduates immediately on easy during learning", () => {
       const state = getDefaultCardState();
-      // hard -> learning step 0
       const r1 = processReview(state, "hard", params, now);
       expect(r1.nextState.srsState).toBe("learning");
 
-      // easy -> graduate
       const r2 = processReview(r1.nextState, "easy", params, new Date(now.getTime() + 1 * 60_000));
       expect(r2.nextState.srsState).toBe("review");
       expect(r2.nextState.learningStep).toBe(0);
@@ -517,7 +588,6 @@ describe("FSRS-5 processReview", () => {
         "again",
         "good",
         "good",
-        "good",
         "easy",
         "good",
         "good",
@@ -535,12 +605,10 @@ describe("FSRS-5 processReview", () => {
         time = result.nextDueAt;
       }
 
-      // good on new -> learning step 1
       expect(snapshots[0].srsState).toBe("learning");
       expect(snapshots[0].learningStep).toBe(1);
       expect(snapshots[0].reps).toBe(1);
 
-      // good on learning step 1 -> graduate to review
       expect(snapshots[1].srsState).toBe("review");
 
       for (const s of snapshots) {
@@ -573,8 +641,8 @@ describe("FSRS-5 processReview", () => {
     });
   });
 
-  describe("relearning uses same learning steps", () => {
-    it("lapsed review card enters relearning at step 0", () => {
+  describe("relearning uses separate relearning steps", () => {
+    it("lapsed review card enters relearning at step 0 with relearningSteps", () => {
       const state: CardState = {
         srsState: "review",
         stability: 15,
@@ -588,10 +656,11 @@ describe("FSRS-5 processReview", () => {
       const result = processReview(state, "again", params, daysLater(now, 15));
       expect(result.nextState.srsState).toBe("relearning");
       expect(result.nextState.learningStep).toBe(0);
-      expect(result.nextDueAt.getTime()).toBe(daysLater(now, 15).getTime() + 1 * 60_000);
+      // relearningSteps = [10], so 10 minutes
+      expect(result.nextDueAt.getTime()).toBe(daysLater(now, 15).getTime() + 10 * 60_000);
     });
 
-    it("relearning progresses through steps like learning", () => {
+    it("relearning with single step: good graduates immediately", () => {
       const state: CardState = {
         srsState: "relearning",
         stability: 5,
@@ -602,40 +671,40 @@ describe("FSRS-5 processReview", () => {
         lastReview: now,
       };
 
-      // good on step 0 -> step 1
-      const r1 = processReview(state, "good", params, new Date(now.getTime() + 1 * 60_000));
-      expect(r1.nextState.srsState).toBe("relearning");
-      expect(r1.nextState.learningStep).toBe(1);
-
-      // good on step 1 (last step) -> graduate to review
-      const r2 = processReview(r1.nextState, "good", params, new Date(now.getTime() + 11 * 60_000));
-      expect(r2.nextState.srsState).toBe("review");
-      expect(r2.nextState.learningStep).toBe(0);
+      // good on step 0 -> step 1, but relearningSteps has length 1, so graduate
+      const r1 = processReview(state, "good", params, new Date(now.getTime() + 10 * 60_000));
+      expect(r1.nextState.srsState).toBe("review");
+      expect(r1.nextState.learningStep).toBe(0);
     });
 
-    it("again during relearning resets to step 0", () => {
+    it("again during relearning resets to step 0 with relearningSteps interval", () => {
       const state: CardState = {
         srsState: "relearning",
         stability: 5,
         difficulty: 5,
         reps: 5,
         lapses: 1,
-        learningStep: 1,
+        learningStep: 0,
         lastReview: now,
       };
 
       const result = processReview(state, "again", params, new Date(now.getTime() + 10 * 60_000));
       expect(result.nextState.srsState).toBe("relearning");
       expect(result.nextState.learningStep).toBe(0);
+      // relearningSteps[0] = 10 minutes
+      expect(result.nextDueAt.getTime()).toBe(now.getTime() + 10 * 60_000 + 10 * 60_000);
     });
   });
 
   describe("single-step learning configuration", () => {
-    const singleStepParams = { ...params, learningSteps: [5] };
+    const singleStepParams = {
+      ...params,
+      learningSteps: [5],
+      relearningSteps: [5],
+    };
 
     it("good on new card graduates immediately with single step", () => {
       const state = getDefaultCardState();
-      // good -> step 1 but steps.length is 1, so graduate
       const result = processReview(state, "good", singleStepParams, now);
       expect(result.nextState.srsState).toBe("review");
       expect(result.nextState.learningStep).toBe(0);

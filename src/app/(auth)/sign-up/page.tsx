@@ -5,17 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Brain, Loader2 } from "lucide-react";
 import { signUp } from "@/lib/auth-client";
+import { validateName } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -28,17 +22,24 @@ export default function SignUpPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    const result = validateName(name);
+    if (!result.valid) {
+      setError(result.error);
+      return;
+    }
+
     setLoading(true);
 
-    const result = await signUp.email({
-      name,
+    const signUpResult = await signUp.email({
+      name: result.name,
       email,
       password,
       callbackURL: "/home",
     });
 
-    if (result.error) {
-      setError(result.error.message ?? "Sign up failed");
+    if (signUpResult.error) {
+      setError(signUpResult.error.message ?? "Sign up failed");
       setLoading(false);
       return;
     }
@@ -55,8 +56,7 @@ export default function SignUpPage() {
             <Brain className="h-8 w-8 text-primary" />
             <span className="text-2xl font-bold">BrainLS</span>
           </div>
-          <CardTitle>Create Account</CardTitle>
-          <CardDescription>Sign up to start learning with flashcards</CardDescription>
+          <CardTitle>Sign up to start learning</CardTitle>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4 pb-6">
@@ -69,11 +69,14 @@ export default function SignUpPage() {
               <Label htmlFor="name">Name</Label>
               <Input
                 id="name"
+                name="name"
                 type="text"
+                autoComplete="name"
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                maxLength={50}
               />
             </div>
             <div className="space-y-2">
@@ -81,6 +84,7 @@ export default function SignUpPage() {
               <Input
                 id="email"
                 type="email"
+                autoComplete="email"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -92,6 +96,7 @@ export default function SignUpPage() {
               <Input
                 id="password"
                 type="password"
+                autoComplete="new-password"
                 placeholder="At least 8 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

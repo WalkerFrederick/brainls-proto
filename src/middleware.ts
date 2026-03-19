@@ -13,6 +13,9 @@ const PUBLIC_PATHS = [
   "/browse",
   "/how-it-works",
   "/pricing",
+  "/education",
+  "/privacy",
+  "/terms",
 ];
 
 export function middleware(request: NextRequest) {

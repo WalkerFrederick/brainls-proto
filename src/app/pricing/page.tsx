@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicShell } from "@/components/public-shell";
+import { PricingCard } from "@/components/pricing-card";
+import { PRICING_TIERS } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -27,67 +28,9 @@ export default function PricingPage() {
       <section className="border-t bg-muted/30 px-6 py-16 md:px-12">
         <div className="mx-auto max-w-5xl">
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <PricingCard
-              name="Free"
-              price="$0"
-              period="/mo"
-              description="Everything you need to get started with spaced repetition."
-              features={[
-                "Unlimited decks & cards",
-                "Spaced repetition (FSRS)",
-                "Markdown & images",
-                "Public & shared decks",
-                "1 GB media storage",
-              ]}
-              cta="Get Started"
-              ctaHref="/sign-up"
-            />
-            <PricingCard
-              name="AI Basic"
-              price="$9"
-              period="/mo"
-              description="Add AI to your study workflow."
-              features={[
-                "Everything in Free",
-                "AI card generation",
-                "AI explanations",
-                "5,000 AI tokens/mo",
-                "10 GB media storage",
-              ]}
-              cta="Coming Soon"
-              disabled
-            />
-            <PricingCard
-              name="AI Pro"
-              price="$29"
-              period="/mo"
-              description="For power users who study seriously."
-              features={[
-                "Everything in Basic",
-                "Priority AI models",
-                "Advanced analytics",
-                "50,000 AI tokens/mo",
-                "50 GB media storage",
-              ]}
-              cta="Coming Soon"
-              highlighted
-              disabled
-            />
-            <PricingCard
-              name="Enterprise"
-              price="Custom"
-              description="For teams and organizations with custom needs."
-              features={[
-                "Everything in Pro",
-                "Unlimited AI tokens",
-                "Unlimited storage",
-                "SSO & admin controls",
-                "Dedicated support & SLA",
-              ]}
-              cta="Coming Soon"
-              outlineButton
-              disabled
-            />
+            {PRICING_TIERS.map((tier) => (
+              <PricingCard key={tier.name} {...tier} />
+            ))}
           </div>
         </div>
       </section>
@@ -132,67 +75,6 @@ export default function PricingPage() {
         </div>
       </section>
     </PublicShell>
-  );
-}
-
-function PricingCard({
-  name,
-  price,
-  period,
-  description,
-  features,
-  cta,
-  ctaHref,
-  highlighted,
-  outlineButton,
-  disabled,
-}: {
-  name: string;
-  price: string;
-  period?: string;
-  description: string;
-  features: string[];
-  cta: string;
-  ctaHref?: string;
-  highlighted?: boolean;
-  outlineButton?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <div
-      className={`relative flex flex-col rounded-lg border bg-background p-6 ${highlighted ? "border-primary shadow-md" : ""}`}
-    >
-      {highlighted && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
-          Popular
-        </span>
-      )}
-      <h3 className="font-semibold">{name}</h3>
-      <div className="mt-2 flex items-baseline gap-1">
-        <span className="font-serif text-3xl font-bold">{price}</span>
-        {period && <span className="text-sm text-muted-foreground">{period}</span>}
-      </div>
-      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-      <ul className="mt-6 flex-1 space-y-2.5">
-        {features.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            {f}
-          </li>
-        ))}
-      </ul>
-      {disabled ? (
-        <Button variant={outlineButton ? "outline" : "default"} className="mt-8 w-full" disabled>
-          {cta}
-        </Button>
-      ) : (
-        <Link href={ctaHref ?? "/sign-up"} className="mt-8">
-          <Button variant={outlineButton ? "outline" : "default"} className="w-full">
-            {cta}
-          </Button>
-        </Link>
-      )}
-    </div>
   );
 }
 

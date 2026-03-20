@@ -13,6 +13,7 @@ import {
   LogIn,
   Lock,
   RefreshCw,
+  ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EditCardDialog } from "@/components/edit-card-dialog";
@@ -20,6 +21,7 @@ import { UseDeckButton } from "@/components/use-deck-button";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import { ShareDeckButton } from "@/components/share-deck-button";
 import { AddToFolderButtons } from "@/components/add-to-folder-dialog";
+import { CreateCardDialog } from "@/components/create-card-dialog";
 import { DeckCardItem } from "@/components/deck-card-item";
 import { PlatformBadge } from "@/components/platform-badge";
 import { TagFilter } from "@/components/tag-filter";
@@ -335,6 +337,25 @@ async function AuthenticatedDeckView({
 
   return (
     <div className="space-y-6">
+      {summary.stats && (
+        <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+          <Link href="/folders" className="hover:text-foreground transition-colors">
+            Library
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <Link
+            href="/folders"
+            className="hover:text-foreground transition-colors truncate max-w-[200px]"
+          >
+            {summary.folderName}
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="truncate max-w-[200px] text-foreground font-medium">
+            {summary.title}
+          </span>
+        </nav>
+      )}
+
       {summary.isLinked && summary.isAbandoned && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
@@ -383,7 +404,7 @@ async function AuthenticatedDeckView({
             <Badge variant="secondary">{summary.viewPolicy}</Badge>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {(summary.viewPolicy === "public" || summary.viewPolicy === "link") && (
             <ShareDeckButton deckId={deckId} />
           )}
@@ -405,6 +426,12 @@ async function AuthenticatedDeckView({
             deckId={summary.isLinked ? summary.sourceDeckId : deckId}
             sourceArchived={summary.isAbandoned || !!summary.archivedAt}
           />
+          {summary.isEditor && !summary.isLinked && (
+            <>
+              <CreateCardDialog deckDefinitionId={deckId} />
+              <div className="h-6 w-px bg-border" />
+            </>
+          )}
           {summary.stats && <UseDeckButton deckDefinitionId={deckId} />}
         </div>
       </div>

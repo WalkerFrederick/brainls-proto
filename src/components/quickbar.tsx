@@ -4,13 +4,11 @@ import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { Bell, Menu, X, Plus, FilePlus, FolderPlus, Search } from "lucide-react";
+import { Bell, Menu, X, Plus, FilePlus, FolderPlus, Search, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { UserAvatar } from "@/components/user-avatar";
-import { useSession } from "@/lib/auth-client";
 import { Brain } from "lucide-react";
 import { SidebarNav } from "@/components/app-sidebar";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
@@ -23,11 +21,6 @@ interface QuickbarProps {
 }
 
 export function Quickbar({ pendingInviteCount }: QuickbarProps) {
-  const { data: session } = useSession();
-  const displayName = session
-    ? (session.user.name ?? session.user.email).slice(0, 20) +
-      ((session.user.name ?? session.user.email).length > 20 ? "…" : "")
-    : "";
   const [isSticky, setIsSticky] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
@@ -265,23 +258,14 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
                 )}
               </Link>
 
-              {session ? (
-                <Link
-                  href="/settings/account"
-                  className="flex items-center gap-2 rounded-full transition-colors hover:bg-accent sm:border sm:px-3 sm:py-1 sm:text-sm sm:font-medium"
-                >
-                  <span className="hidden max-w-[200px] truncate whitespace-nowrap text-sm font-medium sm:inline-block">
-                    {displayName}
-                  </span>
-                  <UserAvatar
-                    src={session.user.image}
-                    fallback={session.user.name ?? session.user.email}
-                    size="sm"
-                  />
-                </Link>
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-muted" />
-              )}
+              <button
+                type="button"
+                className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/80"
+                aria-label="AI"
+              >
+                <Sparkles className="h-4 w-4" />
+                AI
+              </button>
             </div>
           </div>
         </div>

@@ -39,6 +39,13 @@ import { useToast } from "@/hooks/use-toast";
 
 type SupportedCardType = "front_back" | "multiple_choice" | "keyboard_shortcut" | "cloze";
 
+const CARD_TYPE_LABELS: Record<SupportedCardType, string> = {
+  front_back: "Front / Back",
+  multiple_choice: "Multiple Choice",
+  keyboard_shortcut: "Keyboard Shortcut",
+  cloze: "Cloze Deletion",
+};
+
 interface EditableDeck {
   folderId: string;
   folderName: string;
@@ -321,7 +328,7 @@ export function CreateCardDialog({
               <Label>Card Type</Label>
               <Select value={cardType} onValueChange={(v) => setCardType(v as SupportedCardType)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>{CARD_TYPE_LABELS[cardType]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="front_back">Front / Back</SelectItem>

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import {
   deckDefinitions,
   userDecks,
+  folders,
   folderMembers,
   cardDefinitions,
   userCardStates,
@@ -355,6 +356,7 @@ export type DeckSummary = {
   viewPolicy: string;
   createdByUserId: string;
   folderId: string;
+  folderName: string;
   archivedAt: Date | null;
   linkedDeckDefinitionId: string | null;
   tags: string[];
@@ -392,7 +394,7 @@ export const getDeckSummary = safeAction(
       deck.linkedDeckDefinitionId,
     );
 
-    const [tagRows, countRow, isEditor, member, userDeckRow] = await Promise.all([
+    const [tagRows, countRow, isEditor, member, userDeckRow, folderRow] = await Promise.all([
       db
         .select({ name: tags.name })
         .from(deckTags)
@@ -429,6 +431,12 @@ export const getDeckSummary = safeAction(
             isNull(userDecks.archivedAt),
           ),
         )
+        .then((rows) => rows[0] ?? null),
+
+      db
+        .select({ name: folders.name })
+        .from(folders)
+        .where(eq(folders.id, deck.folderId))
         .then((rows) => rows[0] ?? null),
     ]);
 
@@ -477,6 +485,7 @@ export const getDeckSummary = safeAction(
       viewPolicy: deck.viewPolicy,
       createdByUserId: deck.createdByUserId,
       folderId: deck.folderId,
+      folderName: folderRow?.name ?? "Library",
       archivedAt: deck.archivedAt,
       linkedDeckDefinitionId: deck.linkedDeckDefinitionId,
       tags: tagRows.map((r) => r.name),

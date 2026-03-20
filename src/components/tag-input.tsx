@@ -33,7 +33,7 @@ export function TagInput({
 
   const addTag = useCallback(
     (tag: string) => {
-      const normalized = tag.trim().toLowerCase();
+      const normalized = tag.trim().toLowerCase().replace(/\s+/g, "-");
       if (!normalized) return;
       if (normalized.length > 50) return;
       if (value.includes(normalized)) return;

@@ -4,7 +4,7 @@ import { eq, sql, ilike, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { tags, deckTags, cardTags, deckDefinitions, cardDefinitions } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
-import { safeAction } from "@/lib/errors";
+import { safeAction, reportError } from "@/lib/errors";
 import { canEditDeck } from "@/lib/permissions";
 import { ok, err, type Result } from "@/lib/result";
 import {
@@ -14,6 +14,8 @@ import {
   SuggestCardTagsSchema,
 } from "@/lib/schemas";
 import { isValidUuid } from "@/lib/validate-uuid";
+import { suggestTags, logAiCall, estimateCost } from "@/lib/ai";
+import { stripHtml } from "@/lib/sanitize-html";
 
 async function upsertTags(names: string[]): Promise<Map<string, string>> {
   if (names.length === 0) return new Map();
@@ -164,24 +166,108 @@ export const setCardTags = safeAction(
 export const suggestCardTags = safeAction(
   "suggestCardTags",
   async (input: unknown): Promise<Result<string[]>> => {
-    await requireSession();
+    const session = await requireSession();
     const parsed = SuggestCardTagsSchema.safeParse(input);
     if (!parsed.success) return err("VALIDATION_FAILED", "Validation failed");
 
-    const { deckDefinitionId } = parsed.data;
+    const { deckDefinitionId, cardContent, cardType, existingCardTags } = parsed.data;
     if (!isValidUuid(deckDefinitionId)) return err("VALIDATION_FAILED", "Invalid deck ID");
 
     const [deck] = await db
-      .select({ id: deckDefinitions.id })
+      .select({
+        id: deckDefinitions.id,
+        title: deckDefinitions.title,
+        description: deckDefinitions.description,
+      })
       .from(deckDefinitions)
       .where(eq(deckDefinitions.id, deckDefinitionId));
     if (!deck) return err("NOT_FOUND", "Deck not found");
 
-    // TODO: Replace with real AI suggestion logic in phase 2.
-    // `parsed.data.cardContent` and deck context will be sent to the LLM.
-    // TODO: Remove artificial delay once real AI is wired up.
-    await new Promise((r) => setTimeout(r, 1500));
-    return ok(["example-1", "example-2", "example-3"]);
+    const deckTagRows = await db
+      .select({ name: tags.name })
+      .from(deckTags)
+      .innerJoin(tags, eq(deckTags.tagId, tags.id))
+      .where(eq(deckTags.deckDefinitionId, deckDefinitionId));
+
+    const userTagRows = await db
+      .select({
+        name: tags.name,
+        cnt: sql<number>`count(*)::int`,
+      })
+      .from(cardTags)
+      .innerJoin(cardDefinitions, eq(cardTags.cardDefinitionId, cardDefinitions.id))
+      .innerJoin(tags, eq(cardTags.tagId, tags.id))
+      .where(eq(cardDefinitions.createdByUserId, session.user.id))
+      .groupBy(tags.name)
+      .orderBy(sql`count(*) DESC`)
+      .limit(50);
+
+    const strippedContent = cardContent ? stripHtml(cardContent).slice(0, 2000) : null;
+
+    const inputSnapshot = { deckTitle: deck.title, cardContent: strippedContent?.slice(0, 200) };
+    const startMs = Date.now();
+    let result;
+    try {
+      result = await suggestTags({
+        deckTitle: deck.title,
+        deckDescription: deck.description,
+        deckTags: deckTagRows.map((r) => r.name),
+        cardContent: strippedContent,
+        cardType: cardType ?? null,
+        existingCardTags: existingCardTags ?? [],
+        userTags: userTagRows.map((r) => r.name),
+      });
+    } catch (e: unknown) {
+      const durationMs = Date.now() - startMs;
+      const status = (e as { status?: number }).status;
+      const errorType = (e as { error?: { type?: string } }).error?.type;
+
+      reportError(e, {
+        action: "suggestCardTags",
+        status,
+        errorType,
+        deckDefinitionId,
+      });
+
+      logAiCall({
+        userId: session.user.id,
+        action: "suggestTags",
+        model: "unknown",
+        inputTokens: 0,
+        outputTokens: 0,
+        estimatedCostUsd: 0,
+        durationMs,
+        input: inputSnapshot,
+        output: null,
+        error: String(e),
+      });
+
+      if (status === 429 || status === 401) {
+        return err("LIMIT_EXCEEDED", "AI suggestions are temporarily unavailable");
+      }
+      return err("INTERNAL_ERROR", "Something went wrong");
+    }
+    const durationMs = Date.now() - startMs;
+
+    if (!result) return err("INTERNAL_ERROR", "AI features are not configured");
+
+    const existing = new Set((existingCardTags ?? []).map((t) => t.toLowerCase()));
+    const filtered = result.tags.filter((t) => !existing.has(t));
+
+    const cost = estimateCost(result.provider, result.usage.inputTokens, result.usage.outputTokens);
+    logAiCall({
+      userId: session.user.id,
+      action: "suggestTags",
+      model: result.provider.model,
+      inputTokens: result.usage.inputTokens,
+      outputTokens: result.usage.outputTokens,
+      estimatedCostUsd: cost,
+      durationMs,
+      input: inputSnapshot,
+      output: result.tags,
+    });
+
+    return ok(filtered);
   },
 );
 

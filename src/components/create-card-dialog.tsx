@@ -151,6 +151,8 @@ export function CreateCardDialog({
     const result = await suggestCardTags({
       deckDefinitionId: selectedDeckId,
       cardContent: front || back || question || clozeText || prompt || undefined,
+      cardType,
+      existingCardTags: cardTagsList,
     });
     if (result.success) {
       const fresh = result.data.filter((t) => !cardTagsList.includes(t));

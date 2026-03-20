@@ -90,7 +90,7 @@ const tagNameField = z
   .min(1, "Tag must be at least 1 character")
   .max(50, "Tag must be at most 50 characters")
   .regex(/^[a-zA-Z0-9\s-]+$/, "Tags can only contain letters, numbers, spaces, and hyphens")
-  .transform((s) => s.toLowerCase());
+  .transform((s) => s.toLowerCase().replace(/\s+/g, "-"));
 
 const tagNamesArray = z.array(tagNameField).max(10, "Maximum 10 tags");
 
@@ -111,6 +111,8 @@ export const SearchTagsSchema = z.object({
 export const SuggestCardTagsSchema = z.object({
   deckDefinitionId: z.string().uuid(),
   cardContent: z.string().trim().max(10_000).optional(),
+  cardType: z.string().max(50).optional(),
+  existingCardTags: z.array(z.string()).max(10).optional(),
 });
 
 export type SetDeckTagsInput = z.infer<typeof SetDeckTagsSchema>;
@@ -128,7 +130,7 @@ export const CustomStudySchema = z.object({
         .trim()
         .min(1)
         .max(50)
-        .transform((s) => s.toLowerCase()),
+        .transform((s) => s.toLowerCase().replace(/\s+/g, "-")),
     )
     .min(1, "Select at least one tag")
     .max(20),

@@ -96,6 +96,8 @@ export function EditCardDialog({
     const result = await suggestCardTags({
       deckDefinitionId,
       cardContent: front || back || question || clozeText || prompt || undefined,
+      cardType,
+      existingCardTags: cardTagsList,
     });
     if (result.success) {
       const fresh = result.data.filter((t) => !cardTagsList.includes(t));

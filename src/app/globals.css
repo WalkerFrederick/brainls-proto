@@ -782,6 +782,19 @@
   vertical-align: super;
 }
 
+/* ── AI rainbow glow ───────────────────────────────────────────── */
+.rainbow-glow {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--background), var(--background)) padding-box,
+    conic-gradient(from 0deg, #f06, #f90, #ff0, #0c0, #09f, #90f, #f06) border-box;
+}
+
+.rainbow-glow:disabled {
+  background: none;
+  border-color: transparent;
+}
+
 @keyframes progress-indeterminate {
   0% {
     transform: translateX(-100%);

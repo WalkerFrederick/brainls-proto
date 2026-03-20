@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Loader2, Trash2 } from "lucide-react";
+import { Pencil, Loader2, Trash2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,7 +23,7 @@ import type { ShortcutCombo } from "@/lib/shortcut-blocklist";
 import { getUniqueClozeIndices, renderClozeHidden } from "@/lib/cloze";
 import { HtmlRenderer } from "@/components/html-renderer";
 import { updateCard, createCard, archiveCard } from "@/actions/card";
-import { setCardTags } from "@/actions/tag";
+import { setCardTags, suggestCardTags } from "@/actions/tag";
 import { TagInput } from "@/components/tag-input";
 
 interface Props {
@@ -62,6 +62,8 @@ export function EditCardDialog({
   const [clozeText, setClozeText] = useState(String(contentJson.text ?? ""));
 
   const [cardTagsList, setCardTagsList] = useState<string[]>(initialTags);
+  const [aiSuggestedTags, setAiSuggestedTags] = useState<Set<string>>(new Set());
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -81,10 +83,28 @@ export function EditCardDialog({
       setExplanation(String(contentJson.explanation ?? ""));
       setClozeText(String(contentJson.text ?? ""));
       setCardTagsList(initialTags);
+      setAiSuggestedTags(new Set());
       setError("");
       setConfirmRemove(false);
     }
     setOpen(isOpen);
+  }
+
+  async function handleSuggestTags() {
+    if (loadingSuggestions) return;
+    setLoadingSuggestions(true);
+    const result = await suggestCardTags({
+      deckDefinitionId,
+      cardContent: front || back || question || clozeText || prompt || undefined,
+    });
+    if (result.success) {
+      const fresh = result.data.filter((t) => !cardTagsList.includes(t));
+      if (fresh.length > 0) {
+        setCardTagsList((prev) => [...prev, ...fresh]);
+        setAiSuggestedTags((prev) => new Set([...prev, ...fresh]));
+      }
+    }
+    setLoadingSuggestions(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -356,6 +376,22 @@ export function EditCardDialog({
                 value={cardTagsList}
                 onChange={setCardTagsList}
                 placeholder="Add tags (e.g. chem101)..."
+                aiTags={aiSuggestedTags}
+                leading={
+                  <button
+                    type="button"
+                    className="inline-flex h-full cursor-pointer items-center gap-1 rounded-l-md border-r bg-muted px-2 text-xs text-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={loadingSuggestions}
+                    onClick={handleSuggestTags}
+                  >
+                    {loadingSuggestions ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    AI
+                  </button>
+                }
               />
             </div>
 

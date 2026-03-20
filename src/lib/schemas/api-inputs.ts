@@ -108,9 +108,15 @@ export const SearchTagsSchema = z.object({
   query: z.string().trim().max(100).default(""),
 });
 
+export const SuggestCardTagsSchema = z.object({
+  deckDefinitionId: z.string().uuid(),
+  cardContent: z.string().trim().max(10_000).optional(),
+});
+
 export type SetDeckTagsInput = z.infer<typeof SetDeckTagsSchema>;
 export type SetCardTagsInput = z.infer<typeof SetCardTagsSchema>;
 export type SearchTagsInput = z.infer<typeof SearchTagsSchema>;
+export type SuggestCardTagsInput = z.infer<typeof SuggestCardTagsSchema>;
 
 // ── Custom Study ──
 

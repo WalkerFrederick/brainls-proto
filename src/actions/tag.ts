@@ -7,7 +7,12 @@ import { requireSession } from "@/lib/auth-server";
 import { safeAction } from "@/lib/errors";
 import { canEditDeck } from "@/lib/permissions";
 import { ok, err, type Result } from "@/lib/result";
-import { SetDeckTagsSchema, SetCardTagsSchema, SearchTagsSchema } from "@/lib/schemas";
+import {
+  SetDeckTagsSchema,
+  SetCardTagsSchema,
+  SearchTagsSchema,
+  SuggestCardTagsSchema,
+} from "@/lib/schemas";
 import { isValidUuid } from "@/lib/validate-uuid";
 
 async function upsertTags(names: string[]): Promise<Map<string, string>> {
@@ -153,6 +158,30 @@ export const setCardTags = safeAction(
     }
 
     return ok(uniqueNames);
+  },
+);
+
+export const suggestCardTags = safeAction(
+  "suggestCardTags",
+  async (input: unknown): Promise<Result<string[]>> => {
+    await requireSession();
+    const parsed = SuggestCardTagsSchema.safeParse(input);
+    if (!parsed.success) return err("VALIDATION_FAILED", "Validation failed");
+
+    const { deckDefinitionId } = parsed.data;
+    if (!isValidUuid(deckDefinitionId)) return err("VALIDATION_FAILED", "Invalid deck ID");
+
+    const [deck] = await db
+      .select({ id: deckDefinitions.id })
+      .from(deckDefinitions)
+      .where(eq(deckDefinitions.id, deckDefinitionId));
+    if (!deck) return err("NOT_FOUND", "Deck not found");
+
+    // TODO: Replace with real AI suggestion logic in phase 2.
+    // `parsed.data.cardContent` and deck context will be sent to the LLM.
+    // TODO: Remove artificial delay once real AI is wired up.
+    await new Promise((r) => setTimeout(r, 1500));
+    return ok(["example-1", "example-2", "example-3"]);
   },
 );
 

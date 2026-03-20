@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createCard } from "@/actions/card";
-import { setCardTags } from "@/actions/tag";
+import { setCardTags, suggestCardTags } from "@/actions/tag";
 import { listEditableDecks } from "@/actions/deck";
 import { TagInput } from "@/components/tag-input";
 
@@ -82,6 +82,9 @@ export function CreateCardDialog({
   const [clozeText, setClozeText] = useState("");
   const [cardTagsList, setCardTagsList] = useState<string[]>([]);
 
+  const [aiSuggestedTags, setAiSuggestedTags] = useState<Set<string>>(new Set());
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [permissionNotice, setPermissionNotice] = useState(false);
@@ -127,6 +130,7 @@ export function CreateCardDialog({
     setExplanation("");
     setClozeText("");
     setCardTagsList([]);
+    setAiSuggestedTags(new Set());
     setError("");
   }
 
@@ -139,6 +143,23 @@ export function CreateCardDialog({
       setPermissionNotice(false);
       setSelectedDeckId(initialDeckId ?? "");
     }
+  }
+
+  async function handleSuggestTags() {
+    if (!selectedDeckId || loadingSuggestions) return;
+    setLoadingSuggestions(true);
+    const result = await suggestCardTags({
+      deckDefinitionId: selectedDeckId,
+      cardContent: front || back || question || clozeText || prompt || undefined,
+    });
+    if (result.success) {
+      const fresh = result.data.filter((t) => !cardTagsList.includes(t));
+      if (fresh.length > 0) {
+        setCardTagsList((prev) => [...prev, ...fresh]);
+        setAiSuggestedTags((prev) => new Set([...prev, ...fresh]));
+      }
+    }
+    setLoadingSuggestions(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -470,6 +491,22 @@ export function CreateCardDialog({
                 value={cardTagsList}
                 onChange={setCardTagsList}
                 placeholder="Add tags (e.g. chem101)..."
+                aiTags={aiSuggestedTags}
+                leading={
+                  <button
+                    type="button"
+                    className="inline-flex h-full cursor-pointer items-center gap-1 rounded-l-md border-r bg-muted px-2 text-xs text-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!selectedDeckId || loadingSuggestions}
+                    onClick={handleSuggestTags}
+                  >
+                    {loadingSuggestions ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    AI
+                  </button>
+                }
               />
             </div>
           </div>

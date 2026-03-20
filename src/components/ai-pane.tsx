@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useRouter } from "next/navigation";
 import { Sparkles, Send, Trash2, Loader2, AlertTriangle, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useLayoutPrefs } from "@/components/layout-provider";
 import { useToast } from "@/hooks/use-toast";
@@ -54,6 +54,17 @@ function UsageBanner({ refreshKey }: { refreshKey: number }) {
       </p>
     </div>
   );
+}
+
+function stripToolContext(content: string): string {
+  if (!content.startsWith("[Tool context:")) return content;
+  const end = content.indexOf("]\n");
+  if (end === -1) {
+    const lastBracket = content.lastIndexOf("]");
+    if (lastBracket === -1) return content;
+    return content.slice(lastBracket + 1).replace(/^\n+/, "");
+  }
+  return content.slice(end + 1).replace(/^\n+/, "");
 }
 
 const ChatMarkdown = memo(function ChatMarkdown({ content }: { content: string }) {
@@ -109,6 +120,7 @@ const ChatMarkdown = memo(function ChatMarkdown({ content }: { content: string }
 
 function PaneContent({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
+  const router = useRouter();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -200,6 +212,9 @@ function PaneContent({ onClose }: { onClose: () => void }) {
       setHasMore(r.data.hasMore);
       setNearLimit(r.data.nearLimit);
       setRefreshKey((k) => k + 1);
+      if (r.data.mutatedEntities?.length > 0) {
+        router.refresh();
+      }
     } else {
       if (r.code === "CONFLICT") {
         setMessages((prev) => prev.filter((m) => m !== optimisticMsg));
@@ -214,7 +229,7 @@ function PaneContent({ onClose }: { onClose: () => void }) {
 
     setLoading(false);
     inputRef.current?.focus();
-  }, [input, loading, hasMore, toast]);
+  }, [input, loading, hasMore, toast, router]);
 
   const handleClear = useCallback(async () => {
     await clearConversation();
@@ -235,36 +250,23 @@ function PaneContent({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
+    <div className="flex h-[100dvh] flex-col bg-sidebar text-sidebar-foreground">
       <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Sparkles className="h-4 w-4 text-primary" />
-          AI Assistant
+          BrainLS AI Assistant
         </div>
-        <div className="flex items-center gap-1">
-          {messages.length > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={handleClear}
-              title="Clear chat"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            aria-label="Close AI pane"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          aria-label="Close AI pane"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       <Separator />
@@ -272,59 +274,75 @@ function PaneContent({ onClose }: { onClose: () => void }) {
       <Separator />
 
       {/* Messages */}
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
-      >
-        {hasMore && (
+      <div className="relative flex-1 overflow-hidden">
+        {messages.length > 0 && !loading && (
           <button
             type="button"
-            onClick={loadOlder}
-            disabled={loadingMore}
-            className="mx-auto mb-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={handleClear}
+            className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border bg-background/80 px-2.5 py-1 text-xs text-muted-foreground backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
           >
-            {loadingMore ? "Loading..." : "Load older messages"}
+            <Trash2 className="h-3 w-3" />
+            Clear
           </button>
         )}
-
-        {initialLoading ? (
-          <div className="flex flex-1 items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-              <Sparkles className="h-5 w-5 text-primary" />
-            </div>
-            <p className="font-medium text-foreground">AI Assistant</p>
-            <p className="text-xs">
-              Ask me anything about studying, creating cards, or learning strategies.
-            </p>
-          </div>
-        ) : (
-          messages.map((msg, i) => (
-            <div
-              key={i}
-              className={cn(
-                "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-                msg.role === "user"
-                  ? "ml-auto whitespace-pre-wrap bg-primary text-primary-foreground"
-                  : "mr-auto border bg-background text-foreground",
-              )}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex h-full flex-col gap-3 overflow-y-auto px-4 py-4"
+        >
+          {hasMore && (
+            <button
+              type="button"
+              onClick={loadOlder}
+              disabled={loadingMore}
+              className="mx-auto mb-2 text-xs text-muted-foreground hover:text-foreground"
             >
-              {msg.role === "assistant" ? <ChatMarkdown content={msg.content} /> : msg.content}
-            </div>
-          ))
-        )}
+              {loadingMore ? "Loading..." : "Load older messages"}
+            </button>
+          )}
 
-        {loading && (
-          <div className="mr-auto flex items-center gap-1.5 rounded-2xl border bg-background px-3.5 py-2.5">
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
-          </div>
-        )}
+          {initialLoading ? (
+            <div className="flex flex-1 items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <p className="font-medium text-foreground">BrainLS AI Assistant</p>
+              <p className="text-xs">
+                Ask me anything about studying, creating cards, or learning strategies.
+              </p>
+            </div>
+          ) : (
+            messages.map((msg, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+                  msg.role === "user"
+                    ? "ml-auto whitespace-pre-wrap bg-primary text-primary-foreground"
+                    : "mr-auto border bg-background text-foreground",
+                )}
+              >
+                {msg.role === "assistant" ? (
+                  <ChatMarkdown content={stripToolContext(msg.content)} />
+                ) : (
+                  msg.content
+                )}
+              </div>
+            ))
+          )}
+
+          {loading && (
+            <div className="mr-auto flex items-center gap-1.5 rounded-2xl border bg-background px-3.5 py-2.5">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Near-limit banner */}
@@ -351,19 +369,22 @@ function PaneContent({ onClose }: { onClose: () => void }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={(e) => {
+              setTimeout(() => e.target.scrollIntoView({ behavior: "smooth", block: "end" }), 300);
+            }}
             placeholder="Ask anything..."
             rows={1}
             className="max-h-32 min-h-[36px] flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary"
             disabled={loading}
           />
-          <Button
-            size="icon"
-            className="h-9 w-9 shrink-0 rounded-lg"
+          <button
+            type="button"
+            className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground transition-colors hover:brightness-110 disabled:pointer-events-none disabled:opacity-50"
             onClick={handleSend}
             disabled={loading || !input.trim()}
           >
             <Send className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
       </div>
     </div>
@@ -393,7 +414,7 @@ export function AiPaneMobile() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-y-0 right-0 z-50 w-full border-l shadow-lg sm:w-[80%]"
+            className="fixed bottom-0 right-0 top-0 z-50 h-[100dvh] w-full border-l shadow-lg sm:w-[80%]"
           >
             <PaneContent onClose={close} />
           </motion.aside>
@@ -409,7 +430,7 @@ export function AiPaneDesktop() {
   if (!aiPaneOpen) return null;
 
   return (
-    <aside className="hidden h-screen w-80 shrink-0 border-x lg:flex">
+    <aside className="hidden h-[100dvh] w-80 shrink-0 border-x lg:flex">
       <PaneContent onClose={() => setAiPaneOpen(false)} />
     </aside>
   );

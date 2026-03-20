@@ -24,8 +24,8 @@ const TAG_REGEX = /^[a-zA-Z0-9\s-]+$/;
 const MAX_TAG_LENGTH = 50;
 const MAX_CARD_CONTENT_LENGTH = 2000;
 const MAX_USER_TAGS = 50;
-const MAX_AGENT_ITERATIONS = 5;
-const MAX_CUMULATIVE_INPUT_TOKENS = 30_000;
+const MAX_AGENT_ITERATIONS = 12;
+const MAX_CUMULATIVE_INPUT_TOKENS = 60_000;
 
 const CHAT_SYSTEM_PROMPT = `You are BrainLS Assistant — an AI study partner inside BrainLS, a spaced-repetition flashcard platform.
 
@@ -46,6 +46,8 @@ Tools:
 - Default assumption: the user is asking in the context of their existing decks and cards. Proactively fetch their library data to give grounded, specific answers rather than generic advice.
 - When helping with a topic, check if they already have relevant decks/cards before suggesting new ones.
 - Nudge users toward BrainLS features (e.g. "Want me to turn that into flashcards?" or "I can check your deck for gaps").
+- You have a budget of ${MAX_AGENT_ITERATIONS} tool-use rounds. Each round can contain multiple parallel tool calls. Batch independent calls (e.g. creating several cards) into a single round to stay within budget.
+- Your prior assistant messages may start with a [Tool context: ...] block containing entity IDs from previous tool calls. Use these IDs directly instead of re-creating or re-fetching entities. NEVER re-create something that already exists in the conversation.
 
 Rules:
 - Do not hallucinate features BrainLS does not have.
@@ -253,6 +255,97 @@ interface ChatResult {
   content: string;
   usage: { inputTokens: number; outputTokens: number };
   provider: ProviderConfig;
+  mutatedEntities: string[];
+}
+
+const WRITE_TOOL_PREFIXES = ["create_", "update_"];
+const WRITE_TOOL_NAMES = new Set(["set_tags"]);
+const MAX_TOOL_CONTEXT_LENGTH = 600;
+
+function summarizeToolResult(name: string, args: Record<string, unknown>, raw: string): string {
+  try {
+    const r = JSON.parse(raw);
+    if (r.error) return `error: ${String(r.error).slice(0, 80)}`;
+
+    switch (name) {
+      case "create_folder":
+        return `created folder "${r.name}" (id: ${r.id})`;
+      case "update_folder":
+        return `updated folder ${args.folderId}`;
+      case "create_deck":
+        return `created deck "${r.title}" (id: ${r.id}) in folder ${r.folderId}`;
+      case "update_deck":
+        return `updated deck ${args.deckId}`;
+      case "create_card":
+        return `created ${r.cardType} card (id: ${r.id})`;
+      case "update_card":
+        return `updated card ${args.cardId}`;
+      case "set_tags":
+        return `set tags (${(r.tags as string[])?.join(", ") ?? ""}) on ${args.targetType} ${args.targetId}`;
+      case "list_folders":
+        return `${(r.folders as unknown[])?.length ?? 0} folders`;
+      case "list_decks":
+        return `${(r.decks as unknown[])?.length ?? 0} decks`;
+      case "list_cards":
+        return `${r.totalCount ?? 0} cards`;
+      case "get_deck_details":
+        return `deck "${r.title}" (id: ${r.id})`;
+      case "get_card":
+        return `${r.cardType} card (id: ${r.id})`;
+      case "get_user_details":
+        return `user "${r.name}"`;
+      default:
+        return raw.slice(0, 100);
+    }
+  } catch {
+    return raw.slice(0, 100);
+  }
+}
+
+function buildToolContext(log: { name: string; summary: string }[]): string {
+  if (log.length === 0) return "";
+
+  const grouped = new Map<string, { count: number; summaries: string[] }>();
+  for (const entry of log) {
+    const existing = grouped.get(entry.name);
+    if (existing) {
+      existing.count++;
+      existing.summaries.push(entry.summary);
+    } else {
+      grouped.set(entry.name, { count: 1, summaries: [entry.summary] });
+    }
+  }
+
+  const parts: string[] = [];
+  for (const [name, { count, summaries }] of grouped) {
+    if (count === 1) {
+      parts.push(`${name} -> ${summaries[0]}`);
+    } else {
+      const unique = [...new Set(summaries)];
+      parts.push(`${name} x${count} -> ${unique.join(", ")}`);
+    }
+  }
+
+  let text = `[Tool context: ${parts.join("; ")}]`;
+  if (text.length > MAX_TOOL_CONTEXT_LENGTH) {
+    const truncated = text.slice(0, MAX_TOOL_CONTEXT_LENGTH - 1);
+    const lastSemi = truncated.lastIndexOf("; ");
+    text = (lastSemi > 15 ? truncated.slice(0, lastSemi) : truncated) + "]";
+  }
+  return text;
+}
+
+function extractText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return (
+      content
+        .map((c: { text?: string }) => c.text)
+        .filter(Boolean)
+        .join("") || ""
+    );
+  }
+  return "";
 }
 
 export async function chatWithAi(input: ChatInput): Promise<ChatResult> {
@@ -280,6 +373,13 @@ export async function chatWithAi(input: ChatInput): Promise<ChatResult> {
     let cumulativeInput = 0;
     let cumulativeOutput = 0;
     const runMessages: BaseMessage[] = [...langchainMessages];
+    const mutatedSet = new Set<string>();
+    const toolLog: { name: string; summary: string }[] = [];
+
+    const prependContext = (text: string) => {
+      const ctx = buildToolContext(toolLog);
+      return ctx ? `${ctx}\n\n${text}` : text;
+    };
 
     try {
       for (let iter = 0; iter < MAX_AGENT_ITERATIONS; iter++) {
@@ -295,18 +395,13 @@ export async function chatWithAi(input: ChatInput): Promise<ChatResult> {
 
         const toolCalls = response.tool_calls ?? [];
         if (toolCalls.length === 0) {
-          const textContent =
-            typeof response.content === "string"
-              ? response.content
-              : ((response.content as { text?: string }[] | undefined)
-                  ?.map((c: { text?: string }) => c.text)
-                  .filter(Boolean)
-                  .join("") ?? "");
+          const textContent = extractText(response.content);
 
           return {
-            content: textContent,
+            content: prependContext(textContent),
             usage: { inputTokens: cumulativeInput, outputTokens: cumulativeOutput },
             provider,
+            mutatedEntities: [...mutatedSet],
           };
         }
 
@@ -326,12 +421,19 @@ export async function chatWithAi(input: ChatInput): Promise<ChatResult> {
 
           try {
             const toolResult = await foundTool.invoke(tc.args);
-            runMessages.push(
-              new ToolMessage({
-                tool_call_id: tc.id!,
-                content: typeof toolResult === "string" ? toolResult : JSON.stringify(toolResult),
-              }),
-            );
+            const resultStr =
+              typeof toolResult === "string" ? toolResult : JSON.stringify(toolResult);
+            runMessages.push(new ToolMessage({ tool_call_id: tc.id!, content: resultStr }));
+            toolLog.push({
+              name: tc.name,
+              summary: summarizeToolResult(tc.name, tc.args as Record<string, unknown>, resultStr),
+            });
+            if (
+              WRITE_TOOL_NAMES.has(tc.name) ||
+              WRITE_TOOL_PREFIXES.some((p) => tc.name.startsWith(p))
+            ) {
+              mutatedSet.add(tc.name);
+            }
           } catch (toolErr) {
             runMessages.push(
               new ToolMessage({
@@ -339,22 +441,51 @@ export async function chatWithAi(input: ChatInput): Promise<ChatResult> {
                 content: `Error executing tool: ${String(toolErr)}`,
               }),
             );
+            toolLog.push({ name: tc.name, summary: `error: ${String(toolErr).slice(0, 80)}` });
           }
         }
 
         if (cumulativeInput > MAX_CUMULATIVE_INPUT_TOKENS) break;
       }
 
-      const lastMsg = runMessages[runMessages.length - 1];
-      const fallbackContent =
-        lastMsg instanceof AIMessage && typeof lastMsg.content === "string"
-          ? lastMsg.content
-          : "I apologize, but I wasn't able to complete my response. Please try again.";
+      // Loop exhausted — try one final text-only call so the LLM can summarize
+      try {
+        const wrapUp = (await llm.invoke(runMessages)) as AIMessageChunk;
+        const usageMeta = (
+          wrapUp as unknown as {
+            usage_metadata?: { input_tokens?: number; output_tokens?: number };
+          }
+        ).usage_metadata;
+        cumulativeInput += usageMeta?.input_tokens ?? 0;
+        cumulativeOutput += usageMeta?.output_tokens ?? 0;
+
+        const text = extractText(wrapUp.content);
+
+        if (text) {
+          return {
+            content: prependContext(text),
+            usage: { inputTokens: cumulativeInput, outputTokens: cumulativeOutput },
+            provider,
+            mutatedEntities: [...mutatedSet],
+          };
+        }
+      } catch {
+        // If the wrap-up call fails, fall through to static fallback
+      }
+
+      const lastAiMsg = [...runMessages]
+        .reverse()
+        .find((m) => m instanceof AIMessage && extractText(m.content));
+      const lastAiText = lastAiMsg ? extractText(lastAiMsg.content) || null : null;
 
       return {
-        content: fallbackContent,
+        content: prependContext(
+          lastAiText ??
+            "I completed some actions but ran out of steps before I could respond. Please check your library for any changes, or try a simpler request.",
+        ),
         usage: { inputTokens: cumulativeInput, outputTokens: cumulativeOutput },
         provider,
+        mutatedEntities: [...mutatedSet],
       };
     } catch (e: unknown) {
       lastError = e;

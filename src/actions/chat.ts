@@ -38,7 +38,14 @@ export const sendChatMessage = safeAction(
   "sendChatMessage",
   async (
     input: unknown,
-  ): Promise<Result<{ messages: ChatMessage[]; hasMore: boolean; nearLimit: boolean }>> => {
+  ): Promise<
+    Result<{
+      messages: ChatMessage[];
+      hasMore: boolean;
+      nearLimit: boolean;
+      mutatedEntities: string[];
+    }>
+  > => {
     const session = await requireSession();
     const parsed = SendChatMessageSchema.safeParse(input);
     if (!parsed.success) return err("VALIDATION_FAILED", "Validation failed");
@@ -127,6 +134,7 @@ export const sendChatMessage = safeAction(
         messages: recent,
         hasMore: history.length > MESSAGES_PER_PAGE,
         nearLimit: history.length >= WARN_THRESHOLD,
+        mutatedEntities: result.mutatedEntities,
       });
     } catch (e) {
       await releaseLockAndPersist(history);

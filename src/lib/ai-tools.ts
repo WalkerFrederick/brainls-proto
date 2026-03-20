@@ -9,14 +9,17 @@ import {
   deckDefinitions,
   folders,
   folderMembers,
+  folderSettings,
   tags,
   deckTags,
   cardTags,
 } from "@/db/schema";
 import { eq, and, isNull, sql, inArray } from "drizzle-orm";
 import { getAiLimitInfo, getAiUsageCount } from "@/lib/tiers";
-import { canViewDeck } from "@/lib/permissions";
+import { canViewDeck, canEditDeck, requireFolderRole } from "@/lib/permissions";
 import { stripHtml } from "@/lib/sanitize-html";
+import { insertCard, updateCardContent } from "@/lib/card-helpers";
+import { upsertTags } from "@/lib/tag-helpers";
 
 const MAX_PREVIEW_LENGTH = 200;
 const MAX_CARD_CONTENT_LENGTH = 4000;
@@ -274,11 +277,6 @@ export function createTools(userId: string) {
 
   const getDeckDetails = tool(
     async ({ deckId }: { deckId: string }) => {
-      const allowed = await canViewDeck(deckId, userId);
-      if (!allowed) {
-        return JSON.stringify({ error: "You don't have access to this deck" });
-      }
-
       const [deck] = await db
         .select({
           id: deckDefinitions.id,
@@ -294,42 +292,40 @@ export function createTools(userId: string) {
         .where(eq(deckDefinitions.id, deckId));
 
       if (!deck) {
-        return JSON.stringify({ error: "Deck not found" });
+        return JSON.stringify({
+          error: `Deck not found (id: ${deckId}). Verify the deck ID is correct.`,
+        });
       }
 
-      const tagRows = await db
-        .select({ name: tags.name })
-        .from(deckTags)
-        .innerJoin(tags, eq(deckTags.tagId, tags.id))
-        .where(eq(deckTags.deckDefinitionId, deckId));
+      const allowed = await canViewDeck(deckId, userId);
+      if (!allowed) {
+        return JSON.stringify({ error: "You don't have access to this deck" });
+      }
 
-      const [stats] = await db
-        .select({
-          total: sql<number>`count(${userCardStates.id})::int`,
-          newCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'new')::int`,
-          learning: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'learning')::int`,
-          due: sql<number>`count(*) filter (where ${userCardStates.dueAt} is not null and ${userCardStates.dueAt} <= now())::int`,
-        })
-        .from(userDecks)
-        .leftJoin(userCardStates, eq(userCardStates.userDeckId, userDecks.id))
-        .where(
-          and(
-            eq(userDecks.userId, userId),
-            eq(userDecks.deckDefinitionId, deckId),
-            isNull(userDecks.archivedAt),
+      const [tagRows, [stats]] = await Promise.all([
+        db
+          .select({ name: tags.name })
+          .from(deckTags)
+          .innerJoin(tags, eq(deckTags.tagId, tags.id))
+          .where(eq(deckTags.deckDefinitionId, deckId)),
+        db
+          .select({
+            total: sql<number>`count(${userCardStates.id})::int`,
+            newCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'new')::int`,
+            learning: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'learning')::int`,
+            due: sql<number>`count(*) filter (where ${userCardStates.dueAt} is not null and ${userCardStates.dueAt} <= now())::int`,
+            lastStudiedAt: sql<string | null>`max(${userDecks.lastStudiedAt})`,
+          })
+          .from(userDecks)
+          .leftJoin(userCardStates, eq(userCardStates.userDeckId, userDecks.id))
+          .where(
+            and(
+              eq(userDecks.userId, userId),
+              eq(userDecks.deckDefinitionId, deckId),
+              isNull(userDecks.archivedAt),
+            ),
           ),
-        );
-
-      const [studyInfo] = await db
-        .select({ lastStudiedAt: userDecks.lastStudiedAt })
-        .from(userDecks)
-        .where(
-          and(
-            eq(userDecks.userId, userId),
-            eq(userDecks.deckDefinitionId, deckId),
-            isNull(userDecks.archivedAt),
-          ),
-        );
+      ]);
 
       return JSON.stringify({
         id: deck.id,
@@ -344,7 +340,7 @@ export function createTools(userId: string) {
           learning: stats?.learning ?? 0,
           due: stats?.due ?? 0,
         },
-        lastStudiedAt: studyInfo?.lastStudiedAt ?? null,
+        lastStudiedAt: stats?.lastStudiedAt ?? null,
         createdAt: deck.createdAt,
       });
     },
@@ -362,19 +358,26 @@ export function createTools(userId: string) {
 
   const listCards = tool(
     async ({ deckId, limit }: { deckId: string; limit?: number }) => {
-      const allowed = await canViewDeck(deckId, userId);
-      if (!allowed) {
-        return JSON.stringify({ error: "You don't have access to this deck" });
-      }
-
       const [deck] = await db
         .select({
+          id: deckDefinitions.id,
           linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
         })
         .from(deckDefinitions)
         .where(eq(deckDefinitions.id, deckId));
 
-      const sourceDeckId = deck?.linkedDeckDefinitionId ?? deckId;
+      if (!deck) {
+        return JSON.stringify({
+          error: `Deck not found (id: ${deckId}). Verify the deck ID is correct.`,
+        });
+      }
+
+      const allowed = await canViewDeck(deckId, userId);
+      if (!allowed) {
+        return JSON.stringify({ error: "You don't have access to this deck" });
+      }
+
+      const sourceDeckId = deck.linkedDeckDefinitionId ?? deckId;
       const take = Math.min(limit ?? 20, 50);
 
       const cardRows = await db
@@ -470,7 +473,9 @@ export function createTools(userId: string) {
         .where(eq(cardDefinitions.id, cardId));
 
       if (!card) {
-        return JSON.stringify({ error: "Card not found" });
+        return JSON.stringify({
+          error: `Card not found (id: ${cardId}). Verify the card ID is correct.`,
+        });
       }
 
       const allowed = await canViewDeck(card.deckDefinitionId, userId);
@@ -510,5 +515,524 @@ export function createTools(userId: string) {
     },
   );
 
-  return [getUserDetails, listFolders, listDecks, getDeckDetails, listCards, getCard];
+  // ── create_folder ──
+
+  const createFolder = tool(
+    async ({ name, description }: { name: string; description?: string }) => {
+      const trimmed = name.trim();
+      if (trimmed.length < 2 || trimmed.length > 255) {
+        return JSON.stringify({ error: "Folder name must be 2–255 characters" });
+      }
+      if (!/[a-zA-Z0-9]/.test(trimmed)) {
+        return JSON.stringify({ error: "Folder name must contain at least one letter or number" });
+      }
+
+      const slug = trimmed
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+
+      const [folder] = await db.transaction(async (tx) => {
+        const [f] = await tx
+          .insert(folders)
+          .values({
+            name: trimmed,
+            slug,
+            description: description?.trim() || null,
+            createdByUserId: userId,
+          })
+          .returning({ id: folders.id });
+
+        await tx.insert(folderSettings).values({ folderId: f.id });
+        await tx.insert(folderMembers).values({
+          folderId: f.id,
+          userId,
+          role: "owner",
+          status: "active",
+          joinedAt: new Date(),
+        });
+
+        return [f];
+      });
+
+      return JSON.stringify({ id: folder.id, name: trimmed });
+    },
+    {
+      name: "create_folder",
+      description:
+        "Create a new folder in the user's library. The user becomes the owner. Call this when the user wants to organize decks into a new folder.",
+      schema: z.object({
+        name: z.string().min(2).max(255).describe("Folder name."),
+        description: z.string().max(2048).optional().describe("Optional folder description."),
+      }),
+    },
+  );
+
+  // ── update_folder ──
+
+  const updateFolder = tool(
+    async ({
+      folderId,
+      name,
+      description,
+    }: {
+      folderId: string;
+      name?: string;
+      description?: string;
+    }) => {
+      const [folderRow] = await db
+        .select({ id: folders.id })
+        .from(folders)
+        .where(and(eq(folders.id, folderId), isNull(folders.archivedAt)));
+
+      if (!folderRow) {
+        return JSON.stringify({
+          error: `Folder not found (id: ${folderId}). Verify the folder ID is correct.`,
+        });
+      }
+
+      const perm = await requireFolderRole(folderId, userId, "admin");
+      if (!perm.allowed) {
+        return JSON.stringify({ error: perm.error });
+      }
+
+      if (!name && description === undefined) {
+        return JSON.stringify({
+          error: "Provide at least one field to update (name or description)",
+        });
+      }
+
+      if (name !== undefined) {
+        const trimmed = name.trim();
+        if (trimmed.length < 2 || trimmed.length > 255) {
+          return JSON.stringify({ error: "Folder name must be 2–255 characters" });
+        }
+        if (!/[a-zA-Z0-9]/.test(trimmed)) {
+          return JSON.stringify({
+            error: "Folder name must contain at least one letter or number",
+          });
+        }
+      }
+
+      const updates: Record<string, unknown> = { updatedAt: new Date() };
+      if (name !== undefined) updates.name = name.trim();
+      if (description !== undefined) updates.description = description.trim() || null;
+
+      await db.update(folders).set(updates).where(eq(folders.id, folderId));
+
+      return JSON.stringify({
+        id: folderId,
+        updated: Object.keys(updates).filter((k) => k !== "updatedAt"),
+      });
+    },
+    {
+      name: "update_folder",
+      description: "Update a folder's name or description. Requires admin role in the folder.",
+      schema: z.object({
+        folderId: z.string().uuid().describe("The folder ID to update."),
+        name: z.string().min(2).max(255).optional().describe("New folder name."),
+        description: z
+          .string()
+          .max(2048)
+          .optional()
+          .describe("New folder description. Pass empty string to clear."),
+      }),
+    },
+  );
+
+  // ── create_deck ──
+
+  const createDeck = tool(
+    async ({
+      folderId,
+      title,
+      description,
+    }: {
+      folderId: string;
+      title: string;
+      description?: string;
+    }) => {
+      const [folderRow] = await db
+        .select({ id: folders.id })
+        .from(folders)
+        .where(and(eq(folders.id, folderId), isNull(folders.archivedAt)));
+
+      if (!folderRow) {
+        return JSON.stringify({
+          error: `Folder not found (id: ${folderId}). Verify the folder ID is correct.`,
+        });
+      }
+
+      const perm = await requireFolderRole(folderId, userId, "editor");
+      if (!perm.allowed) {
+        return JSON.stringify({ error: perm.error });
+      }
+
+      const trimmed = title.trim();
+      if (trimmed.length < 2 || trimmed.length > 500) {
+        return JSON.stringify({ error: "Deck title must be 2–500 characters" });
+      }
+
+      const slug = trimmed
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+
+      const [deck] = await db.transaction(async (tx) => {
+        const [d] = await tx
+          .insert(deckDefinitions)
+          .values({
+            folderId,
+            title: trimmed,
+            slug,
+            description: description?.trim() || null,
+            createdByUserId: userId,
+            updatedByUserId: userId,
+          })
+          .returning({ id: deckDefinitions.id });
+
+        await tx.insert(userDecks).values({
+          userId,
+          deckDefinitionId: d.id,
+        });
+
+        return [d];
+      });
+
+      return JSON.stringify({ id: deck.id, title: trimmed, folderId });
+    },
+    {
+      name: "create_deck",
+      description:
+        "Create a new deck in a folder. Requires editor role. Also adds the deck to the user's study library. Call this when the user wants to start a new deck.",
+      schema: z.object({
+        folderId: z.string().uuid().describe("The folder to create the deck in."),
+        title: z.string().min(2).max(500).describe("Deck title."),
+        description: z.string().max(5000).optional().describe("Optional deck description."),
+      }),
+    },
+  );
+
+  // ── update_deck ──
+
+  const updateDeck = tool(
+    async ({
+      deckId,
+      title,
+      description,
+    }: {
+      deckId: string;
+      title?: string;
+      description?: string;
+    }) => {
+      const [deckRow] = await db
+        .select({ id: deckDefinitions.id })
+        .from(deckDefinitions)
+        .where(eq(deckDefinitions.id, deckId));
+
+      if (!deckRow) {
+        return JSON.stringify({
+          error: `Deck not found (id: ${deckId}). Verify the deck ID is correct.`,
+        });
+      }
+
+      const canEdit = await canEditDeck(deckId, userId);
+      if (!canEdit) {
+        return JSON.stringify({ error: "You don't have permission to edit this deck" });
+      }
+
+      if (!title && description === undefined) {
+        return JSON.stringify({
+          error: "Provide at least one field to update (title or description)",
+        });
+      }
+
+      if (title !== undefined) {
+        const trimmed = title.trim();
+        if (trimmed.length < 2 || trimmed.length > 500) {
+          return JSON.stringify({ error: "Deck title must be 2–500 characters" });
+        }
+        if (!/[a-zA-Z0-9]/.test(trimmed)) {
+          return JSON.stringify({ error: "Deck title must contain at least one letter or number" });
+        }
+      }
+      if (description !== undefined && description.length > 5000) {
+        return JSON.stringify({ error: "Description must be under 5000 characters" });
+      }
+
+      const updates: Record<string, unknown> = { updatedAt: new Date(), updatedByUserId: userId };
+      if (title !== undefined) updates.title = title.trim();
+      if (description !== undefined) updates.description = description.trim() || null;
+
+      await db.update(deckDefinitions).set(updates).where(eq(deckDefinitions.id, deckId));
+
+      return JSON.stringify({
+        id: deckId,
+        updated: Object.keys(updates).filter((k) => k !== "updatedAt" && k !== "updatedByUserId"),
+      });
+    },
+    {
+      name: "update_deck",
+      description: "Update a deck's title or description. Requires editor role.",
+      schema: z.object({
+        deckId: z.string().uuid().describe("The deck ID to update."),
+        title: z.string().min(2).max(500).optional().describe("New deck title."),
+        description: z
+          .string()
+          .max(5000)
+          .optional()
+          .describe("New deck description. Pass empty string to clear."),
+      }),
+    },
+  );
+
+  // ── create_card ──
+
+  const createCard = tool(
+    async ({
+      deckId,
+      cardType,
+      content,
+      createReverse,
+      tagNames,
+    }: {
+      deckId: string;
+      cardType: string;
+      content: Record<string, unknown>;
+      createReverse?: boolean;
+      tagNames?: string[];
+    }) => {
+      const [deckRow] = await db
+        .select({ id: deckDefinitions.id })
+        .from(deckDefinitions)
+        .where(eq(deckDefinitions.id, deckId));
+
+      if (!deckRow) {
+        return JSON.stringify({
+          error: `Deck not found (id: ${deckId}). Verify the deck ID is correct.`,
+        });
+      }
+
+      const canEdit = await canEditDeck(deckId, userId);
+      if (!canEdit) {
+        return JSON.stringify({ error: "You don't have permission to add cards to this deck" });
+      }
+
+      const result = await insertCard({
+        deckDefinitionId: deckId,
+        cardType,
+        contentJson: content,
+        userId,
+        createReverse,
+      });
+
+      if (!result.success) {
+        return JSON.stringify({ error: result.error });
+      }
+
+      if (tagNames && tagNames.length > 0) {
+        const normalized = tagNames
+          .slice(0, 10)
+          .map((t) => t.trim().toLowerCase().replace(/\s+/g, "-"))
+          .filter((t) => t.length > 0 && t.length <= 50 && /^[a-z0-9-]+$/.test(t));
+
+        if (normalized.length > 0) {
+          const nameToId = await upsertTags(normalized);
+          const tagIds = normalized.map((n) => nameToId.get(n)).filter(Boolean) as string[];
+          if (tagIds.length > 0) {
+            await db
+              .insert(cardTags)
+              .values(tagIds.map((tagId) => ({ cardDefinitionId: result.data.id, tagId })));
+          }
+        }
+      }
+
+      return JSON.stringify({ id: result.data.id, cardType });
+    },
+    {
+      name: "create_card",
+      description: `Create a new flashcard in a deck. Requires editor role. Content shape depends on cardType:
+
+- front_back: { "front": "question text", "back": "answer text" }
+- cloze: { "text": "The {{c1::mitochondria}} is the powerhouse of the cell" }
+- multiple_choice: { "question": "What is 2+2?", "choices": ["3", "4", "5", "6"], "correctChoiceIndexes": [1] }
+- keyboard_shortcut: { "prompt": "Save file", "shortcut": { "key": "s", "ctrl": true }, "explanation": "Ctrl+S saves" }
+
+Set createReverse=true for front_back cards to also generate a reversed card. Tags are optional.`,
+      schema: z.object({
+        deckId: z.string().uuid().describe("The deck ID to add the card to."),
+        cardType: z
+          .enum(["front_back", "cloze", "multiple_choice", "keyboard_shortcut"])
+          .describe("The card type."),
+        content: z
+          .record(z.string(), z.unknown())
+          .describe("Card content JSON — shape depends on cardType (see description)."),
+        createReverse: z
+          .boolean()
+          .optional()
+          .describe("For front_back cards, also create a reversed version."),
+        tagNames: z
+          .array(z.string())
+          .max(10)
+          .optional()
+          .describe("Optional tags to attach to the card."),
+      }),
+    },
+  );
+
+  // ── update_card ──
+
+  const updateCardTool = tool(
+    async ({ cardId, content }: { cardId: string; content: Record<string, unknown> }) => {
+      const [card] = await db
+        .select({
+          deckDefinitionId: cardDefinitions.deckDefinitionId,
+          cardType: cardDefinitions.cardType,
+        })
+        .from(cardDefinitions)
+        .where(eq(cardDefinitions.id, cardId));
+
+      if (!card) {
+        return JSON.stringify({
+          error: `Card not found (id: ${cardId}). Verify the card ID is correct.`,
+        });
+      }
+
+      const canEdit = await canEditDeck(card.deckDefinitionId, userId);
+      if (!canEdit) {
+        return JSON.stringify({ error: "You don't have permission to edit this card" });
+      }
+
+      const result = await updateCardContent({ cardId, contentJson: content, userId });
+
+      if (!result.success) {
+        return JSON.stringify({ error: result.error });
+      }
+
+      return JSON.stringify({ id: cardId, cardType: card.cardType });
+    },
+    {
+      name: "update_card",
+      description:
+        "Update a card's content. The content JSON must match the card's existing type. Use get_card first to see the current content and type.",
+      schema: z.object({
+        cardId: z.string().uuid().describe("The card ID to update."),
+        content: z
+          .record(z.string(), z.unknown())
+          .describe("Updated card content JSON — must match the card's type."),
+      }),
+    },
+  );
+
+  // ── set_tags ──
+
+  const setTagsTool = tool(
+    async ({
+      targetType,
+      targetId,
+      tagNames: rawTags,
+    }: {
+      targetType: "card" | "deck";
+      targetId: string;
+      tagNames: string[];
+    }) => {
+      const normalized = [
+        ...new Set(
+          rawTags
+            .slice(0, 10)
+            .map((t) => t.trim().toLowerCase().replace(/\s+/g, "-"))
+            .filter((t) => t.length > 0 && t.length <= 50 && /^[a-z0-9-]+$/.test(t)),
+        ),
+      ];
+
+      if (targetType === "deck") {
+        const [deckRow] = await db
+          .select({ id: deckDefinitions.id })
+          .from(deckDefinitions)
+          .where(eq(deckDefinitions.id, targetId));
+
+        if (!deckRow) {
+          return JSON.stringify({
+            error: `Deck not found (id: ${targetId}). Verify the deck ID is correct.`,
+          });
+        }
+
+        const canEdit = await canEditDeck(targetId, userId);
+        if (!canEdit) {
+          return JSON.stringify({ error: "You don't have permission to edit this deck's tags" });
+        }
+
+        const nameToId = await upsertTags(normalized);
+        await db.delete(deckTags).where(eq(deckTags.deckDefinitionId, targetId));
+        if (normalized.length > 0) {
+          const tagIds = normalized.map((n) => nameToId.get(n)).filter(Boolean) as string[];
+          if (tagIds.length > 0) {
+            await db
+              .insert(deckTags)
+              .values(tagIds.map((tagId) => ({ deckDefinitionId: targetId, tagId })));
+          }
+        }
+
+        return JSON.stringify({ tags: normalized });
+      }
+
+      const [card] = await db
+        .select({ deckDefinitionId: cardDefinitions.deckDefinitionId })
+        .from(cardDefinitions)
+        .where(eq(cardDefinitions.id, targetId));
+
+      if (!card) {
+        return JSON.stringify({
+          error: `Card not found (id: ${targetId}). Verify the card ID is correct.`,
+        });
+      }
+
+      const canEdit = await canEditDeck(card.deckDefinitionId, userId);
+      if (!canEdit) {
+        return JSON.stringify({ error: "You don't have permission to edit this card's tags" });
+      }
+
+      const nameToId = await upsertTags(normalized);
+      await db.delete(cardTags).where(eq(cardTags.cardDefinitionId, targetId));
+      if (normalized.length > 0) {
+        const tagIds = normalized.map((n) => nameToId.get(n)).filter(Boolean) as string[];
+        if (tagIds.length > 0) {
+          await db
+            .insert(cardTags)
+            .values(tagIds.map((tagId) => ({ cardDefinitionId: targetId, tagId })));
+        }
+      }
+
+      return JSON.stringify({ tags: normalized });
+    },
+    {
+      name: "set_tags",
+      description:
+        "Set (replace) tags on a card or deck. Pass the full desired tag list — existing tags will be replaced. Requires editor role.",
+      schema: z.object({
+        targetType: z.enum(["card", "deck"]).describe("Whether to tag a card or a deck."),
+        targetId: z.string().uuid().describe("The card or deck ID."),
+        tagNames: z
+          .array(z.string())
+          .max(10)
+          .describe("Tag names to set. Max 10. Tags should be lowercase with hyphens."),
+      }),
+    },
+  );
+
+  return [
+    getUserDetails,
+    listFolders,
+    listDecks,
+    getDeckDetails,
+    listCards,
+    getCard,
+    createFolder,
+    updateFolder,
+    createDeck,
+    updateDeck,
+    createCard,
+    updateCardTool,
+    setTagsTool,
+  ];
 }

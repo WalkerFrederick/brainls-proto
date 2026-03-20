@@ -1,4 +1,5 @@
-import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
+import { Pool } from "@neondatabase/serverless";
+import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
 import { drizzle as drizzlePg, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
@@ -9,7 +10,8 @@ type Database = PostgresJsDatabase<typeof schema>;
 
 function createDb(): Database {
   if (process.env.NODE_ENV === "production") {
-    return drizzleHttp(connectionString, { schema }) as unknown as Database;
+    const pool = new Pool({ connectionString });
+    return drizzleNeon(pool, { schema }) as unknown as Database;
   }
 
   const globalForDb = globalThis as unknown as {

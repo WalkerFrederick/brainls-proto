@@ -35,7 +35,7 @@ export default async function FoldersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="space-y-4">
         <div>
           <div className="flex items-center gap-3">
             <FolderOpen className="h-6 w-6" />
@@ -43,7 +43,7 @@ export default async function FoldersPage() {
           </div>
           <p className="mt-1 text-sm text-muted-foreground">Manage your library.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap gap-2">
           <CreateDeckDialog folderId={session.user.personalFolderId ?? undefined} />
           <CreateFolderDialog />
         </div>

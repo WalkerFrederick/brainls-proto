@@ -124,6 +124,16 @@ export type SetCardTagsInput = z.infer<typeof SetCardTagsSchema>;
 export type SearchTagsInput = z.infer<typeof SearchTagsSchema>;
 export type SuggestCardTagsInput = z.infer<typeof SuggestCardTagsSchema>;
 
+// ── Chat ──
+
+export const MAX_CHAT_MESSAGE_LENGTH = 10_000;
+
+export const SendChatMessageSchema = z.object({
+  message: z.string().trim().min(1, "Message cannot be empty").max(MAX_CHAT_MESSAGE_LENGTH),
+});
+
+export type SendChatMessageInput = z.infer<typeof SendChatMessageSchema>;
+
 // ── Custom Study ──
 
 export const CustomStudySchema = z.object({

@@ -86,7 +86,7 @@ export function AppSidebar() {
         <span className="font-serif text-lg font-bold">BrainLS</span>
       </div>
       <Separator />
-      <SidebarNav showProfile={false} />
+      <SidebarNav />
     </aside>
   );
 }

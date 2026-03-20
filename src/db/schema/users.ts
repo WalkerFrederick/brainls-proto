@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, boolean, integer } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -8,6 +8,8 @@ export const users = pgTable("users", {
   image: varchar("image", { length: 2048 }),
   username: varchar("username", { length: 63 }).unique(),
   status: varchar("status", { length: 31 }).notNull().default("active"),
+  tier: varchar("tier", { length: 31 }).notNull().default("free"),
+  aiUsageLimit: integer("ai_usage_limit"),
   personalFolderId: uuid("personal_folder_id"),
   defaultDeckId: uuid("default_deck_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

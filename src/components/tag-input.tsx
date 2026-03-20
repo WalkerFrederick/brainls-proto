@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Sparkles } from "lucide-react";
 import { searchTags } from "@/actions/tag";
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
   placeholder?: string;
   max?: number;
   disabled?: boolean;
+  aiTags?: Set<string>;
+  leading?: React.ReactNode;
 }
 
 export function TagInput({
@@ -18,6 +20,8 @@ export function TagInput({
   placeholder = "Add tag...",
   max = 10,
   disabled = false,
+  aiTags,
+  leading,
 }: Props) {
   const [input, setInput] = useState("");
   const [suggestions, setSuggestions] = useState<{ name: string; usageCount: number }[]>([]);
@@ -29,7 +33,7 @@ export function TagInput({
 
   const addTag = useCallback(
     (tag: string) => {
-      const normalized = tag.trim().toLowerCase();
+      const normalized = tag.trim().toLowerCase().replace(/\s+/g, "-");
       if (!normalized) return;
       if (normalized.length > 50) return;
       if (value.includes(normalized)) return;
@@ -114,39 +118,45 @@ export function TagInput({
   return (
     <div ref={containerRef} className="relative">
       <div
-        className={`flex flex-wrap gap-1.5 rounded-md border bg-background px-2 py-1.5 text-sm focus-within:ring-1 focus-within:ring-ring ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        className={`flex items-stretch rounded-md border bg-background text-sm focus-within:ring-1 focus-within:ring-ring ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
-        {value.map((tag) => (
-          <span
-            key={tag}
-            className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-          >
-            {tag}
-            {!disabled && (
-              <button
-                type="button"
-                onClick={() => removeTag(tag)}
-                className="ml-0.5 rounded-sm hover:bg-primary/20"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </span>
-        ))}
-        {!disabled && value.length < max && (
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value.replace(",", ""))}
-            onKeyDown={handleKeyDown}
-            onFocus={() => {
-              if (suggestions.length > 0) setShowSuggestions(true);
-            }}
-            placeholder={value.length === 0 ? placeholder : ""}
-            className="min-w-[80px] flex-1 bg-transparent py-0.5 text-sm outline-none placeholder:text-muted-foreground"
-          />
-        )}
+        {leading && <div className="flex shrink-0 items-center">{leading}</div>}
+        <div
+          className={`flex flex-1 flex-wrap items-center gap-1.5 py-1.5 pr-2 ${leading ? "pl-1.5" : "pl-2"}`}
+        >
+          {value.map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+            >
+              {aiTags?.has(tag) && <Sparkles className="h-3 w-3 shrink-0" />}
+              {tag}
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="ml-0.5 rounded-sm hover:bg-primary/20"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </span>
+          ))}
+          {!disabled && value.length < max && (
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value.replace(",", ""))}
+              onKeyDown={handleKeyDown}
+              onFocus={() => {
+                if (suggestions.length > 0) setShowSuggestions(true);
+              }}
+              placeholder={value.length === 0 ? placeholder : ""}
+              className="min-w-[80px] flex-1 bg-transparent py-0.5 text-sm outline-none placeholder:text-muted-foreground"
+            />
+          )}
+        </div>
       </div>
 
       {showSuggestions && (

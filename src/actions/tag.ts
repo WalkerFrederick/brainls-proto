@@ -2,13 +2,21 @@
 
 import { eq, sql, ilike, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { tags, deckTags, cardTags, deckDefinitions, cardDefinitions } from "@/db/schema";
+import { tags, deckTags, cardTags, deckDefinitions, cardDefinitions, userDecks } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
-import { safeAction } from "@/lib/errors";
+import { safeAction, reportError } from "@/lib/errors";
 import { canEditDeck } from "@/lib/permissions";
 import { ok, err, type Result } from "@/lib/result";
-import { SetDeckTagsSchema, SetCardTagsSchema, SearchTagsSchema } from "@/lib/schemas";
+import {
+  SetDeckTagsSchema,
+  SetCardTagsSchema,
+  SearchTagsSchema,
+  SuggestCardTagsSchema,
+} from "@/lib/schemas";
 import { isValidUuid } from "@/lib/validate-uuid";
+import { suggestTags, logAiCall, estimateCost } from "@/lib/ai";
+import { stripHtml } from "@/lib/sanitize-html";
+import { getAiLimitInfo, getAiUsageCount } from "@/lib/tiers";
 
 async function upsertTags(names: string[]): Promise<Map<string, string>> {
   if (names.length === 0) return new Map();
@@ -153,6 +161,131 @@ export const setCardTags = safeAction(
     }
 
     return ok(uniqueNames);
+  },
+);
+
+export const suggestCardTags = safeAction(
+  "suggestCardTags",
+  async (input: unknown): Promise<Result<string[]>> => {
+    const session = await requireSession();
+    const parsed = SuggestCardTagsSchema.safeParse(input);
+    if (!parsed.success) return err("VALIDATION_FAILED", "Validation failed");
+
+    const { deckDefinitionId, cardContent, cardType, existingCardTags } = parsed.data;
+    if (!isValidUuid(deckDefinitionId)) return err("VALIDATION_FAILED", "Invalid deck ID");
+
+    const limitInfo = await getAiLimitInfo(session.user.id);
+    const currentUsage = await getAiUsageCount(session.user.id, limitInfo.periodStart);
+    if (currentUsage >= limitInfo.limit) {
+      const periodWord = limitInfo.period === "day" ? "daily" : "monthly";
+      return err("LIMIT_EXCEEDED", `You've reached your ${periodWord} AI usage limit`);
+    }
+
+    const [deck] = await db
+      .select({
+        id: deckDefinitions.id,
+        title: deckDefinitions.title,
+        description: deckDefinitions.description,
+      })
+      .from(deckDefinitions)
+      .where(eq(deckDefinitions.id, deckDefinitionId));
+    if (!deck) return err("NOT_FOUND", "Deck not found");
+
+    const deckTagRows = await db
+      .select({ name: tags.name })
+      .from(deckTags)
+      .innerJoin(tags, eq(deckTags.tagId, tags.id))
+      .where(eq(deckTags.deckDefinitionId, deckDefinitionId));
+
+    const userTagRows = await db
+      .select({
+        name: tags.name,
+        cnt: sql<number>`count(*)::int`,
+      })
+      .from(cardTags)
+      .innerJoin(cardDefinitions, eq(cardTags.cardDefinitionId, cardDefinitions.id))
+      .innerJoin(userDecks, eq(cardDefinitions.deckDefinitionId, userDecks.deckDefinitionId))
+      .innerJoin(tags, eq(cardTags.tagId, tags.id))
+      .where(eq(userDecks.userId, session.user.id))
+      .groupBy(tags.name)
+      .orderBy(sql`count(*) DESC`)
+      .limit(50);
+
+    const strippedContent = cardContent ? stripHtml(cardContent).slice(0, 2000) : null;
+
+    const inputSnapshot = { deckTitle: deck.title, cardContent: strippedContent?.slice(0, 200) };
+    const startMs = Date.now();
+    let result;
+    try {
+      result = await suggestTags({
+        deckTitle: deck.title,
+        deckDescription: deck.description,
+        deckTags: deckTagRows.map((r) => r.name),
+        cardContent: strippedContent,
+        cardType: cardType ?? null,
+        existingCardTags: existingCardTags ?? [],
+        userTags: userTagRows.map((r) => r.name),
+      });
+    } catch (e: unknown) {
+      const durationMs = Date.now() - startMs;
+      const status = (e as { status?: number }).status;
+      const errorType = (e as { error?: { type?: string } }).error?.type;
+
+      reportError(e, {
+        action: "suggestCardTags",
+        status,
+        errorType,
+        deckDefinitionId,
+      });
+
+      logAiCall({
+        userId: session.user.id,
+        action: "suggestTags",
+        model: "unknown",
+        inputTokens: 0,
+        outputTokens: 0,
+        estimatedCostUsd: 0,
+        durationMs,
+        input: inputSnapshot,
+        output: null,
+        error: String(e),
+      });
+
+      if (status === 429) {
+        return err(
+          "LIMIT_EXCEEDED",
+          "AI suggestions are temporarily unavailable — please try again in a few minutes",
+        );
+      }
+      return err(
+        "INTERNAL_ERROR",
+        "AI suggestions are unavailable right now — please try again later",
+      );
+    }
+    const durationMs = Date.now() - startMs;
+
+    if (!result) return err("INTERNAL_ERROR", "AI features are not configured");
+
+    const excluded = new Set([
+      ...(existingCardTags ?? []).map((t) => t.toLowerCase()),
+      ...deckTagRows.map((r) => r.name.toLowerCase()),
+    ]);
+    const filtered = result.tags.filter((t) => !excluded.has(t));
+
+    const cost = estimateCost(result.provider, result.usage.inputTokens, result.usage.outputTokens);
+    logAiCall({
+      userId: session.user.id,
+      action: "suggestTags",
+      model: result.provider.model,
+      inputTokens: result.usage.inputTokens,
+      outputTokens: result.usage.outputTokens,
+      estimatedCostUsd: cost,
+      durationMs,
+      input: inputSnapshot,
+      output: result.tags,
+    });
+
+    return ok(filtered);
   },
 );
 

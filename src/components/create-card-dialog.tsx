@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Sparkles } from "lucide-react";
+import { MAX_TAGS_PER_CARD } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,9 +31,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createCard } from "@/actions/card";
-import { setCardTags } from "@/actions/tag";
+import { setCardTags, suggestCardTags } from "@/actions/tag";
 import { listEditableDecks } from "@/actions/deck";
 import { TagInput } from "@/components/tag-input";
+import { UpgradeDialog } from "@/components/upgrade-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 type SupportedCardType = "front_back" | "multiple_choice" | "keyboard_shortcut" | "cloze";
 
@@ -57,6 +60,7 @@ export function CreateCardDialog({
   onOpenChange: controlledOnOpenChange,
 }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
   const setOpen = controlledOnOpenChange ?? setUncontrolledOpen;
@@ -81,6 +85,10 @@ export function CreateCardDialog({
 
   const [clozeText, setClozeText] = useState("");
   const [cardTagsList, setCardTagsList] = useState<string[]>([]);
+
+  const [aiSuggestedTags, setAiSuggestedTags] = useState<Set<string>>(new Set());
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -127,6 +135,7 @@ export function CreateCardDialog({
     setExplanation("");
     setClozeText("");
     setCardTagsList([]);
+    setAiSuggestedTags(new Set());
     setError("");
   }
 
@@ -139,6 +148,31 @@ export function CreateCardDialog({
       setPermissionNotice(false);
       setSelectedDeckId(initialDeckId ?? "");
     }
+  }
+
+  async function handleSuggestTags() {
+    if (!selectedDeckId || loadingSuggestions) return;
+    setLoadingSuggestions(true);
+    const result = await suggestCardTags({
+      deckDefinitionId: selectedDeckId,
+      cardContent: front || back || question || clozeText || prompt || undefined,
+      cardType,
+      existingCardTags: cardTagsList,
+    });
+    if (result.success) {
+      const remaining = MAX_TAGS_PER_CARD - cardTagsList.length;
+      const fresh = result.data.filter((t) => !cardTagsList.includes(t)).slice(0, remaining);
+      if (fresh.length > 0) {
+        setCardTagsList((prev) => [...prev, ...fresh]);
+        setAiSuggestedTags((prev) => new Set([...prev, ...fresh]));
+      }
+    } else {
+      toast(result.error, { variant: "error" });
+      if (result.code === "LIMIT_EXCEEDED") {
+        setShowUpgrade(true);
+      }
+    }
+    setLoadingSuggestions(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -188,7 +222,13 @@ export function CreateCardDialog({
     }
 
     if (cardTagsList.length > 0 && result.data?.id) {
-      await setCardTags({ cardDefinitionId: result.data.id, tagNames: cardTagsList });
+      const tagResult = await setCardTags({
+        cardDefinitionId: result.data.id,
+        tagNames: cardTagsList,
+      });
+      if (!tagResult.success) {
+        toast("Card created but tags could not be saved", { variant: "warning" });
+      }
     }
 
     setOpen(false);
@@ -465,11 +505,36 @@ export function CreateCardDialog({
             )}
 
             <div className="space-y-2">
-              <Label>Tags</Label>
+              <div className="flex items-center justify-between">
+                <Label>Tags</Label>
+                <span className="text-xs text-muted-foreground">
+                  {cardTagsList.length}/{MAX_TAGS_PER_CARD}
+                </span>
+              </div>
               <TagInput
                 value={cardTagsList}
                 onChange={setCardTagsList}
                 placeholder="Add tags (e.g. chem101)..."
+                aiTags={aiSuggestedTags}
+                leading={
+                  <button
+                    type="button"
+                    className="inline-flex h-full cursor-pointer items-center gap-1 rounded-l-md border-r bg-muted px-2 text-xs text-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={
+                      !selectedDeckId ||
+                      loadingSuggestions ||
+                      cardTagsList.length >= MAX_TAGS_PER_CARD
+                    }
+                    onClick={handleSuggestTags}
+                  >
+                    {loadingSuggestions ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    AI
+                  </button>
+                }
               />
             </div>
           </div>
@@ -481,6 +546,7 @@ export function CreateCardDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      <UpgradeDialog open={showUpgrade} onOpenChange={setShowUpgrade} />
     </Dialog>
   );
 }

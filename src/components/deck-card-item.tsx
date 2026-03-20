@@ -90,14 +90,22 @@ export function DeckCardItem({
             <Badge variant="outline" className="shrink-0 text-[10px]">
               {cardType.replace(/_/g, " ")}
             </Badge>
-            {tags?.map((tag) => (
-              <span
-                key={tag}
-                className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
-              >
-                {tag}
-              </span>
-            ))}
+            {tags &&
+              tags.length > 0 &&
+              (tags.length <= 2 ? (
+                tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                  >
+                    {tag}
+                  </span>
+                ))
+              ) : (
+                <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                  {tags.length} tags
+                </span>
+              ))}
             {version !== undefined && (
               <span className="shrink-0 text-[10px] text-muted-foreground">v{version}</span>
             )}

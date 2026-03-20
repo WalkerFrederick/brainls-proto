@@ -2,22 +2,28 @@ import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-server";
 
 export const metadata: Metadata = { title: "Account" };
-import { UserCog } from "lucide-react";
+import { UserCog, Sparkles } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { UpdateProfileForm } from "@/components/update-profile-form";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { DangerZone } from "@/components/danger-zone";
 import { getStorageInfo } from "@/actions/storage";
+import { getAiUsage } from "@/actions/ai";
 import { formatBytes } from "@/lib/storage";
 
 export default async function AccountSettingsPage() {
-  const [session, storageResult] = await Promise.all([getSession(), getStorageInfo()]);
+  const [session, storageResult, aiUsageResult] = await Promise.all([
+    getSession(),
+    getStorageInfo(),
+    getAiUsage(),
+  ]);
 
   if (!session) {
     return <div className="text-destructive">Not authenticated</div>;
   }
 
   const storage = storageResult.success ? storageResult.data : null;
+  const aiUsage = aiUsageResult.success ? aiUsageResult.data : null;
 
   return (
     <div className="space-y-8">
@@ -61,6 +67,44 @@ export default async function AccountSettingsPage() {
       </div>
 
       <Separator />
+
+      {aiUsage && (
+        <>
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold">AI Usage</h2>
+              <p className="text-sm text-muted-foreground">
+                AI-powered features usage &mdash; {aiUsage.periodLabel}.
+              </p>
+            </div>
+            <div className="rounded-md border p-4 space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Uses</span>
+                <span className="font-medium">
+                  {aiUsage.successCount.toLocaleString()} / {aiUsage.limit.toLocaleString()}
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{
+                    width: `${Math.min((aiUsage.successCount / aiUsage.limit) * 100, 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3" />
+                  Resets {aiUsage.period === "day" ? "daily" : "monthly"}
+                </span>
+                <span>{Math.round((aiUsage.successCount / aiUsage.limit) * 100)}% used</span>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+        </>
+      )}
 
       {storage && (
         <>

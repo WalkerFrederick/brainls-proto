@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Loader2, Trash2, Sparkles } from "lucide-react";
+import { MAX_TAGS_PER_CARD } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -104,7 +105,7 @@ export function EditCardDialog({
       existingCardTags: cardTagsList,
     });
     if (result.success) {
-      const remaining = 10 - cardTagsList.length;
+      const remaining = MAX_TAGS_PER_CARD - cardTagsList.length;
       const fresh = result.data.filter((t) => !cardTagsList.includes(t)).slice(0, remaining);
       if (fresh.length > 0) {
         setCardTagsList((prev) => [...prev, ...fresh]);
@@ -388,7 +389,9 @@ export function EditCardDialog({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Tags</Label>
-                <span className="text-xs text-muted-foreground">{cardTagsList.length}/10</span>
+                <span className="text-xs text-muted-foreground">
+                  {cardTagsList.length}/{MAX_TAGS_PER_CARD}
+                </span>
               </div>
               <TagInput
                 value={cardTagsList}
@@ -399,7 +402,7 @@ export function EditCardDialog({
                   <button
                     type="button"
                     className="inline-flex h-full cursor-pointer items-center gap-1 rounded-l-md border-r bg-muted px-2 text-xs text-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={loadingSuggestions || cardTagsList.length >= 10}
+                    disabled={loadingSuggestions || cardTagsList.length >= MAX_TAGS_PER_CARD}
                     onClick={handleSuggestTags}
                   >
                     {loadingSuggestions ? (

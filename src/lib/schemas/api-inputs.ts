@@ -84,6 +84,8 @@ export type SubmitReviewInput = z.infer<typeof SubmitReviewSchema>;
 
 // ── Tags ──
 
+export const MAX_TAGS_PER_CARD = 10;
+
 const tagNameField = z
   .string()
   .trim()
@@ -92,7 +94,9 @@ const tagNameField = z
   .regex(/^[a-zA-Z0-9\s-]+$/, "Tags can only contain letters, numbers, spaces, and hyphens")
   .transform((s) => s.toLowerCase().replace(/\s+/g, "-"));
 
-const tagNamesArray = z.array(tagNameField).max(10, "Maximum 10 tags");
+const tagNamesArray = z
+  .array(tagNameField)
+  .max(MAX_TAGS_PER_CARD, `Maximum ${MAX_TAGS_PER_CARD} tags`);
 
 export const SetDeckTagsSchema = z.object({
   deckDefinitionId: z.string().uuid(),
@@ -112,7 +116,7 @@ export const SuggestCardTagsSchema = z.object({
   deckDefinitionId: z.string().uuid(),
   cardContent: z.string().trim().max(10_000).optional(),
   cardType: z.string().max(50).optional(),
-  existingCardTags: z.array(z.string()).max(10).optional(),
+  existingCardTags: z.array(z.string()).max(MAX_TAGS_PER_CARD).optional(),
 });
 
 export type SetDeckTagsInput = z.infer<typeof SetDeckTagsSchema>;

@@ -15,6 +15,8 @@ import { CreateDeckDialog } from "@/components/create-deck-dialog";
 import { CreateCardDialog } from "@/components/create-card-dialog";
 import { CreateFolderDialog } from "@/components/create-folder-dialog";
 import { CommandPalette } from "@/components/command-palette";
+import { AiPaneMobile } from "@/components/ai-pane";
+import { useLayoutPrefs } from "@/components/layout-provider";
 
 interface QuickbarProps {
   pendingInviteCount: number;
@@ -28,6 +30,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   const [deckDialogOpen, setDeckDialogOpen] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const { aiPaneOpen, setAiPaneOpen } = useLayoutPrefs();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const prevPathname = useRef(pathname);
@@ -74,7 +77,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   }, []);
 
   useEffect(() => {
-    if (drawerOpen || paletteOpen) {
+    if (drawerOpen || paletteOpen || aiPaneOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -82,7 +85,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [drawerOpen, paletteOpen]);
+  }, [drawerOpen, paletteOpen, aiPaneOpen]);
 
   useEffect(() => {
     if (prevPathname.current !== pathname) {
@@ -260,6 +263,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
 
               <button
                 type="button"
+                onClick={() => setAiPaneOpen(!aiPaneOpen)}
                 className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/80"
                 aria-label="AI"
               >
@@ -312,6 +316,10 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
           </>
         )}
       </AnimatePresence>
+
+      <div className="lg:hidden">
+        <AiPaneMobile />
+      </div>
 
       {/* FAB for mobile */}
       {!isStudying && (

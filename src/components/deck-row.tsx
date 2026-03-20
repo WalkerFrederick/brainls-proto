@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { addDeckToLibrary, type LibraryDeck } from "@/actions/study";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface DeckRowProps {
   deck: LibraryDeck;
@@ -22,6 +23,7 @@ export function DeckRow({ deck, folderRole, isDefaultDeck = false, folderId }: D
   const pathname = usePathname();
   const [adding, setAdding] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { toast } = useToast();
 
   const canDrag = !!folderId && !isDefaultDeck && folderRole === "owner";
 
@@ -36,6 +38,8 @@ export function DeckRow({ deck, folderRole, isDefaultDeck = false, folderId }: D
     const result = await addDeckToLibrary(deck.deckDefinitionId);
     if (result.success) {
       router.refresh();
+    } else {
+      toast(result.error, { variant: "error" });
     }
     setAdding(false);
   }

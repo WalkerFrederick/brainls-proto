@@ -14,6 +14,7 @@ import {
   FolderPlus,
   BookOpen,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { searchLibraryDecks } from "@/actions/deck";
 
@@ -49,6 +50,7 @@ export function CommandPalette({
   const [deckResults, setDeckResults] = useState<{ id: string; title: string }[]>([]);
   const [prefetchedDecks, setPrefetchedDecks] = useState<{ id: string; title: string }[]>([]);
   const [loadingDecks, setLoadingDecks] = useState(false);
+  const [deckError, setDeckError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -113,14 +115,19 @@ export function CommandPalette({
 
   const fetchDecks = useCallback(async (q: string) => {
     setLoadingDecks(true);
+    setDeckError(null);
     try {
       const result = await searchLibraryDecks(q);
       if (result.success) {
         setDeckResults(result.data);
         if (!q.trim()) setPrefetchedDecks(result.data);
+      } else {
+        setDeckResults([]);
+        setDeckError(result.error);
       }
     } catch {
       setDeckResults([]);
+      setDeckError("Network request failed. Please check your connection.");
     } finally {
       setLoadingDecks(false);
     }
@@ -286,7 +293,14 @@ export function CommandPalette({
                 role="listbox"
                 className="max-h-[50vh] overflow-y-auto p-2"
               >
-                {flatItems.length === 0 && !loadingDecks && (
+                {deckError && (
+                  <div className="mx-3 my-2 flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+                    <p className="text-xs text-red-600 dark:text-red-400">{deckError}</p>
+                  </div>
+                )}
+
+                {flatItems.length === 0 && !loadingDecks && !deckError && (
                   <p className="px-3 py-6 text-center text-sm text-muted-foreground">
                     No results found.
                   </p>

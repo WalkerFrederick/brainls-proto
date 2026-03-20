@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, ChevronUp, ChevronDown, FastForward } from "lucide-react";
+import { Clock, ChevronUp, ChevronDown, FastForward, Zap } from "lucide-react";
 import { advanceTime, listUserDecks } from "@/actions/study";
+import { CHAOS_MONKEY_CHANCE } from "@/lib/errors";
 
 interface UserDeck {
   id: string;
@@ -21,6 +22,15 @@ export function DevTimeTravelFab() {
   const [unit, setUnit] = useState<Unit>("min");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [chaosEnabled, setChaosEnabled] = useState(() =>
+    typeof document !== "undefined" ? document.cookie.includes("chaos_monkey=1") : false,
+  );
+
+  function toggleChaos() {
+    const next = !chaosEnabled;
+    document.cookie = `chaos_monkey=${next ? "1" : "0"};path=/`;
+    setChaosEnabled(next);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -58,10 +68,10 @@ export function DevTimeTravelFab() {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="fixed bottom-4 left-4 z-[60] flex h-12 w-12 items-center justify-center rounded-full border-2 border-amber-600 bg-amber-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
-        title="Dev Time Travel"
+        className={`fixed bottom-4 left-4 z-[60] flex h-12 w-12 items-center justify-center rounded-full border-2 shadow-lg transition-transform hover:scale-105 active:scale-95 ${chaosEnabled ? "border-red-500 bg-red-500 text-white" : "border-amber-600 bg-amber-500 text-white"}`}
+        title={chaosEnabled ? "Dev Tools (Chaos Monkey ON)" : "Dev Tools"}
       >
-        <Clock className="h-5 w-5" />
+        {chaosEnabled ? <Zap className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
       </button>
 
       {open && (
@@ -126,6 +136,31 @@ export function DevTimeTravelFab() {
                 </button>
               </div>
             </div>
+          </div>
+
+          <div className="border-t pt-3">
+            <button
+              type="button"
+              onClick={toggleChaos}
+              className="flex w-full items-center justify-between rounded-md px-1 py-1 hover:bg-accent"
+            >
+              <div className="flex items-center gap-2">
+                <Zap
+                  className={`h-4 w-4 ${chaosEnabled ? "text-red-500" : "text-muted-foreground"}`}
+                />
+                <span className="text-sm font-medium">Chaos Monkey</span>
+              </div>
+              <div
+                className={`h-5 w-9 rounded-full transition-colors ${chaosEnabled ? "bg-red-500" : "bg-muted"}`}
+              >
+                <div
+                  className={`mt-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${chaosEnabled ? "translate-x-[18px]" : "translate-x-0.5"}`}
+                />
+              </div>
+            </button>
+            <p className="mt-1 pl-7 text-xs text-muted-foreground">
+              Randomly fail 1/{Math.round(1 / CHAOS_MONKEY_CHANCE)} server calls
+            </p>
           </div>
 
           {message && (

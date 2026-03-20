@@ -6,6 +6,7 @@ import { userCardStates, userDecks } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
 import { isValidUuid } from "@/lib/validate-uuid";
+import { safeAction } from "@/lib/errors";
 
 interface UpdateCardStateInput {
   cardDefinitionId: string;
@@ -18,68 +19,70 @@ interface UpdateCardStateInput {
   dueAt?: string | null;
 }
 
-export async function updateCardState(
-  input: UpdateCardStateInput,
-): Promise<Result<{ count: number }>> {
-  if (!isValidUuid(input.cardDefinitionId)) return err("Invalid card ID");
-  const session = await requireSession();
+export const updateCardState = safeAction(
+  "updateCardState",
+  async (input: UpdateCardStateInput): Promise<Result<{ count: number }>> => {
+    if (!isValidUuid(input.cardDefinitionId)) return err("VALIDATION_FAILED", "Invalid card ID");
+    const session = await requireSession();
 
-  const states = await db
-    .select({
-      id: userCardStates.id,
-      userDeckId: userCardStates.userDeckId,
-    })
-    .from(userCardStates)
-    .where(eq(userCardStates.cardDefinitionId, input.cardDefinitionId));
+    const states = await db
+      .select({
+        id: userCardStates.id,
+        userDeckId: userCardStates.userDeckId,
+      })
+      .from(userCardStates)
+      .where(eq(userCardStates.cardDefinitionId, input.cardDefinitionId));
 
-  if (states.length === 0) return ok({ count: 0 });
+    if (states.length === 0) return ok({ count: 0 });
 
-  const ownedDeckIds = await db
-    .select({ id: userDecks.id })
-    .from(userDecks)
-    .where(eq(userDecks.userId, session.user.id));
+    const ownedDeckIds = await db
+      .select({ id: userDecks.id })
+      .from(userDecks)
+      .where(eq(userDecks.userId, session.user.id));
 
-  const ownedSet = new Set(ownedDeckIds.map((d) => d.id));
-  const toUpdate = states.filter((s) => ownedSet.has(s.userDeckId));
+    const ownedSet = new Set(ownedDeckIds.map((d) => d.id));
+    const toUpdate = states.filter((s) => ownedSet.has(s.userDeckId));
 
-  if (toUpdate.length === 0) return err("No study state found for this card");
+    if (toUpdate.length === 0) return err("NOT_FOUND", "No study state found for this card");
 
-  const updateData: Record<string, unknown> = { updatedAt: new Date() };
-  if (input.srsState !== undefined) updateData.srsState = input.srsState;
-  if (input.intervalDays !== undefined) updateData.intervalDays = input.intervalDays;
-  if (input.stability !== undefined) updateData.stability = String(input.stability);
-  if (input.difficulty !== undefined) updateData.difficulty = String(input.difficulty);
-  if (input.reps !== undefined) updateData.reps = input.reps;
-  if (input.lapses !== undefined) updateData.lapses = input.lapses;
-  if (input.dueAt !== undefined) {
-    updateData.dueAt = input.dueAt ? new Date(input.dueAt) : null;
-  }
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (input.srsState !== undefined) updateData.srsState = input.srsState;
+    if (input.intervalDays !== undefined) updateData.intervalDays = input.intervalDays;
+    if (input.stability !== undefined) updateData.stability = String(input.stability);
+    if (input.difficulty !== undefined) updateData.difficulty = String(input.difficulty);
+    if (input.reps !== undefined) updateData.reps = input.reps;
+    if (input.lapses !== undefined) updateData.lapses = input.lapses;
+    if (input.dueAt !== undefined) {
+      updateData.dueAt = input.dueAt ? new Date(input.dueAt) : null;
+    }
 
-  for (const state of toUpdate) {
-    await db.update(userCardStates).set(updateData).where(eq(userCardStates.id, state.id));
-  }
+    for (const state of toUpdate) {
+      await db.update(userCardStates).set(updateData).where(eq(userCardStates.id, state.id));
+    }
 
-  return ok({ count: toUpdate.length });
-}
+    return ok({ count: toUpdate.length });
+  },
+);
 
-export async function getCardState(
-  cardDefinitionId: string,
-): Promise<Result<typeof userCardStates.$inferSelect | null>> {
-  if (!isValidUuid(cardDefinitionId)) return err("Invalid card ID");
-  const session = await requireSession();
+export const getCardState = safeAction(
+  "getCardState",
+  async (cardDefinitionId: string): Promise<Result<typeof userCardStates.$inferSelect | null>> => {
+    if (!isValidUuid(cardDefinitionId)) return err("VALIDATION_FAILED", "Invalid card ID");
+    const session = await requireSession();
 
-  const [state] = await db
-    .select({
-      state: userCardStates,
-    })
-    .from(userCardStates)
-    .innerJoin(userDecks, eq(userCardStates.userDeckId, userDecks.id))
-    .where(
-      and(
-        eq(userCardStates.cardDefinitionId, cardDefinitionId),
-        eq(userDecks.userId, session.user.id),
-      ),
-    );
+    const [state] = await db
+      .select({
+        state: userCardStates,
+      })
+      .from(userCardStates)
+      .innerJoin(userDecks, eq(userCardStates.userDeckId, userDecks.id))
+      .where(
+        and(
+          eq(userCardStates.cardDefinitionId, cardDefinitionId),
+          eq(userDecks.userId, session.user.id),
+        ),
+      );
 
-  return ok(state?.state ?? null);
-}
+    return ok(state?.state ?? null);
+  },
+);

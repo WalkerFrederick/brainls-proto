@@ -15,6 +15,7 @@ import {
 } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { ok, err, type Result } from "@/lib/result";
+import { safeAction } from "@/lib/errors";
 import {
   CreateFolderSchema,
   UpdateFolderSchema,
@@ -24,348 +25,388 @@ import {
 import { requireFolderRole, canManageMembers } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
 
-export async function createFolder(input: unknown): Promise<Result<{ id: string }>> {
-  const session = await requireSession();
-  const parsed = CreateFolderSchema.safeParse(input);
-  if (!parsed.success) {
-    return err(
-      "Validation failed",
-      Object.fromEntries(
-        Object.entries(parsed.error.flatten().fieldErrors).map(([k, v]) => [k, v ?? []]),
-      ),
-    );
-  }
-
-  const { name, description } = parsed.data;
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  const [folder] = await db
-    .insert(folders)
-    .values({
-      name,
-      slug,
-      description,
-      createdByUserId: session.user.id,
-    })
-    .returning({ id: folders.id });
-
-  await db.insert(folderSettings).values({
-    folderId: folder.id,
-  });
-
-  await db.insert(folderMembers).values({
-    folderId: folder.id,
-    userId: session.user.id,
-    role: "owner",
-    status: "active",
-    joinedAt: new Date(),
-  });
-
-  return ok({ id: folder.id });
-}
-
-export async function updateFolder(input: unknown): Promise<Result<{ id: string }>> {
-  const session = await requireSession();
-  const parsed = UpdateFolderSchema.safeParse(input);
-  if (!parsed.success) {
-    return err("Validation failed");
-  }
-
-  const { folderId, ...updates } = parsed.data;
-  const perm = await requireFolderRole(folderId, session.user.id, "admin");
-  if (!perm.allowed) return err(perm.error);
-
-  const updateData: Record<string, unknown> = { updatedAt: new Date() };
-  if (updates.name) updateData.name = updates.name;
-  if (updates.description !== undefined) updateData.description = updates.description;
-
-  await db.update(folders).set(updateData).where(eq(folders.id, folderId));
-
-  return ok({ id: folderId });
-}
-
-export async function listFolders(): Promise<
-  Result<Array<{ id: string; name: string; role: string }>>
-> {
-  const session = await requireSession();
-
-  const rows = await db
-    .select({
-      id: folders.id,
-      name: folders.name,
-      role: folderMembers.role,
-    })
-    .from(folderMembers)
-    .innerJoin(folders, eq(folderMembers.folderId, folders.id))
-    .where(
-      and(
-        eq(folderMembers.userId, session.user.id),
-        eq(folderMembers.status, "active"),
-        isNull(folders.archivedAt),
-      ),
-    );
-
-  rows.sort((a, b) => a.name.localeCompare(b.name));
-
-  return ok(rows);
-}
-
-export async function listFoldersWithDecks(): Promise<
-  Result<
-    Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      role: string;
-      decks: Array<{
-        deckDefinitionId: string;
-        title: string;
-        description: string | null;
-        viewPolicy: string;
-        linkedDeckDefinitionId: string | null;
-        copiedFromDeckDefinitionId: string | null;
-        isAbandoned: boolean;
-        tags: string[];
-        folders: Array<{ id: string; name: string; role: string }>;
-        userDeckId: string | null;
-        totalCards: number;
-        dueCards: number;
-        newCount: number;
-        learningCount: number;
-        reviewDueCount: number;
-        lastStudiedAt: Date | null;
-      }>;
-    }>
-  >
-> {
-  const session = await requireSession();
-  const nowIso = new Date().toISOString();
-
-  const memberRows = await db
-    .select({
-      id: folders.id,
-      name: folders.name,
-      description: folders.description,
-      role: folderMembers.role,
-    })
-    .from(folderMembers)
-    .innerJoin(folders, eq(folderMembers.folderId, folders.id))
-    .where(
-      and(
-        eq(folderMembers.userId, session.user.id),
-        eq(folderMembers.status, "active"),
-        isNull(folders.archivedAt),
-      ),
-    );
-
-  if (memberRows.length === 0) return ok([]);
-
-  const folderIds = memberRows.map((f) => f.id);
-
-  const rawDecks = await db
-    .select({
-      id: deckDefinitions.id,
-      title: deckDefinitions.title,
-      description: deckDefinitions.description,
-      viewPolicy: deckDefinitions.viewPolicy,
-      linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
-      copiedFromDeckDefinitionId: deckDefinitions.copiedFromDeckDefinitionId,
-      folderId: deckDefinitions.folderId,
-    })
-    .from(deckDefinitions)
-    .where(and(inArray(deckDefinitions.folderId, folderIds), isNull(deckDefinitions.archivedAt)));
-
-  // Abandoned status for linked decks
-  const linkedSourceIds = rawDecks
-    .filter((d) => d.linkedDeckDefinitionId)
-    .map((d) => d.linkedDeckDefinitionId!);
-
-  const abandonedSet = new Set<string>();
-  if (linkedSourceIds.length > 0) {
-    const sourceDecks = await db
-      .select({ id: deckDefinitions.id, archivedAt: deckDefinitions.archivedAt })
-      .from(deckDefinitions)
-      .where(inArray(deckDefinitions.id, linkedSourceIds));
-    for (const s of sourceDecks) {
-      if (s.archivedAt) abandonedSet.add(s.id);
+export const createFolder = safeAction(
+  "createFolder",
+  async (input: unknown): Promise<Result<{ id: string }>> => {
+    const session = await requireSession();
+    const parsed = CreateFolderSchema.safeParse(input);
+    if (!parsed.success) {
+      return err(
+        "VALIDATION_FAILED",
+        "Validation failed",
+        Object.fromEntries(
+          Object.entries(parsed.error.flatten().fieldErrors).map(([k, v]) => [k, v ?? []]),
+        ),
+      );
     }
-  }
 
-  // Tags
-  const allDeckIds = rawDecks.map((d) => d.id);
-  const deckTagMap = new Map<string, string[]>();
+    const { name, description } = parsed.data;
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
 
-  if (allDeckIds.length > 0) {
-    const tagRows = await db
-      .select({
-        deckDefinitionId: deckTags.deckDefinitionId,
-        tagName: tags.name,
+    const [folder] = await db
+      .insert(folders)
+      .values({
+        name,
+        slug,
+        description,
+        createdByUserId: session.user.id,
       })
-      .from(deckTags)
-      .innerJoin(tags, eq(deckTags.tagId, tags.id))
-      .where(inArray(deckTags.deckDefinitionId, allDeckIds));
+      .returning({ id: folders.id });
 
-    for (const row of tagRows) {
-      const existing = deckTagMap.get(row.deckDefinitionId) ?? [];
-      existing.push(row.tagName);
-      deckTagMap.set(row.deckDefinitionId, existing);
+    await db.insert(folderSettings).values({
+      folderId: folder.id,
+    });
+
+    await db.insert(folderMembers).values({
+      folderId: folder.id,
+      userId: session.user.id,
+      role: "owner",
+      status: "active",
+      joinedAt: new Date(),
+    });
+
+    return ok({ id: folder.id });
+  },
+);
+
+export const updateFolder = safeAction(
+  "updateFolder",
+  async (input: unknown): Promise<Result<{ id: string }>> => {
+    const session = await requireSession();
+    const parsed = UpdateFolderSchema.safeParse(input);
+    if (!parsed.success) {
+      return err("VALIDATION_FAILED", "Validation failed");
     }
-  }
 
-  // Study data: userDecks + card counts
-  const allUserDecks = await db
-    .select({
-      id: userDecks.id,
-      deckDefinitionId: userDecks.deckDefinitionId,
-      lastStudiedAt: userDecks.lastStudiedAt,
-    })
-    .from(userDecks)
-    .where(and(eq(userDecks.userId, session.user.id), isNull(userDecks.archivedAt)));
+    const { folderId, ...updates } = parsed.data;
+    const perm = await requireFolderRole(folderId, session.user.id, "admin");
+    if (!perm.allowed) return err(perm.code, perm.error);
 
-  const userDeckMap = new Map(allUserDecks.map((ud) => [ud.deckDefinitionId, ud]));
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (updates.name) updateData.name = updates.name;
+    if (updates.description !== undefined) updateData.description = updates.description;
 
-  const userDeckIds = allUserDecks.map((ud) => ud.id);
-  type DeckStats = {
-    totalCards: number;
-    newCount: number;
-    learningCount: number;
-    reviewDueCount: number;
-    dueCards: number;
-  };
-  const statsMap = new Map<string, DeckStats>();
+    await db.update(folders).set(updateData).where(eq(folders.id, folderId));
 
-  if (userDeckIds.length > 0) {
-    const isDueExpr = sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`;
+    return ok({ id: folderId });
+  },
+);
+
+export const listFolders = safeAction(
+  "listFolders",
+  async (): Promise<Result<Array<{ id: string; name: string; role: string }>>> => {
+    const session = await requireSession();
 
     const rows = await db
       .select({
-        userDeckId: userCardStates.userDeckId,
-        totalCards: sql<number>`count(*)::int`,
-        newCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'new')::int`,
-        learningCount: sql<number>`count(*) filter (where ${userCardStates.srsState} in ('learning', 'relearning'))::int`,
-        reviewDueCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'review' and ${isDueExpr})::int`,
-        dueCards: sql<number>`count(*) filter (where ${isDueExpr})::int`,
+        id: folders.id,
+        name: folders.name,
+        role: folderMembers.role,
       })
-      .from(userCardStates)
-      .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+      .from(folderMembers)
+      .innerJoin(folders, eq(folderMembers.folderId, folders.id))
       .where(
-        and(inArray(userCardStates.userDeckId, userDeckIds), isNull(cardDefinitions.archivedAt)),
-      )
-      .groupBy(userCardStates.userDeckId);
+        and(
+          eq(folderMembers.userId, session.user.id),
+          eq(folderMembers.status, "active"),
+          isNull(folders.archivedAt),
+        ),
+      );
 
-    for (const r of rows) {
-      statsMap.set(r.userDeckId, {
-        totalCards: r.totalCards,
-        newCount: r.newCount,
-        learningCount: r.learningCount,
-        reviewDueCount: r.reviewDueCount,
-        dueCards: r.dueCards,
-      });
+    rows.sort((a, b) => a.name.localeCompare(b.name));
+
+    return ok(rows);
+  },
+);
+
+export const listFoldersWithDecks = safeAction(
+  "listFoldersWithDecks",
+  async (): Promise<
+    Result<
+      Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        role: string;
+        decks: Array<{
+          deckDefinitionId: string;
+          title: string;
+          description: string | null;
+          viewPolicy: string;
+          linkedDeckDefinitionId: string | null;
+          copiedFromDeckDefinitionId: string | null;
+          isAbandoned: boolean;
+          tags: string[];
+          folders: Array<{ id: string; name: string; role: string }>;
+          userDeckId: string | null;
+          totalCards: number;
+          dueCards: number;
+          newCount: number;
+          learningCount: number;
+          reviewDueCount: number;
+          lastStudiedAt: Date | null;
+        }>;
+      }>
+    >
+  > => {
+    const session = await requireSession();
+    const nowIso = new Date().toISOString();
+
+    const memberRows = await db
+      .select({
+        id: folders.id,
+        name: folders.name,
+        description: folders.description,
+        role: folderMembers.role,
+      })
+      .from(folderMembers)
+      .innerJoin(folders, eq(folderMembers.folderId, folders.id))
+      .where(
+        and(
+          eq(folderMembers.userId, session.user.id),
+          eq(folderMembers.status, "active"),
+          isNull(folders.archivedAt),
+        ),
+      );
+
+    if (memberRows.length === 0) return ok([]);
+
+    const folderIds = memberRows.map((f) => f.id);
+
+    const rawDecks = await db
+      .select({
+        id: deckDefinitions.id,
+        title: deckDefinitions.title,
+        description: deckDefinitions.description,
+        viewPolicy: deckDefinitions.viewPolicy,
+        linkedDeckDefinitionId: deckDefinitions.linkedDeckDefinitionId,
+        copiedFromDeckDefinitionId: deckDefinitions.copiedFromDeckDefinitionId,
+        folderId: deckDefinitions.folderId,
+      })
+      .from(deckDefinitions)
+      .where(and(inArray(deckDefinitions.folderId, folderIds), isNull(deckDefinitions.archivedAt)));
+
+    // Abandoned status for linked decks
+    const linkedSourceIds = rawDecks
+      .filter((d) => d.linkedDeckDefinitionId)
+      .map((d) => d.linkedDeckDefinitionId!);
+
+    const abandonedSet = new Set<string>();
+    if (linkedSourceIds.length > 0) {
+      const sourceDecks = await db
+        .select({ id: deckDefinitions.id, archivedAt: deckDefinitions.archivedAt })
+        .from(deckDefinitions)
+        .where(inArray(deckDefinitions.id, linkedSourceIds));
+      for (const s of sourceDecks) {
+        if (s.archivedAt) abandonedSet.add(s.id);
+      }
     }
-  }
 
-  // Group decks by folder
-  const result = memberRows
-    .sort((a, b) => {
-      const aIsDefault = a.id === session.user.personalFolderId;
-      const bIsDefault = b.id === session.user.personalFolderId;
-      if (aIsDefault) return -1;
-      if (bIsDefault) return 1;
-      return a.name.localeCompare(b.name);
-    })
-    .map((f) => {
-      const folderDecks = rawDecks
-        .filter((d) => d.folderId === f.id)
-        .sort((a, b) => {
-          const aIsDefault = a.id === session.user.defaultDeckId;
-          const bIsDefault = b.id === session.user.defaultDeckId;
-          if (aIsDefault) return -1;
-          if (bIsDefault) return 1;
-          return a.title.localeCompare(b.title);
+    // Tags
+    const allDeckIds = rawDecks.map((d) => d.id);
+    const deckTagMap = new Map<string, string[]>();
+
+    if (allDeckIds.length > 0) {
+      const tagRows = await db
+        .select({
+          deckDefinitionId: deckTags.deckDefinitionId,
+          tagName: tags.name,
+        })
+        .from(deckTags)
+        .innerJoin(tags, eq(deckTags.tagId, tags.id))
+        .where(inArray(deckTags.deckDefinitionId, allDeckIds));
+
+      for (const row of tagRows) {
+        const existing = deckTagMap.get(row.deckDefinitionId) ?? [];
+        existing.push(row.tagName);
+        deckTagMap.set(row.deckDefinitionId, existing);
+      }
+    }
+
+    // Study data: userDecks + card counts
+    const allUserDecks = await db
+      .select({
+        id: userDecks.id,
+        deckDefinitionId: userDecks.deckDefinitionId,
+        lastStudiedAt: userDecks.lastStudiedAt,
+      })
+      .from(userDecks)
+      .where(and(eq(userDecks.userId, session.user.id), isNull(userDecks.archivedAt)));
+
+    const userDeckMap = new Map(allUserDecks.map((ud) => [ud.deckDefinitionId, ud]));
+
+    const userDeckIds = allUserDecks.map((ud) => ud.id);
+    type DeckStats = {
+      totalCards: number;
+      newCount: number;
+      learningCount: number;
+      reviewDueCount: number;
+      dueCards: number;
+    };
+    const statsMap = new Map<string, DeckStats>();
+
+    if (userDeckIds.length > 0) {
+      const isDueExpr = sql`(${userCardStates.dueAt} IS NULL OR ${userCardStates.dueAt} <= ${nowIso})`;
+
+      const rows = await db
+        .select({
+          userDeckId: userCardStates.userDeckId,
+          totalCards: sql<number>`count(*)::int`,
+          newCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'new')::int`,
+          learningCount: sql<number>`count(*) filter (where ${userCardStates.srsState} in ('learning', 'relearning'))::int`,
+          reviewDueCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'review' and ${isDueExpr})::int`,
+          dueCards: sql<number>`count(*) filter (where ${isDueExpr})::int`,
+        })
+        .from(userCardStates)
+        .innerJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
+        .where(
+          and(inArray(userCardStates.userDeckId, userDeckIds), isNull(cardDefinitions.archivedAt)),
+        )
+        .groupBy(userCardStates.userDeckId);
+
+      for (const r of rows) {
+        statsMap.set(r.userDeckId, {
+          totalCards: r.totalCards,
+          newCount: r.newCount,
+          learningCount: r.learningCount,
+          reviewDueCount: r.reviewDueCount,
+          dueCards: r.dueCards,
+        });
+      }
+    }
+
+    // Group decks by folder
+    const result = memberRows
+      .sort((a, b) => {
+        const aIsDefault = a.id === session.user.personalFolderId;
+        const bIsDefault = b.id === session.user.personalFolderId;
+        if (aIsDefault) return -1;
+        if (bIsDefault) return 1;
+        return a.name.localeCompare(b.name);
+      })
+      .map((f) => {
+        const folderDecks = rawDecks
+          .filter((d) => d.folderId === f.id)
+          .sort((a, b) => {
+            const aIsDefault = a.id === session.user.defaultDeckId;
+            const bIsDefault = b.id === session.user.defaultDeckId;
+            if (aIsDefault) return -1;
+            if (bIsDefault) return 1;
+            return a.title.localeCompare(b.title);
+          });
+
+        const decks = folderDecks.map((deck) => {
+          const sourceDeckId = deck.linkedDeckDefinitionId ?? deck.id;
+          const ud = userDeckMap.get(sourceDeckId);
+
+          return {
+            deckDefinitionId: deck.id,
+            title: deck.title,
+            description: deck.description,
+            viewPolicy: deck.viewPolicy,
+            linkedDeckDefinitionId: deck.linkedDeckDefinitionId,
+            copiedFromDeckDefinitionId: deck.copiedFromDeckDefinitionId,
+            isAbandoned: deck.linkedDeckDefinitionId
+              ? abandonedSet.has(deck.linkedDeckDefinitionId)
+              : false,
+            tags: (deckTagMap.get(deck.id) ?? []).sort(),
+            folders: [{ id: f.id, name: f.name, role: f.role }],
+            userDeckId: ud?.id ?? null,
+            totalCards: ud ? (statsMap.get(ud.id)?.totalCards ?? 0) : 0,
+            dueCards: ud ? (statsMap.get(ud.id)?.dueCards ?? 0) : 0,
+            newCount: ud ? (statsMap.get(ud.id)?.newCount ?? 0) : 0,
+            learningCount: ud ? (statsMap.get(ud.id)?.learningCount ?? 0) : 0,
+            reviewDueCount: ud ? (statsMap.get(ud.id)?.reviewDueCount ?? 0) : 0,
+            lastStudiedAt: ud?.lastStudiedAt ?? null,
+          };
         });
 
-      const decks = folderDecks.map((deck) => {
-        const sourceDeckId = deck.linkedDeckDefinitionId ?? deck.id;
-        const ud = userDeckMap.get(sourceDeckId);
-
         return {
-          deckDefinitionId: deck.id,
-          title: deck.title,
-          description: deck.description,
-          viewPolicy: deck.viewPolicy,
-          linkedDeckDefinitionId: deck.linkedDeckDefinitionId,
-          copiedFromDeckDefinitionId: deck.copiedFromDeckDefinitionId,
-          isAbandoned: deck.linkedDeckDefinitionId
-            ? abandonedSet.has(deck.linkedDeckDefinitionId)
-            : false,
-          tags: (deckTagMap.get(deck.id) ?? []).sort(),
-          folders: [{ id: f.id, name: f.name, role: f.role }],
-          userDeckId: ud?.id ?? null,
-          totalCards: ud ? (statsMap.get(ud.id)?.totalCards ?? 0) : 0,
-          dueCards: ud ? (statsMap.get(ud.id)?.dueCards ?? 0) : 0,
-          newCount: ud ? (statsMap.get(ud.id)?.newCount ?? 0) : 0,
-          learningCount: ud ? (statsMap.get(ud.id)?.learningCount ?? 0) : 0,
-          reviewDueCount: ud ? (statsMap.get(ud.id)?.reviewDueCount ?? 0) : 0,
-          lastStudiedAt: ud?.lastStudiedAt ?? null,
+          id: f.id,
+          name: f.name,
+          description: f.description,
+          role: f.role,
+          isPersonalSpace: f.id === session.user.personalFolderId,
+          decks,
         };
       });
 
-      return {
-        id: f.id,
-        name: f.name,
-        description: f.description,
-        role: f.role,
-        isPersonalSpace: f.id === session.user.personalFolderId,
-        decks,
-      };
-    });
+    return ok(result);
+  },
+);
 
-  return ok(result);
-}
+export const getFolder = safeAction(
+  "getFolder",
+  async (folderId: string): Promise<Result<typeof folders.$inferSelect>> => {
+    if (!isValidUuid(folderId)) return err("VALIDATION_FAILED", "Invalid folder ID");
+    const session = await requireSession();
 
-export async function getFolder(folderId: string): Promise<Result<typeof folders.$inferSelect>> {
-  if (!isValidUuid(folderId)) return err("Invalid folder ID");
-  const session = await requireSession();
+    const perm = await requireFolderRole(folderId, session.user.id, "viewer");
+    if (!perm.allowed) return err(perm.code, perm.error);
 
-  const perm = await requireFolderRole(folderId, session.user.id, "viewer");
-  if (!perm.allowed) return err(perm.error);
+    const [folder] = await db.select().from(folders).where(eq(folders.id, folderId));
 
-  const [folder] = await db.select().from(folders).where(eq(folders.id, folderId));
+    if (!folder) return err("NOT_FOUND", "Folder not found");
+    return ok(folder);
+  },
+);
 
-  if (!folder) return err("Folder not found");
-  return ok(folder);
-}
+export const inviteFolderMember = safeAction(
+  "inviteFolderMember",
+  async (input: unknown): Promise<Result<{ id: string }>> => {
+    const session = await requireSession();
+    const parsed = InviteFolderMemberSchema.safeParse(input);
+    if (!parsed.success) return err("VALIDATION_FAILED", "Validation failed");
 
-export async function inviteFolderMember(input: unknown): Promise<Result<{ id: string }>> {
-  const session = await requireSession();
-  const parsed = InviteFolderMemberSchema.safeParse(input);
-  if (!parsed.success) return err("Validation failed");
+    const { folderId, email, role } = parsed.data;
+    const perm = await canManageMembers(folderId, session.user.id);
+    if (!perm.allowed) return err(perm.code, perm.error);
 
-  const { folderId, email, role } = parsed.data;
-  const perm = await canManageMembers(folderId, session.user.id);
-  if (!perm.allowed) return err(perm.error);
+    const normalizedEmail = email.toLowerCase().trim();
 
-  const normalizedEmail = email.toLowerCase().trim();
+    const { users } = await import("@/db/schema");
+    const [targetUser] = await db.select().from(users).where(eq(users.email, normalizedEmail));
 
-  const { users } = await import("@/db/schema");
-  const [targetUser] = await db.select().from(users).where(eq(users.email, normalizedEmail));
+    if (targetUser) {
+      const existing = await db
+        .select()
+        .from(folderMembers)
+        .where(and(eq(folderMembers.folderId, folderId), eq(folderMembers.userId, targetUser.id)));
 
-  if (targetUser) {
-    const existing = await db
+      if (existing.length > 0)
+        return err("CONFLICT", "This email already has a pending invite or membership");
+
+      const [member] = await db
+        .insert(folderMembers)
+        .values({
+          folderId,
+          userId: targetUser.id,
+          invitedEmail: normalizedEmail,
+          role,
+          status: "invited",
+        })
+        .returning({ id: folderMembers.id });
+
+      return ok({ id: member.id });
+    }
+
+    const existingByEmail = await db
       .select()
       .from(folderMembers)
-      .where(and(eq(folderMembers.folderId, folderId), eq(folderMembers.userId, targetUser.id)));
+      .where(
+        and(eq(folderMembers.folderId, folderId), eq(folderMembers.invitedEmail, normalizedEmail)),
+      );
 
-    if (existing.length > 0) return err("This email already has a pending invite or membership");
+    if (existingByEmail.length > 0)
+      return err("CONFLICT", "This email already has a pending invite or membership");
 
     const [member] = await db
       .insert(folderMembers)
       .values({
         folderId,
-        userId: targetUser.id,
         invitedEmail: normalizedEmail,
         role,
         status: "invited",
@@ -373,273 +414,281 @@ export async function inviteFolderMember(input: unknown): Promise<Result<{ id: s
       .returning({ id: folderMembers.id });
 
     return ok({ id: member.id });
-  }
+  },
+);
 
-  const existingByEmail = await db
-    .select()
-    .from(folderMembers)
-    .where(
-      and(eq(folderMembers.folderId, folderId), eq(folderMembers.invitedEmail, normalizedEmail)),
-    );
+export const updateMemberRole = safeAction(
+  "updateMemberRole",
+  async (input: unknown): Promise<Result<{ id: string }>> => {
+    const session = await requireSession();
+    const parsed = UpdateMemberRoleSchema.safeParse(input);
+    if (!parsed.success) return err("VALIDATION_FAILED", "Validation failed");
 
-  if (existingByEmail.length > 0)
-    return err("This email already has a pending invite or membership");
+    const { memberId, role } = parsed.data;
 
-  const [member] = await db
-    .insert(folderMembers)
-    .values({
-      folderId,
-      invitedEmail: normalizedEmail,
-      role,
-      status: "invited",
-    })
-    .returning({ id: folderMembers.id });
+    const [member] = await db.select().from(folderMembers).where(eq(folderMembers.id, memberId));
 
-  return ok({ id: member.id });
-}
+    if (!member) return err("NOT_FOUND", "Member not found");
 
-export async function updateMemberRole(input: unknown): Promise<Result<{ id: string }>> {
-  const session = await requireSession();
-  const parsed = UpdateMemberRoleSchema.safeParse(input);
-  if (!parsed.success) return err("Validation failed");
+    const perm = await canManageMembers(member.folderId, session.user.id);
+    if (!perm.allowed) return err(perm.code, perm.error);
 
-  const { memberId, role } = parsed.data;
+    if (member.role === "owner") return err("BAD_REQUEST", "Cannot change owner role");
 
-  const [member] = await db.select().from(folderMembers).where(eq(folderMembers.id, memberId));
+    await db
+      .update(folderMembers)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(folderMembers.id, memberId));
 
-  if (!member) return err("Member not found");
+    return ok({ id: memberId });
+  },
+);
 
-  const perm = await canManageMembers(member.folderId, session.user.id);
-  if (!perm.allowed) return err(perm.error);
+export const getFolderRole = safeAction(
+  "getFolderRole",
+  async (folderId: string): Promise<Result<{ role: string }>> => {
+    if (!isValidUuid(folderId)) return err("VALIDATION_FAILED", "Invalid folder ID");
+    const session = await requireSession();
 
-  if (member.role === "owner") return err("Cannot change owner role");
-
-  await db
-    .update(folderMembers)
-    .set({ role, updatedAt: new Date() })
-    .where(eq(folderMembers.id, memberId));
-
-  return ok({ id: memberId });
-}
-
-export async function getFolderRole(folderId: string): Promise<Result<{ role: string }>> {
-  if (!isValidUuid(folderId)) return err("Invalid folder ID");
-  const session = await requireSession();
-
-  const [member] = await db
-    .select({ role: folderMembers.role })
-    .from(folderMembers)
-    .where(
-      and(
-        eq(folderMembers.folderId, folderId),
-        eq(folderMembers.userId, session.user.id),
-        eq(folderMembers.status, "active"),
-      ),
-    );
-
-  if (!member) return err("Not a member");
-  return ok({ role: member.role });
-}
-
-export async function listFolderMembers(folderId: string): Promise<
-  Result<
-    Array<{
-      memberId: string;
-      userId: string | null;
-      email: string;
-      name: string | null;
-      role: string;
-      status: string;
-      joinedAt: Date | null;
-    }>
-  >
-> {
-  if (!isValidUuid(folderId)) return err("Invalid folder ID");
-  const session = await requireSession();
-
-  const perm = await requireFolderRole(folderId, session.user.id, "viewer");
-  if (!perm.allowed) return err(perm.error);
-
-  const { users } = await import("@/db/schema");
-
-  const rows = await db
-    .select({
-      memberId: folderMembers.id,
-      userId: folderMembers.userId,
-      invitedEmail: folderMembers.invitedEmail,
-      userEmail: users.email,
-      name: users.name,
-      role: folderMembers.role,
-      status: folderMembers.status,
-      joinedAt: folderMembers.joinedAt,
-    })
-    .from(folderMembers)
-    .leftJoin(users, eq(folderMembers.userId, users.id))
-    .where(eq(folderMembers.folderId, folderId));
-
-  return ok(
-    rows.map((r) => ({
-      memberId: r.memberId,
-      userId: r.userId,
-      email: r.userEmail ?? r.invitedEmail ?? "",
-      name: r.name,
-      role: r.role,
-      status: r.status,
-      joinedAt: r.joinedAt,
-    })),
-  );
-}
-
-export async function removeMember(memberId: string): Promise<Result<{ id: string }>> {
-  if (!isValidUuid(memberId)) return err("Invalid member ID");
-  const session = await requireSession();
-
-  const [member] = await db.select().from(folderMembers).where(eq(folderMembers.id, memberId));
-
-  if (!member) return err("Member not found");
-  if (member.role === "owner") return err("Cannot remove folder owner");
-
-  const perm = await canManageMembers(member.folderId, session.user.id);
-  if (!perm.allowed) return err(perm.error);
-
-  await db
-    .update(folderMembers)
-    .set({ status: "removed", updatedAt: new Date() })
-    .where(eq(folderMembers.id, memberId));
-
-  return ok({ id: memberId });
-}
-
-export async function listPendingInvites(): Promise<
-  Result<
-    Array<{
-      memberId: string;
-      folderId: string;
-      folderName: string;
-      role: string;
-      invitedAt: Date;
-    }>
-  >
-> {
-  const session = await requireSession();
-
-  const rows = await db
-    .select({
-      memberId: folderMembers.id,
-      folderId: folders.id,
-      folderName: folders.name,
-      role: folderMembers.role,
-      invitedAt: folderMembers.createdAt,
-    })
-    .from(folderMembers)
-    .innerJoin(folders, eq(folderMembers.folderId, folders.id))
-    .where(
-      and(
-        eq(folderMembers.status, "invited"),
-        or(
+    const [member] = await db
+      .select({ role: folderMembers.role })
+      .from(folderMembers)
+      .where(
+        and(
+          eq(folderMembers.folderId, folderId),
           eq(folderMembers.userId, session.user.id),
-          eq(folderMembers.invitedEmail, session.user.email),
+          eq(folderMembers.status, "active"),
         ),
-      ),
+      );
+
+    if (!member) return err("PERMISSION_DENIED", "Not a member");
+    return ok({ role: member.role });
+  },
+);
+
+export const listFolderMembers = safeAction(
+  "listFolderMembers",
+  async (
+    folderId: string,
+  ): Promise<
+    Result<
+      Array<{
+        memberId: string;
+        userId: string | null;
+        email: string;
+        name: string | null;
+        role: string;
+        status: string;
+        joinedAt: Date | null;
+      }>
+    >
+  > => {
+    if (!isValidUuid(folderId)) return err("VALIDATION_FAILED", "Invalid folder ID");
+    const session = await requireSession();
+
+    const perm = await requireFolderRole(folderId, session.user.id, "viewer");
+    if (!perm.allowed) return err(perm.code, perm.error);
+
+    const { users } = await import("@/db/schema");
+
+    const rows = await db
+      .select({
+        memberId: folderMembers.id,
+        userId: folderMembers.userId,
+        invitedEmail: folderMembers.invitedEmail,
+        userEmail: users.email,
+        name: users.name,
+        role: folderMembers.role,
+        status: folderMembers.status,
+        joinedAt: folderMembers.joinedAt,
+      })
+      .from(folderMembers)
+      .leftJoin(users, eq(folderMembers.userId, users.id))
+      .where(eq(folderMembers.folderId, folderId));
+
+    return ok(
+      rows.map((r) => ({
+        memberId: r.memberId,
+        userId: r.userId,
+        email: r.userEmail ?? r.invitedEmail ?? "",
+        name: r.name,
+        role: r.role,
+        status: r.status,
+        joinedAt: r.joinedAt,
+      })),
     );
+  },
+);
 
-  return ok(rows);
-}
+export const removeMember = safeAction(
+  "removeMember",
+  async (memberId: string): Promise<Result<{ id: string }>> => {
+    if (!isValidUuid(memberId)) return err("VALIDATION_FAILED", "Invalid member ID");
+    const session = await requireSession();
 
-export async function acceptInvite(memberId: string): Promise<Result<{ id: string }>> {
-  if (!isValidUuid(memberId)) return err("Invalid member ID");
-  const session = await requireSession();
+    const [member] = await db.select().from(folderMembers).where(eq(folderMembers.id, memberId));
 
-  const [member] = await db.select().from(folderMembers).where(eq(folderMembers.id, memberId));
+    if (!member) return err("NOT_FOUND", "Member not found");
+    if (member.role === "owner") return err("BAD_REQUEST", "Cannot remove folder owner");
 
-  if (!member) return err("Invite not found");
+    const perm = await canManageMembers(member.folderId, session.user.id);
+    if (!perm.allowed) return err(perm.code, perm.error);
 
-  const isOwner =
-    member.userId === session.user.id ||
-    (member.userId === null && member.invitedEmail === session.user.email);
-  if (!isOwner) return err("Not your invite");
-  if (member.status !== "invited") return err("Invite already handled");
+    await db
+      .update(folderMembers)
+      .set({ status: "removed", updatedAt: new Date() })
+      .where(eq(folderMembers.id, memberId));
 
-  await db
-    .update(folderMembers)
-    .set({
-      status: "active",
-      userId: session.user.id,
-      joinedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(folderMembers.id, memberId));
+    return ok({ id: memberId });
+  },
+);
 
-  return ok({ id: memberId });
-}
+export const listPendingInvites = safeAction(
+  "listPendingInvites",
+  async (): Promise<
+    Result<
+      Array<{
+        memberId: string;
+        folderId: string;
+        folderName: string;
+        role: string;
+        invitedAt: Date;
+      }>
+    >
+  > => {
+    const session = await requireSession();
 
-export async function declineInvite(memberId: string): Promise<Result<{ id: string }>> {
-  if (!isValidUuid(memberId)) return err("Invalid member ID");
-  const session = await requireSession();
+    const rows = await db
+      .select({
+        memberId: folderMembers.id,
+        folderId: folders.id,
+        folderName: folders.name,
+        role: folderMembers.role,
+        invitedAt: folderMembers.createdAt,
+      })
+      .from(folderMembers)
+      .innerJoin(folders, eq(folderMembers.folderId, folders.id))
+      .where(
+        and(
+          eq(folderMembers.status, "invited"),
+          or(
+            eq(folderMembers.userId, session.user.id),
+            eq(folderMembers.invitedEmail, session.user.email),
+          ),
+        ),
+      );
 
-  const [member] = await db.select().from(folderMembers).where(eq(folderMembers.id, memberId));
+    return ok(rows);
+  },
+);
 
-  if (!member) return err("Invite not found");
+export const acceptInvite = safeAction(
+  "acceptInvite",
+  async (memberId: string): Promise<Result<{ id: string }>> => {
+    if (!isValidUuid(memberId)) return err("VALIDATION_FAILED", "Invalid member ID");
+    const session = await requireSession();
 
-  const isOwner =
-    member.userId === session.user.id ||
-    (member.userId === null && member.invitedEmail === session.user.email);
-  if (!isOwner) return err("Not your invite");
-  if (member.status !== "invited") return err("Invite already handled");
+    const [member] = await db.select().from(folderMembers).where(eq(folderMembers.id, memberId));
 
-  await db
-    .update(folderMembers)
-    .set({ status: "removed", updatedAt: new Date() })
-    .where(eq(folderMembers.id, memberId));
+    if (!member) return err("NOT_FOUND", "Invite not found");
 
-  return ok({ id: memberId });
-}
+    const isOwner =
+      member.userId === session.user.id ||
+      (member.userId === null && member.invitedEmail === session.user.email);
+    if (!isOwner) return err("PERMISSION_DENIED", "Not your invite");
+    if (member.status !== "invited") return err("CONFLICT", "Invite already handled");
 
-export async function leaveFolder(folderId: string): Promise<Result<{ id: string }>> {
-  if (!isValidUuid(folderId)) return err("Invalid folder ID");
-  const session = await requireSession();
+    await db
+      .update(folderMembers)
+      .set({
+        status: "active",
+        userId: session.user.id,
+        joinedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(folderMembers.id, memberId));
 
-  const [member] = await db
-    .select()
-    .from(folderMembers)
-    .where(and(eq(folderMembers.folderId, folderId), eq(folderMembers.userId, session.user.id)));
+    return ok({ id: memberId });
+  },
+);
 
-  if (!member) return err("Not a member");
-  if (member.role === "owner")
-    return err("Owners cannot leave their folder. Transfer ownership first.");
+export const declineInvite = safeAction(
+  "declineInvite",
+  async (memberId: string): Promise<Result<{ id: string }>> => {
+    if (!isValidUuid(memberId)) return err("VALIDATION_FAILED", "Invalid member ID");
+    const session = await requireSession();
 
-  await db
-    .update(folderMembers)
-    .set({ status: "removed", updatedAt: new Date() })
-    .where(eq(folderMembers.id, member.id));
+    const [member] = await db.select().from(folderMembers).where(eq(folderMembers.id, memberId));
 
-  return ok({ id: member.id });
-}
+    if (!member) return err("NOT_FOUND", "Invite not found");
 
-export async function archiveFolder(folderId: string): Promise<Result<{ id: string }>> {
-  if (!isValidUuid(folderId)) return err("Invalid folder ID");
-  const session = await requireSession();
+    const isOwner =
+      member.userId === session.user.id ||
+      (member.userId === null && member.invitedEmail === session.user.email);
+    if (!isOwner) return err("PERMISSION_DENIED", "Not your invite");
+    if (member.status !== "invited") return err("CONFLICT", "Invite already handled");
 
-  if (session.user.personalFolderId === folderId) {
-    return err("Your default folder cannot be archived.");
-  }
+    await db
+      .update(folderMembers)
+      .set({ status: "removed", updatedAt: new Date() })
+      .where(eq(folderMembers.id, memberId));
 
-  const perm = await requireFolderRole(folderId, session.user.id, "owner");
-  if (!perm.allowed) return err("Only the folder owner can archive this folder");
+    return ok({ id: memberId });
+  },
+);
 
-  const [folder] = await db.select().from(folders).where(eq(folders.id, folderId));
-  if (!folder) return err("Folder not found");
-  if (folder.archivedAt) return err("Folder is already archived");
+export const leaveFolder = safeAction(
+  "leaveFolder",
+  async (folderId: string): Promise<Result<{ id: string }>> => {
+    if (!isValidUuid(folderId)) return err("VALIDATION_FAILED", "Invalid folder ID");
+    const session = await requireSession();
 
-  await db
-    .update(folders)
-    .set({ archivedAt: new Date(), updatedAt: new Date() })
-    .where(eq(folders.id, folderId));
+    const [member] = await db
+      .select()
+      .from(folderMembers)
+      .where(and(eq(folderMembers.folderId, folderId), eq(folderMembers.userId, session.user.id)));
 
-  await db
-    .update(folderMembers)
-    .set({ status: "removed", updatedAt: new Date() })
-    .where(and(eq(folderMembers.folderId, folderId), ne(folderMembers.role, "owner")));
+    if (!member) return err("PERMISSION_DENIED", "Not a member");
+    if (member.role === "owner")
+      return err("BAD_REQUEST", "Owners cannot leave their folder. Transfer ownership first.");
 
-  return ok({ id: folderId });
-}
+    await db
+      .update(folderMembers)
+      .set({ status: "removed", updatedAt: new Date() })
+      .where(eq(folderMembers.id, member.id));
+
+    return ok({ id: member.id });
+  },
+);
+
+export const archiveFolder = safeAction(
+  "archiveFolder",
+  async (folderId: string): Promise<Result<{ id: string }>> => {
+    if (!isValidUuid(folderId)) return err("VALIDATION_FAILED", "Invalid folder ID");
+    const session = await requireSession();
+
+    if (session.user.personalFolderId === folderId) {
+      return err("BAD_REQUEST", "Your default folder cannot be archived.");
+    }
+
+    const perm = await requireFolderRole(folderId, session.user.id, "owner");
+    if (!perm.allowed)
+      return err("PERMISSION_DENIED", "Only the folder owner can archive this folder");
+
+    const [folder] = await db.select().from(folders).where(eq(folders.id, folderId));
+    if (!folder) return err("NOT_FOUND", "Folder not found");
+    if (folder.archivedAt) return err("CONFLICT", "Folder is already archived");
+
+    await db
+      .update(folders)
+      .set({ archivedAt: new Date(), updatedAt: new Date() })
+      .where(eq(folders.id, folderId));
+
+    await db
+      .update(folderMembers)
+      .set({ status: "removed", updatedAt: new Date() })
+      .where(and(eq(folderMembers.folderId, folderId), ne(folderMembers.role, "owner")));
+
+    return ok({ id: folderId });
+  },
+);

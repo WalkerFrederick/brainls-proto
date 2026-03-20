@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listPlatformDecks, listCommunityDecksPaginated } from "@/actions/public-deck";
-import { Globe, BadgeCheck } from "lucide-react";
+import { Globe, BadgeCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { DeckSummaryCard } from "@/components/deck-summary-card";
 import { TagFilter } from "@/components/tag-filter";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,31 @@ export default async function BrowsePage({ searchParams }: Props) {
 
       {allTags.length > 0 && <TagFilter availableTags={allTags} />}
 
+      {platformResult && !platformResult.success && (
+        <section>
+          <div className="mb-4 flex items-center gap-2">
+            <BadgeCheck className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Official BrainLS Decks</h2>
+          </div>
+          <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                Failed to load official decks
+              </p>
+              <p className="text-xs text-red-600/80 dark:text-red-400/70">{platformResult.error}</p>
+            </div>
+            <Link
+              href="/browse"
+              className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-red-500/30 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-500/10 dark:text-red-400"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </Link>
+          </div>
+        </section>
+      )}
+
       {platformDecks.length > 0 && (
         <section>
           <div className="mb-4 flex items-center gap-2">
@@ -98,7 +123,22 @@ export default async function BrowsePage({ searchParams }: Props) {
           )}
         </h2>
 
-        {communityDecks.length === 0 ? (
+        {!communityResult.success ? (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12 text-center">
+            <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">Failed to load community decks</h3>
+              <p className="text-sm text-muted-foreground">{communityResult.error}</p>
+            </div>
+            <Link
+              href={`/browse${tagFilter ? `?tag=${tagFilter}` : ""}`}
+              className="mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Link>
+          </div>
+        ) : communityDecks.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
             <Globe className="h-12 w-12 text-muted-foreground" />
             <div className="text-center">

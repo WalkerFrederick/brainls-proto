@@ -11,153 +11,160 @@ import {
   userCardStates,
 } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
+import { safeAction } from "@/lib/errors";
 import { ok, err, type Result } from "@/lib/result";
 import { canViewDeck, requireFolderRole, canEditDeck } from "@/lib/permissions";
 import { isValidUuid } from "@/lib/validate-uuid";
 import { getDefaultCardState } from "@brainls/fsrs";
 
-export async function linkDeckToFolder(
-  sourceDeckId: string,
-  targetFolderId: string,
-): Promise<Result<{ id: string }>> {
-  if (!isValidUuid(sourceDeckId)) return err("Invalid source deck ID");
-  if (!isValidUuid(targetFolderId)) return err("Invalid target folder ID");
+export const linkDeckToFolder = safeAction(
+  "linkDeckToFolder",
+  async (sourceDeckId: string, targetFolderId: string): Promise<Result<{ id: string }>> => {
+    if (!isValidUuid(sourceDeckId)) return err("VALIDATION_FAILED", "Invalid source deck ID");
+    if (!isValidUuid(targetFolderId)) return err("VALIDATION_FAILED", "Invalid target folder ID");
 
-  const session = await requireSession();
+    const session = await requireSession();
 
-  const canView = await canViewDeck(sourceDeckId, session.user.id);
-  if (!canView) return err("You don't have permission to view this deck");
+    const canView = await canViewDeck(sourceDeckId, session.user.id);
+    if (!canView) return err("PERMISSION_DENIED", "You don't have permission to view this deck");
 
-  const perm = await requireFolderRole(targetFolderId, session.user.id, "editor");
-  if (!perm.allowed) return err(perm.error);
+    const perm = await requireFolderRole(targetFolderId, session.user.id, "editor");
+    if (!perm.allowed) return err(perm.code, perm.error);
 
-  const [sourceDeck] = await db
-    .select()
-    .from(deckDefinitions)
-    .where(eq(deckDefinitions.id, sourceDeckId));
+    const [sourceDeck] = await db
+      .select()
+      .from(deckDefinitions)
+      .where(eq(deckDefinitions.id, sourceDeckId));
 
-  if (!sourceDeck) return err("Source deck not found");
+    if (!sourceDeck) return err("NOT_FOUND", "Source deck not found");
 
-  if (sourceDeck.linkedDeckDefinitionId) {
-    return err("Cannot link a deck that is itself a linked copy");
-  }
+    if (sourceDeck.linkedDeckDefinitionId) {
+      return err("BAD_REQUEST", "Cannot link a deck that is itself a linked copy");
+    }
 
-  if (sourceDeck.archivedAt) {
-    return err("Cannot create a linked copy of an archived deck");
-  }
+    if (sourceDeck.archivedAt) {
+      return err("BAD_REQUEST", "Cannot create a linked copy of an archived deck");
+    }
 
-  if (sourceDeck.folderId === targetFolderId) {
-    return err("Cannot create a linked copy in the same folder as the original");
-  }
+    if (sourceDeck.folderId === targetFolderId) {
+      return err("BAD_REQUEST", "Cannot create a linked copy in the same folder as the original");
+    }
 
-  const existing = await db
-    .select({ id: deckDefinitions.id })
-    .from(deckDefinitions)
-    .where(
-      and(
-        eq(deckDefinitions.folderId, targetFolderId),
-        eq(deckDefinitions.linkedDeckDefinitionId, sourceDeckId),
-        isNull(deckDefinitions.archivedAt),
-      ),
-    );
-
-  if (existing.length > 0) {
-    return err("This deck is already linked in the target folder");
-  }
-
-  const [linked] = await db
-    .insert(deckDefinitions)
-    .values({
-      folderId: targetFolderId,
-      title: sourceDeck.title,
-      slug: `${sourceDeck.slug}-linked-${Date.now()}`,
-      description: sourceDeck.description,
-      viewPolicy: "private",
-      linkedDeckDefinitionId: sourceDeckId,
-      createdByUserId: session.user.id,
-      updatedByUserId: session.user.id,
-    })
-    .returning({ id: deckDefinitions.id });
-
-  const existingUd = await db
-    .select({ id: userDecks.id })
-    .from(userDecks)
-    .where(
-      and(
-        eq(userDecks.userId, session.user.id),
-        eq(userDecks.deckDefinitionId, sourceDeckId),
-        isNull(userDecks.archivedAt),
-      ),
-    );
-
-  if (existingUd.length === 0) {
-    const [ud] = await db
-      .insert(userDecks)
-      .values({ userId: session.user.id, deckDefinitionId: sourceDeckId })
-      .returning({ id: userDecks.id });
-
-    const cards = await db
-      .select({ id: cardDefinitions.id })
-      .from(cardDefinitions)
+    const existing = await db
+      .select({ id: deckDefinitions.id })
+      .from(deckDefinitions)
       .where(
         and(
-          eq(cardDefinitions.deckDefinitionId, sourceDeckId),
-          isNull(cardDefinitions.archivedAt),
-          eq(cardDefinitions.status, "active"),
+          eq(deckDefinitions.folderId, targetFolderId),
+          eq(deckDefinitions.linkedDeckDefinitionId, sourceDeckId),
+          isNull(deckDefinitions.archivedAt),
         ),
       );
 
-    if (cards.length > 0) {
-      const defaultState = getDefaultCardState();
-      await db.insert(userCardStates).values(
-        cards.map((c) => ({
-          userDeckId: ud.id,
-          cardDefinitionId: c.id,
-          srsState: defaultState.srsState,
-          stability: String(defaultState.stability),
-          difficulty: String(defaultState.difficulty),
-          reps: 0,
-          lapses: 0,
-        })),
-      );
+    if (existing.length > 0) {
+      return err("CONFLICT", "This deck is already linked in the target folder");
     }
-  }
 
-  return ok({ id: linked.id });
-}
+    const [linked] = await db
+      .insert(deckDefinitions)
+      .values({
+        folderId: targetFolderId,
+        title: sourceDeck.title,
+        slug: `${sourceDeck.slug}-linked-${Date.now()}`,
+        description: sourceDeck.description,
+        viewPolicy: "private",
+        linkedDeckDefinitionId: sourceDeckId,
+        createdByUserId: session.user.id,
+        updatedByUserId: session.user.id,
+      })
+      .returning({ id: deckDefinitions.id });
 
-export async function unlinkDeckFromFolder(linkedDeckId: string): Promise<Result<{ id: string }>> {
-  if (!isValidUuid(linkedDeckId)) return err("Invalid deck ID");
+    const existingUd = await db
+      .select({ id: userDecks.id })
+      .from(userDecks)
+      .where(
+        and(
+          eq(userDecks.userId, session.user.id),
+          eq(userDecks.deckDefinitionId, sourceDeckId),
+          isNull(userDecks.archivedAt),
+        ),
+      );
 
-  const session = await requireSession();
+    if (existingUd.length === 0) {
+      const [ud] = await db
+        .insert(userDecks)
+        .values({ userId: session.user.id, deckDefinitionId: sourceDeckId })
+        .returning({ id: userDecks.id });
 
-  const [deck] = await db
-    .select()
-    .from(deckDefinitions)
-    .where(
-      and(eq(deckDefinitions.id, linkedDeckId), isNotNull(deckDefinitions.linkedDeckDefinitionId)),
-    );
+      const cards = await db
+        .select({ id: cardDefinitions.id })
+        .from(cardDefinitions)
+        .where(
+          and(
+            eq(cardDefinitions.deckDefinitionId, sourceDeckId),
+            isNull(cardDefinitions.archivedAt),
+            eq(cardDefinitions.status, "active"),
+          ),
+        );
 
-  if (!deck) return err("Linked deck not found");
+      if (cards.length > 0) {
+        const defaultState = getDefaultCardState();
+        await db.insert(userCardStates).values(
+          cards.map((c) => ({
+            userDeckId: ud.id,
+            cardDefinitionId: c.id,
+            srsState: defaultState.srsState,
+            stability: String(defaultState.stability),
+            difficulty: String(defaultState.difficulty),
+            reps: 0,
+            lapses: 0,
+          })),
+        );
+      }
+    }
 
-  const canEdit = await canEditDeck(linkedDeckId, session.user.id);
-  if (!canEdit) return err("Permission denied");
+    return ok({ id: linked.id });
+  },
+);
 
-  const sourceDeckId = deck.linkedDeckDefinitionId!;
+export const unlinkDeckFromFolder = safeAction(
+  "unlinkDeckFromFolder",
+  async (linkedDeckId: string): Promise<Result<{ id: string }>> => {
+    if (!isValidUuid(linkedDeckId)) return err("VALIDATION_FAILED", "Invalid deck ID");
 
-  await db
-    .update(deckDefinitions)
-    .set({
-      archivedAt: new Date(),
-      updatedAt: new Date(),
-      updatedByUserId: session.user.id,
-    })
-    .where(eq(deckDefinitions.id, linkedDeckId));
+    const session = await requireSession();
 
-  await archiveStudyDataIfOrphaned(session.user.id, sourceDeckId);
+    const [deck] = await db
+      .select()
+      .from(deckDefinitions)
+      .where(
+        and(
+          eq(deckDefinitions.id, linkedDeckId),
+          isNotNull(deckDefinitions.linkedDeckDefinitionId),
+        ),
+      );
 
-  return ok({ id: linkedDeckId });
-}
+    if (!deck) return err("NOT_FOUND", "Linked deck not found");
+
+    const canEdit = await canEditDeck(linkedDeckId, session.user.id);
+    if (!canEdit) return err("PERMISSION_DENIED", "Permission denied");
+
+    const sourceDeckId = deck.linkedDeckDefinitionId!;
+
+    await db
+      .update(deckDefinitions)
+      .set({
+        archivedAt: new Date(),
+        updatedAt: new Date(),
+        updatedByUserId: session.user.id,
+      })
+      .where(eq(deckDefinitions.id, linkedDeckId));
+
+    await archiveStudyDataIfOrphaned(session.user.id, sourceDeckId);
+
+    return ok({ id: linkedDeckId });
+  },
+);
 
 /**
  * After unlinking, check if the user still has access to the source deck
@@ -233,86 +240,87 @@ export type FolderPickerItem = {
   hasExistingSrsData: boolean;
 };
 
-export async function listFoldersForPicker(
-  sourceDeckId: string,
-): Promise<Result<FolderPickerItem[]>> {
-  if (!isValidUuid(sourceDeckId)) return err("Invalid deck ID");
-  const session = await requireSession();
+export const listFoldersForPicker = safeAction(
+  "listFoldersForPicker",
+  async (sourceDeckId: string): Promise<Result<FolderPickerItem[]>> => {
+    if (!isValidUuid(sourceDeckId)) return err("VALIDATION_FAILED", "Invalid deck ID");
+    const session = await requireSession();
 
-  const memberships = await db
-    .select({
-      folderId: folderMembers.folderId,
-      role: folderMembers.role,
-    })
-    .from(folderMembers)
-    .where(and(eq(folderMembers.userId, session.user.id), eq(folderMembers.status, "active")));
+    const memberships = await db
+      .select({
+        folderId: folderMembers.folderId,
+        role: folderMembers.role,
+      })
+      .from(folderMembers)
+      .where(and(eq(folderMembers.userId, session.user.id), eq(folderMembers.status, "active")));
 
-  const editorFolderIds = memberships
-    .filter((m) => ["owner", "admin", "editor"].includes(m.role))
-    .map((m) => m.folderId);
+    const editorFolderIds = memberships
+      .filter((m) => ["owner", "admin", "editor"].includes(m.role))
+      .map((m) => m.folderId);
 
-  if (editorFolderIds.length === 0) return ok([]);
+    if (editorFolderIds.length === 0) return ok([]);
 
-  const [sourceDeck] = await db
-    .select({ folderId: deckDefinitions.folderId })
-    .from(deckDefinitions)
-    .where(eq(deckDefinitions.id, sourceDeckId));
-
-  const sourceFolderId = sourceDeck?.folderId ?? null;
-
-  const existingSrsDecks = await db
-    .select({ id: userDecks.id })
-    .from(userDecks)
-    .where(
-      and(
-        eq(userDecks.userId, session.user.id),
-        eq(userDecks.deckDefinitionId, sourceDeckId),
-        isNull(userDecks.archivedAt),
-      ),
-    );
-  const hasExistingSrsData = existingSrsDecks.length > 0;
-
-  const result: FolderPickerItem[] = [];
-
-  for (const fId of editorFolderIds) {
-    const [f] = await db
-      .select({ id: folders.id, name: folders.name })
-      .from(folders)
-      .where(and(eq(folders.id, fId), isNull(folders.archivedAt)));
-
-    if (!f) continue;
-
-    const linkedDecks = await db
-      .select({ id: deckDefinitions.id })
+    const [sourceDeck] = await db
+      .select({ folderId: deckDefinitions.folderId })
       .from(deckDefinitions)
+      .where(eq(deckDefinitions.id, sourceDeckId));
+
+    const sourceFolderId = sourceDeck?.folderId ?? null;
+
+    const existingSrsDecks = await db
+      .select({ id: userDecks.id })
+      .from(userDecks)
       .where(
         and(
-          eq(deckDefinitions.folderId, fId),
-          eq(deckDefinitions.linkedDeckDefinitionId, sourceDeckId),
-          isNull(deckDefinitions.archivedAt),
+          eq(userDecks.userId, session.user.id),
+          eq(userDecks.deckDefinitionId, sourceDeckId),
+          isNull(userDecks.archivedAt),
         ),
       );
+    const hasExistingSrsData = existingSrsDecks.length > 0;
 
-    const copiedDecks = await db
-      .select({ id: deckDefinitions.id })
-      .from(deckDefinitions)
-      .where(
-        and(
-          eq(deckDefinitions.folderId, fId),
-          eq(deckDefinitions.copiedFromDeckDefinitionId, sourceDeckId),
-          isNull(deckDefinitions.archivedAt),
-        ),
-      );
+    const result: FolderPickerItem[] = [];
 
-    result.push({
-      id: f.id,
-      name: f.name,
-      hasLink: linkedDecks.length > 0,
-      hasCopy: copiedDecks.length > 0,
-      isSource: fId === sourceFolderId,
-      hasExistingSrsData,
-    });
-  }
+    for (const fId of editorFolderIds) {
+      const [f] = await db
+        .select({ id: folders.id, name: folders.name })
+        .from(folders)
+        .where(and(eq(folders.id, fId), isNull(folders.archivedAt)));
 
-  return ok(result);
-}
+      if (!f) continue;
+
+      const linkedDecks = await db
+        .select({ id: deckDefinitions.id })
+        .from(deckDefinitions)
+        .where(
+          and(
+            eq(deckDefinitions.folderId, fId),
+            eq(deckDefinitions.linkedDeckDefinitionId, sourceDeckId),
+            isNull(deckDefinitions.archivedAt),
+          ),
+        );
+
+      const copiedDecks = await db
+        .select({ id: deckDefinitions.id })
+        .from(deckDefinitions)
+        .where(
+          and(
+            eq(deckDefinitions.folderId, fId),
+            eq(deckDefinitions.copiedFromDeckDefinitionId, sourceDeckId),
+            isNull(deckDefinitions.archivedAt),
+          ),
+        );
+
+      result.push({
+        id: f.id,
+        name: f.name,
+        hasLink: linkedDecks.length > 0,
+        hasCopy: copiedDecks.length > 0,
+        isSource: fId === sourceFolderId,
+        hasExistingSrsData,
+      });
+    }
+
+    return ok(result);
+  },
+);

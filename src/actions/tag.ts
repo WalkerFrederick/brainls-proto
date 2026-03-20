@@ -2,7 +2,7 @@
 
 import { eq, sql, ilike, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { tags, deckTags, cardTags, deckDefinitions, cardDefinitions } from "@/db/schema";
+import { tags, deckTags, cardTags, deckDefinitions, cardDefinitions, userDecks } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
 import { safeAction, reportError } from "@/lib/errors";
 import { canEditDeck } from "@/lib/permissions";
@@ -204,8 +204,9 @@ export const suggestCardTags = safeAction(
       })
       .from(cardTags)
       .innerJoin(cardDefinitions, eq(cardTags.cardDefinitionId, cardDefinitions.id))
+      .innerJoin(userDecks, eq(cardDefinitions.deckDefinitionId, userDecks.deckDefinitionId))
       .innerJoin(tags, eq(cardTags.tagId, tags.id))
-      .where(eq(cardDefinitions.createdByUserId, session.user.id))
+      .where(eq(userDecks.userId, session.user.id))
       .groupBy(tags.name)
       .orderBy(sql`count(*) DESC`)
       .limit(50);
@@ -265,8 +266,11 @@ export const suggestCardTags = safeAction(
 
     if (!result) return err("INTERNAL_ERROR", "AI features are not configured");
 
-    const existing = new Set((existingCardTags ?? []).map((t) => t.toLowerCase()));
-    const filtered = result.tags.filter((t) => !existing.has(t));
+    const excluded = new Set([
+      ...(existingCardTags ?? []).map((t) => t.toLowerCase()),
+      ...deckTagRows.map((r) => r.name.toLowerCase()),
+    ]);
+    const filtered = result.tags.filter((t) => !excluded.has(t));
 
     const cost = estimateCost(result.provider, result.usage.inputTokens, result.usage.outputTokens);
     logAiCall({

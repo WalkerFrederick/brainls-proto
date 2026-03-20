@@ -104,7 +104,8 @@ export function EditCardDialog({
       existingCardTags: cardTagsList,
     });
     if (result.success) {
-      const fresh = result.data.filter((t) => !cardTagsList.includes(t));
+      const remaining = 10 - cardTagsList.length;
+      const fresh = result.data.filter((t) => !cardTagsList.includes(t)).slice(0, remaining);
       if (fresh.length > 0) {
         setCardTagsList((prev) => [...prev, ...fresh]);
         setAiSuggestedTags((prev) => new Set([...prev, ...fresh]));
@@ -170,7 +171,10 @@ export function EditCardDialog({
     const tagsChanged =
       JSON.stringify([...cardTagsList].sort()) !== JSON.stringify([...initialTags].sort());
     if (tagsChanged) {
-      await setCardTags({ cardDefinitionId: cardId, tagNames: cardTagsList });
+      const tagResult = await setCardTags({ cardDefinitionId: cardId, tagNames: cardTagsList });
+      if (!tagResult.success) {
+        toast("Card saved but tags could not be updated", { variant: "warning" });
+      }
     }
 
     setOpen(false);

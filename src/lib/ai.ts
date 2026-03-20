@@ -82,14 +82,14 @@ export async function suggestTags(input: SuggestTagsInput): Promise<SuggestTagsR
     "Rules:",
     "- Tags must be lowercase, using hyphens instead of spaces (e.g. 'organic-chemistry', not 'organic chemistry').",
     "- Tags can only contain letters, numbers, and hyphens. Each tag must be at most 50 characters.",
-    "- Tags must be topic-specific. Avoid generic or vague tags like 'advanced', 'basic', 'practice', 'review', 'important', 'hard', 'easy', 'concept', or 'general'. These create unwanted connections across unrelated subjects.",
-    "- Good tags name the specific subject, subtopic, or domain (e.g. 'organic-chemistry', 'cell-division', 'french-verbs').",
-    "- Primary goal: tags should be relevant to the card content.",
-    "- Secondary goal: prefer reusing tags from the user's existing tags when a good match exists, to keep their taxonomy consistent.",
-    input.existingCardTags.length > 0
-      ? `- Do NOT suggest any of these tags (the card already has them): ${input.existingCardTags.join(", ")}`
+    "- Avoid purely meta tags like 'review' or 'important', 'advanced', 'beginner' that say nothing about the subject.",
+    "- Primary goal: reuse tags from the user's existing tags whenever a relevant match exists. Grouping related cards across decks is the core purpose of tags, so consistent reuse is critical.",
+    "- Secondary goal: if no existing tag fits, create a new topic-specific tag relevant to the card content.",
+    "- Try and include at least 1 tag that is already used by the user.",
+    "- Return exactly 3 unique tags that are NOT in the excluded list.",
+    input.existingCardTags.length > 0 || input.deckTags.length > 0
+      ? `- EXCLUDED (do NOT return any of these): ${[...input.existingCardTags, ...input.deckTags].join(", ")}`
       : "",
-    "- Return exactly 3 unique tags.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -108,6 +108,11 @@ export async function suggestTags(input: SuggestTagsInput): Promise<SuggestTagsR
     .join("\n");
 
   const messages = [new SystemMessage(systemPrompt), new HumanMessage(userPrompt)];
+
+  if (process.env.NODE_ENV !== "production") {
+    console.debug("[ai] system prompt:\n", systemPrompt);
+    console.debug("[ai] user prompt:\n", userPrompt);
+  }
 
   let lastError: unknown;
 

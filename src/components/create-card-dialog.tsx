@@ -159,7 +159,8 @@ export function CreateCardDialog({
       existingCardTags: cardTagsList,
     });
     if (result.success) {
-      const fresh = result.data.filter((t) => !cardTagsList.includes(t));
+      const remaining = 10 - cardTagsList.length;
+      const fresh = result.data.filter((t) => !cardTagsList.includes(t)).slice(0, remaining);
       if (fresh.length > 0) {
         setCardTagsList((prev) => [...prev, ...fresh]);
         setAiSuggestedTags((prev) => new Set([...prev, ...fresh]));
@@ -220,7 +221,13 @@ export function CreateCardDialog({
     }
 
     if (cardTagsList.length > 0 && result.data?.id) {
-      await setCardTags({ cardDefinitionId: result.data.id, tagNames: cardTagsList });
+      const tagResult = await setCardTags({
+        cardDefinitionId: result.data.id,
+        tagNames: cardTagsList,
+      });
+      if (!tagResult.success) {
+        toast("Card created but tags could not be saved", { variant: "warning" });
+      }
     }
 
     setOpen(false);

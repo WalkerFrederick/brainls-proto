@@ -350,7 +350,7 @@ async function AuthenticatedDeckView({
         </div>
       )}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-4">
         <div>
           <PlatformBadge createdByUserId={summary.createdByUserId} showPill />
           {summary.isLinked && (
@@ -382,18 +382,6 @@ async function AuthenticatedDeckView({
             <Badge variant="outline">{summary.studyCardCount} cards</Badge>
             <Badge variant="secondary">{summary.viewPolicy}</Badge>
           </div>
-          {summary.tags.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {summary.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {(summary.viewPolicy === "public" || summary.viewPolicy === "link") && (

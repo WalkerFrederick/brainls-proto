@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { Sparkles, Send, Trash2, Loader2, AlertTriangle, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -53,6 +55,57 @@ function UsageBanner({ refreshKey }: { refreshKey: number }) {
     </div>
   );
 }
+
+const ChatMarkdown = memo(function ChatMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+        ul: ({ children }) => <ul className="mb-2 ml-4 list-disc last:mb-0">{children}</ul>,
+        ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal last:mb-0">{children}</ol>,
+        li: ({ children }) => <li className="mb-0.5">{children}</li>,
+        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+        code: ({ children, className }) => {
+          const isBlock = className?.includes("language-");
+          if (isBlock) {
+            return (
+              <code className="mb-2 block overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-xs last:mb-0">
+                {children}
+              </code>
+            );
+          }
+          return <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{children}</code>;
+        },
+        pre: ({ children }) => <>{children}</>,
+        h1: ({ children }) => <p className="mb-1 font-bold">{children}</p>,
+        h2: ({ children }) => <p className="mb-1 font-bold">{children}</p>,
+        h3: ({ children }) => <p className="mb-1 font-semibold">{children}</p>,
+        a: ({ href, children }) => (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-primary"
+          >
+            {children}
+          </a>
+        ),
+        table: ({ children }) => (
+          <div className="mb-2 overflow-x-auto last:mb-0">
+            <table className="w-full border-collapse text-xs">{children}</table>
+          </div>
+        ),
+        th: ({ children }) => (
+          <th className="border-b px-2 py-1 text-left font-semibold">{children}</th>
+        ),
+        td: ({ children }) => <td className="border-b px-2 py-1">{children}</td>,
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+});
 
 function PaneContent({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
@@ -254,13 +307,13 @@ function PaneContent({ onClose }: { onClose: () => void }) {
             <div
               key={i}
               className={cn(
-                "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+                "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
                 msg.role === "user"
-                  ? "ml-auto bg-primary text-primary-foreground"
+                  ? "ml-auto whitespace-pre-wrap bg-primary text-primary-foreground"
                   : "mr-auto border bg-background text-foreground",
               )}
             >
-              {msg.content}
+              {msg.role === "assistant" ? <ChatMarkdown content={msg.content} /> : msg.content}
             </div>
           ))
         )}

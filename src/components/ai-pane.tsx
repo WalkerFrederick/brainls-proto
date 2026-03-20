@@ -374,7 +374,7 @@ function PaneContent({ onClose }: { onClose: () => void }) {
             }}
             placeholder="Ask anything..."
             rows={1}
-            className="max-h-32 min-h-[36px] flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary"
+            className="max-h-32 min-h-[36px] flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-base sm:text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary"
             disabled={loading}
           />
           <button

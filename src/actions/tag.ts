@@ -4,7 +4,7 @@ import { eq, sql, ilike, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { tags, deckTags, cardTags, deckDefinitions, cardDefinitions, userDecks } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
-import { safeAction, reportError } from "@/lib/errors";
+import { safeAction } from "@/lib/errors";
 import { canEditDeck } from "@/lib/permissions";
 import { ok, err, type Result } from "@/lib/result";
 import {
@@ -14,9 +14,8 @@ import {
   SuggestCardTagsSchema,
 } from "@/lib/schemas";
 import { isValidUuid } from "@/lib/validate-uuid";
-import { suggestTags, logAiCall, estimateCost } from "@/lib/ai";
+import { suggestTags, logAiCall, estimateCost, checkAiLimit, handleAiError } from "@/lib/ai";
 import { stripHtml } from "@/lib/sanitize-html";
-import { getAiLimitInfo, getAiUsageCount } from "@/lib/tiers";
 
 async function upsertTags(names: string[]): Promise<Map<string, string>> {
   if (names.length === 0) return new Map();
@@ -174,12 +173,8 @@ export const suggestCardTags = safeAction(
     const { deckDefinitionId, cardContent, cardType, existingCardTags } = parsed.data;
     if (!isValidUuid(deckDefinitionId)) return err("VALIDATION_FAILED", "Invalid deck ID");
 
-    const limitInfo = await getAiLimitInfo(session.user.id);
-    const currentUsage = await getAiUsageCount(session.user.id, limitInfo.periodStart);
-    if (currentUsage >= limitInfo.limit) {
-      const periodWord = limitInfo.period === "day" ? "daily" : "monthly";
-      return err("LIMIT_EXCEEDED", `You've reached your ${periodWord} AI usage limit`);
-    }
+    const limitResult = await checkAiLimit(session.user.id);
+    if (limitResult) return limitResult as Result<never>;
 
     const [deck] = await db
       .select({
@@ -227,40 +222,12 @@ export const suggestCardTags = safeAction(
         userTags: userTagRows.map((r) => r.name),
       });
     } catch (e: unknown) {
-      const durationMs = Date.now() - startMs;
-      const status = (e as { status?: number }).status;
-      const errorType = (e as { error?: { type?: string } }).error?.type;
-
-      reportError(e, {
-        action: "suggestCardTags",
-        status,
-        errorType,
-        deckDefinitionId,
-      });
-
-      logAiCall({
+      return handleAiError(e, {
         userId: session.user.id,
-        action: "suggestTags",
-        model: "unknown",
-        inputTokens: 0,
-        outputTokens: 0,
-        estimatedCostUsd: 0,
-        durationMs,
-        input: inputSnapshot,
-        output: null,
-        error: String(e),
+        action: "suggestCardTags",
+        startMs,
+        inputSnapshot,
       });
-
-      if (status === 429) {
-        return err(
-          "LIMIT_EXCEEDED",
-          "AI suggestions are temporarily unavailable — please try again in a few minutes",
-        );
-      }
-      return err(
-        "INTERNAL_ERROR",
-        "AI suggestions are unavailable right now — please try again later",
-      );
     }
     const durationMs = Date.now() - startMs;
 

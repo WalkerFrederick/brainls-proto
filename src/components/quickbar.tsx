@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { Bell, Menu, X, Plus, FilePlus, FolderPlus, Search } from "lucide-react";
+import { Bell, Menu, X, Plus, FilePlus, FolderPlus, Search, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -17,6 +17,7 @@ import { CreateDeckDialog } from "@/components/create-deck-dialog";
 import { CreateCardDialog } from "@/components/create-card-dialog";
 import { CreateFolderDialog } from "@/components/create-folder-dialog";
 import { CommandPalette } from "@/components/command-palette";
+import { useLayoutPrefs } from "@/components/layout-provider";
 
 interface QuickbarProps {
   pendingInviteCount: number;
@@ -24,6 +25,7 @@ interface QuickbarProps {
 
 export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   const { data: session } = useSession();
+  const { aiPaneOpen, setAiPaneOpen } = useLayoutPrefs();
   const displayName = session
     ? (session.user.name ?? session.user.email).slice(0, 20) +
       ((session.user.name ?? session.user.email).length > 20 ? "…" : "")
@@ -264,6 +266,21 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
                   <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" />
                 )}
               </Link>
+
+              <button
+                type="button"
+                onClick={() => setAiPaneOpen(!aiPaneOpen)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                  aiPaneOpen
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary/10 text-primary hover:bg-primary/20",
+                )}
+                aria-label="Toggle AI assistant"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span className="hidden sm:inline">AI</span>
+              </button>
 
               {session ? (
                 <Link

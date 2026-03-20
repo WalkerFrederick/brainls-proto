@@ -25,6 +25,8 @@ import { HtmlRenderer } from "@/components/html-renderer";
 import { updateCard, createCard, archiveCard } from "@/actions/card";
 import { setCardTags, suggestCardTags } from "@/actions/tag";
 import { TagInput } from "@/components/tag-input";
+import { UpgradeDialog } from "@/components/upgrade-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   cardId: string;
@@ -42,6 +44,7 @@ export function EditCardDialog({
   initialTags = [],
 }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
 
   const [front, setFront] = useState(String(contentJson.front ?? ""));
@@ -64,6 +67,7 @@ export function EditCardDialog({
   const [cardTagsList, setCardTagsList] = useState<string[]>(initialTags);
   const [aiSuggestedTags, setAiSuggestedTags] = useState<Set<string>>(new Set());
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -104,6 +108,11 @@ export function EditCardDialog({
       if (fresh.length > 0) {
         setCardTagsList((prev) => [...prev, ...fresh]);
         setAiSuggestedTags((prev) => new Set([...prev, ...fresh]));
+      }
+    } else {
+      toast(result.error, { variant: "error" });
+      if (result.code === "LIMIT_EXCEEDED") {
+        setShowUpgrade(true);
       }
     }
     setLoadingSuggestions(false);
@@ -373,7 +382,10 @@ export function EditCardDialog({
             )}
 
             <div className="space-y-2">
-              <Label>Tags</Label>
+              <div className="flex items-center justify-between">
+                <Label>Tags</Label>
+                <span className="text-xs text-muted-foreground">{cardTagsList.length}/10</span>
+              </div>
               <TagInput
                 value={cardTagsList}
                 onChange={setCardTagsList}
@@ -383,7 +395,7 @@ export function EditCardDialog({
                   <button
                     type="button"
                     className="inline-flex h-full cursor-pointer items-center gap-1 rounded-l-md border-r bg-muted px-2 text-xs text-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={loadingSuggestions}
+                    disabled={loadingSuggestions || cardTagsList.length >= 10}
                     onClick={handleSuggestTags}
                   >
                     {loadingSuggestions ? (
@@ -454,6 +466,7 @@ export function EditCardDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      <UpgradeDialog open={showUpgrade} onOpenChange={setShowUpgrade} />
     </Dialog>
   );
 }

@@ -16,6 +16,7 @@ import {
 import { isValidUuid } from "@/lib/validate-uuid";
 import { suggestTags, logAiCall, estimateCost } from "@/lib/ai";
 import { stripHtml } from "@/lib/sanitize-html";
+import { getAiLimitInfo, getAiUsageCount } from "@/lib/tiers";
 
 async function upsertTags(names: string[]): Promise<Map<string, string>> {
   if (names.length === 0) return new Map();
@@ -173,6 +174,13 @@ export const suggestCardTags = safeAction(
     const { deckDefinitionId, cardContent, cardType, existingCardTags } = parsed.data;
     if (!isValidUuid(deckDefinitionId)) return err("VALIDATION_FAILED", "Invalid deck ID");
 
+    const limitInfo = await getAiLimitInfo(session.user.id);
+    const currentUsage = await getAiUsageCount(session.user.id, limitInfo.periodStart);
+    if (currentUsage >= limitInfo.limit) {
+      const periodWord = limitInfo.period === "day" ? "daily" : "monthly";
+      return err("LIMIT_EXCEEDED", `You've reached your ${periodWord} AI usage limit`);
+    }
+
     const [deck] = await db
       .select({
         id: deckDefinitions.id,
@@ -242,10 +250,16 @@ export const suggestCardTags = safeAction(
         error: String(e),
       });
 
-      if (status === 429 || status === 401) {
-        return err("LIMIT_EXCEEDED", "AI suggestions are temporarily unavailable");
+      if (status === 429) {
+        return err(
+          "LIMIT_EXCEEDED",
+          "AI suggestions are temporarily unavailable — please try again in a few minutes",
+        );
       }
-      return err("INTERNAL_ERROR", "Something went wrong");
+      return err(
+        "INTERNAL_ERROR",
+        "AI suggestions are unavailable right now — please try again later",
+      );
     }
     const durationMs = Date.now() - startMs;
 

@@ -74,17 +74,30 @@ export default async function AccountSettingsPage() {
             <div>
               <h2 className="text-lg font-semibold">AI Usage</h2>
               <p className="text-sm text-muted-foreground">
-                AI-powered features usage for {aiUsage.periodLabel}.
+                AI-powered features usage &mdash; {aiUsage.periodLabel}.
               </p>
             </div>
             <div className="rounded-md border p-4 space-y-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Uses this month</span>
-                <span className="font-medium">{aiUsage.successCount.toLocaleString()}</span>
+                <span className="text-muted-foreground">Uses</span>
+                <span className="font-medium">
+                  {aiUsage.successCount.toLocaleString()} / {aiUsage.limit.toLocaleString()}
+                </span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Sparkles className="h-3 w-3" />
-                <span>Includes tag suggestions and other AI features</span>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{
+                    width: `${Math.min((aiUsage.successCount / aiUsage.limit) * 100, 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3" />
+                  Resets {aiUsage.period === "day" ? "daily" : "monthly"}
+                </span>
+                <span>{Math.round((aiUsage.successCount / aiUsage.limit) * 100)}% used</span>
               </div>
             </div>
           </div>

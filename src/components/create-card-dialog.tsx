@@ -33,6 +33,8 @@ import { createCard } from "@/actions/card";
 import { setCardTags, suggestCardTags } from "@/actions/tag";
 import { listEditableDecks } from "@/actions/deck";
 import { TagInput } from "@/components/tag-input";
+import { UpgradeDialog } from "@/components/upgrade-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 type SupportedCardType = "front_back" | "multiple_choice" | "keyboard_shortcut" | "cloze";
 
@@ -57,6 +59,7 @@ export function CreateCardDialog({
   onOpenChange: controlledOnOpenChange,
 }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
   const setOpen = controlledOnOpenChange ?? setUncontrolledOpen;
@@ -84,6 +87,7 @@ export function CreateCardDialog({
 
   const [aiSuggestedTags, setAiSuggestedTags] = useState<Set<string>>(new Set());
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -159,6 +163,11 @@ export function CreateCardDialog({
       if (fresh.length > 0) {
         setCardTagsList((prev) => [...prev, ...fresh]);
         setAiSuggestedTags((prev) => new Set([...prev, ...fresh]));
+      }
+    } else {
+      toast(result.error, { variant: "error" });
+      if (result.code === "LIMIT_EXCEEDED") {
+        setShowUpgrade(true);
       }
     }
     setLoadingSuggestions(false);
@@ -488,7 +497,10 @@ export function CreateCardDialog({
             )}
 
             <div className="space-y-2">
-              <Label>Tags</Label>
+              <div className="flex items-center justify-between">
+                <Label>Tags</Label>
+                <span className="text-xs text-muted-foreground">{cardTagsList.length}/10</span>
+              </div>
               <TagInput
                 value={cardTagsList}
                 onChange={setCardTagsList}
@@ -498,7 +510,7 @@ export function CreateCardDialog({
                   <button
                     type="button"
                     className="inline-flex h-full cursor-pointer items-center gap-1 rounded-l-md border-r bg-muted px-2 text-xs text-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={!selectedDeckId || loadingSuggestions}
+                    disabled={!selectedDeckId || loadingSuggestions || cardTagsList.length >= 10}
                     onClick={handleSuggestTags}
                   >
                     {loadingSuggestions ? (
@@ -520,6 +532,7 @@ export function CreateCardDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      <UpgradeDialog open={showUpgrade} onOpenChange={setShowUpgrade} />
     </Dialog>
   );
 }

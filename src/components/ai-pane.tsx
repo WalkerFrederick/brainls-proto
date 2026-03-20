@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Sparkles, Send, Trash2, Loader2, AlertTriangle, X } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { useLayoutPrefs } from "@/components/layout-provider";
 import { useToast } from "@/hooks/use-toast";
 import { UpgradeDialog } from "@/components/upgrade-dialog";
@@ -29,14 +31,14 @@ function UsageBanner({ refreshKey }: { refreshKey: number }) {
   const pct = Math.min((usage.successCount / usage.limit) * 100, 100);
 
   return (
-    <div className="border-b px-4 py-2.5 text-xs text-muted-foreground">
-      <div className="flex items-center justify-between">
-        <span>
-          {usage.successCount} / {usage.limit} uses
+    <div className="space-y-1.5 px-4 py-2.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{usage.periodLabel} usage</span>
+        <span className="font-medium">
+          {usage.successCount} / {usage.limit}
         </span>
-        <span>{usage.periodLabel}</span>
       </div>
-      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
         <div
           className={cn(
             "h-full rounded-full transition-all",
@@ -45,12 +47,14 @@ function UsageBanner({ refreshKey }: { refreshKey: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
+      <p className="text-[10px] text-muted-foreground">
+        Resets {usage.period === "day" ? "daily" : "monthly"}
+      </p>
     </div>
   );
 }
 
-export function AiPane() {
-  const { setAiPaneOpen } = useLayoutPrefs();
+function PaneContent({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -178,133 +182,182 @@ export function AiPane() {
   );
 
   return (
-    <>
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
-      <div className="flex h-full w-[380px] shrink-0 flex-col border-l border-r bg-sidebar text-sidebar-foreground">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-sm font-semibold">AI Assistant</span>
-          </div>
-          <div className="flex items-center gap-1">
-            {messages.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handleClear}
-                title="Clear chat"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="h-4 w-4 text-primary" />
+          AI Assistant
+        </div>
+        <div className="flex items-center gap-1">
+          {messages.length > 0 && (
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7"
-              onClick={() => setAiPaneOpen(false)}
-              title="Close"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        <UsageBanner refreshKey={refreshKey} />
-
-        {/* Messages */}
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
-        >
-          {hasMore && (
-            <button
-              type="button"
-              onClick={loadOlder}
-              disabled={loadingMore}
-              className="mx-auto mb-2 text-xs text-muted-foreground hover:text-foreground"
-            >
-              {loadingMore ? "Loading..." : "Load older messages"}
-            </button>
-          )}
-
-          {initialLoading ? (
-            <div className="flex flex-1 items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
-              <Sparkles className="h-8 w-8 text-primary/30" />
-              <p>Ask me anything about studying, cards, or learning strategies.</p>
-            </div>
-          ) : (
-            messages.map((msg, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
-                  msg.role === "user"
-                    ? "ml-auto bg-primary text-primary-foreground"
-                    : "mr-auto border bg-background text-foreground",
-                )}
-              >
-                {msg.content}
-              </div>
-            ))
-          )}
-
-          {loading && (
-            <div className="mr-auto flex items-center gap-1.5 rounded-2xl border bg-background px-3.5 py-2.5">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
-            </div>
-          )}
-        </div>
-
-        {/* Near-limit banner */}
-        {nearLimit && (
-          <div className="flex items-center gap-2 border-t bg-warning/10 px-4 py-2 text-xs text-warning">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            <span className="flex-1">
-              Conversation is getting long. Older messages will be lost.
-            </span>
-            <button
-              type="button"
               onClick={handleClear}
-              className="shrink-0 font-medium underline underline-offset-2 hover:text-warning/80"
+              title="Clear chat"
             >
-              New Chat
-            </button>
-          </div>
-        )}
-
-        {/* Input */}
-        <div className="border-t px-3 py-3">
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask anything..."
-              rows={1}
-              className="max-h-32 min-h-[36px] flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary"
-              disabled={loading}
-            />
-            <Button
-              size="icon"
-              className="h-9 w-9 shrink-0 rounded-lg"
-              onClick={handleSend}
-              disabled={loading || !input.trim()}
-            >
-              <Send className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Close AI pane"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </div>
-    </>
+
+      <Separator />
+      <UsageBanner refreshKey={refreshKey} />
+      <Separator />
+
+      {/* Messages */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+      >
+        {hasMore && (
+          <button
+            type="button"
+            onClick={loadOlder}
+            disabled={loadingMore}
+            className="mx-auto mb-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {loadingMore ? "Loading..." : "Load older messages"}
+          </button>
+        )}
+
+        {initialLoading ? (
+          <div className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <p className="font-medium text-foreground">AI Assistant</p>
+            <p className="text-xs">
+              Ask me anything about studying, creating cards, or learning strategies.
+            </p>
+          </div>
+        ) : (
+          messages.map((msg, i) => (
+            <div
+              key={i}
+              className={cn(
+                "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+                msg.role === "user"
+                  ? "ml-auto bg-primary text-primary-foreground"
+                  : "mr-auto border bg-background text-foreground",
+              )}
+            >
+              {msg.content}
+            </div>
+          ))
+        )}
+
+        {loading && (
+          <div className="mr-auto flex items-center gap-1.5 rounded-2xl border bg-background px-3.5 py-2.5">
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
+          </div>
+        )}
+      </div>
+
+      {/* Near-limit banner */}
+      {nearLimit && (
+        <div className="flex items-center gap-2 border-t bg-warning/10 px-4 py-2 text-xs text-warning">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">Conversation is getting long. Older messages will be lost.</span>
+          <button
+            type="button"
+            onClick={handleClear}
+            className="shrink-0 font-medium underline underline-offset-2 hover:text-warning/80"
+          >
+            New Chat
+          </button>
+        </div>
+      )}
+
+      {/* Input */}
+      <Separator />
+      <div className="px-3 py-3">
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask anything..."
+            rows={1}
+            className="max-h-32 min-h-[36px] flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary"
+            disabled={loading}
+          />
+          <Button
+            size="icon"
+            className="h-9 w-9 shrink-0 rounded-lg"
+            onClick={handleSend}
+            disabled={loading || !input.trim()}
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function AiPaneMobile() {
+  const { aiPaneOpen, setAiPaneOpen } = useLayoutPrefs();
+  const close = () => setAiPaneOpen(false);
+
+  return (
+    <AnimatePresence>
+      {aiPaneOpen && (
+        <>
+          <motion.div
+            key="ai-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={close}
+          />
+          <motion.aside
+            key="ai-pane-mobile"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed inset-y-0 right-0 z-50 w-full border-l shadow-lg sm:w-[80%]"
+          >
+            <PaneContent onClose={close} />
+          </motion.aside>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function AiPaneDesktop() {
+  const { aiPaneOpen, setAiPaneOpen } = useLayoutPrefs();
+
+  if (!aiPaneOpen) return null;
+
+  return (
+    <aside className="hidden h-screen w-80 shrink-0 border-x lg:flex">
+      <PaneContent onClose={() => setAiPaneOpen(false)} />
+    </aside>
   );
 }

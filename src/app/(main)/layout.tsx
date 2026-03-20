@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AiPaneDesktop } from "@/components/ai-pane";
 import { Quickbar } from "@/components/quickbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LayoutProvider } from "@/components/layout-provider";
@@ -36,6 +37,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
             <Quickbar pendingInviteCount={pendingInviteCount} />
             <main className="flex-1 p-6 pb-24 lg:pb-6">{children}</main>
           </div>
+          <AiPaneDesktop />
         </AppShell>
         {process.env.NODE_ENV !== "production" && <DevTimeTravelFab />}
       </LayoutProvider>

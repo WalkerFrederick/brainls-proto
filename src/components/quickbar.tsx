@@ -9,14 +9,13 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { UserAvatar } from "@/components/user-avatar";
-import { useSession } from "@/lib/auth-client";
 import { Brain } from "lucide-react";
 import { SidebarNav } from "@/components/app-sidebar";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
 import { CreateCardDialog } from "@/components/create-card-dialog";
 import { CreateFolderDialog } from "@/components/create-folder-dialog";
 import { CommandPalette } from "@/components/command-palette";
+import { AiPaneMobile } from "@/components/ai-pane";
 import { useLayoutPrefs } from "@/components/layout-provider";
 
 interface QuickbarProps {
@@ -24,12 +23,6 @@ interface QuickbarProps {
 }
 
 export function Quickbar({ pendingInviteCount }: QuickbarProps) {
-  const { data: session } = useSession();
-  const { aiPaneOpen, setAiPaneOpen } = useLayoutPrefs();
-  const displayName = session
-    ? (session.user.name ?? session.user.email).slice(0, 20) +
-      ((session.user.name ?? session.user.email).length > 20 ? "…" : "")
-    : "";
   const [isSticky, setIsSticky] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
@@ -37,6 +30,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   const [deckDialogOpen, setDeckDialogOpen] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const { aiPaneOpen, setAiPaneOpen } = useLayoutPrefs();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const prevPathname = useRef(pathname);
@@ -83,7 +77,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
   }, []);
 
   useEffect(() => {
-    if (drawerOpen || paletteOpen) {
+    if (drawerOpen || paletteOpen || aiPaneOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -91,7 +85,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [drawerOpen, paletteOpen]);
+  }, [drawerOpen, paletteOpen, aiPaneOpen]);
 
   useEffect(() => {
     if (prevPathname.current !== pathname) {
@@ -241,7 +235,7 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
             </div>
 
             {/* Search bar trigger */}
-            <div className="flex flex-1 mx-3">
+            <div className="mx-3 flex flex-1">
               <button
                 type="button"
                 onClick={() => setPaletteOpen(true)}
@@ -281,24 +275,6 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
                 <Sparkles className="h-4 w-4" />
                 <span className="hidden sm:inline">AI</span>
               </button>
-
-              {session ? (
-                <Link
-                  href="/settings/account"
-                  className="flex items-center gap-2 rounded-full transition-colors hover:bg-accent sm:border sm:px-3 sm:py-1 sm:text-sm sm:font-medium"
-                >
-                  <span className="hidden max-w-[200px] truncate whitespace-nowrap text-sm font-medium sm:inline-block">
-                    {displayName}
-                  </span>
-                  <UserAvatar
-                    src={session.user.image}
-                    fallback={session.user.name ?? session.user.email}
-                    size="sm"
-                  />
-                </Link>
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-muted" />
-              )}
             </div>
           </div>
         </div>
@@ -345,6 +321,10 @@ export function Quickbar({ pendingInviteCount }: QuickbarProps) {
           </>
         )}
       </AnimatePresence>
+
+      <div className="lg:hidden">
+        <AiPaneMobile />
+      </div>
 
       {/* FAB for mobile */}
       {!isStudying && (

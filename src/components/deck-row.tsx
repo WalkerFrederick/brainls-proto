@@ -102,11 +102,11 @@ export function DeckRow({ deck, folderRole, isDefaultDeck = false, folderId }: D
               }
             >
               {deck.isAbandoned ? (
-                <AlertTriangle className="h-3 w-3 sm:mr-1" />
+                <AlertTriangle className="h-3 w-3 lg:mr-1" />
               ) : (
-                <Link2 className="h-3 w-3 sm:mr-1" />
+                <Link2 className="h-3 w-3 lg:mr-1" />
               )}
-              <span className="hidden sm:inline">linked copy</span>
+              <span className="hidden lg:inline">linked copy</span>
             </Badge>
           )}
         </div>
@@ -117,17 +117,17 @@ export function DeckRow({ deck, folderRole, isDefaultDeck = false, folderId }: D
           <div className="flex items-center gap-1.5 text-sm sm:gap-3">
             <span className="tabular-nums font-medium text-blue-600 dark:text-blue-400">
               {deck.newCount}
-              <span className="hidden sm:inline text-xs font-normal"> new</span>
+              <span className="hidden xl:inline text-xs font-normal"> new</span>
             </span>
             <span className="text-muted-foreground/40">·</span>
             <span className="tabular-nums font-medium text-orange-600 dark:text-orange-400">
               {deck.learningCount}
-              <span className="hidden sm:inline text-xs font-normal"> learning</span>
+              <span className="hidden xl:inline text-xs font-normal"> learning</span>
             </span>
             <span className="text-muted-foreground/40">·</span>
             <span className="tabular-nums font-medium text-green-600 dark:text-green-400">
               {deck.reviewDueCount}
-              <span className="hidden sm:inline text-xs font-normal"> due</span>
+              <span className="hidden xl:inline text-xs font-normal"> due</span>
             </span>
           </div>
           <button
@@ -137,6 +137,11 @@ export function DeckRow({ deck, folderRole, isDefaultDeck = false, folderId }: D
           >
             <Settings className="h-4 w-4" />
           </button>
+          <Link href={`/deck/${deck.deckDefinitionId}`} className="hidden md:inline-flex">
+            <Button size="sm" variant="outline">
+              View
+            </Button>
+          </Link>
           <Link href={`/study/${deck.userDeckId}?ref=${encodeURIComponent(pathname)}`}>
             <Button size="sm" variant={deck.dueCards > 0 ? "default" : "outline"}>
               <Play className="mr-1.5 h-3.5 w-3.5" />

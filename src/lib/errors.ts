@@ -1,3 +1,6 @@
+/** Fraction of server-action calls the chaos monkey will kill (dev only). */
+export const CHAOS_MONKEY_CHANCE = 1 / 6;
+
 export const ErrorCode = {
   BAD_REQUEST: "BAD_REQUEST",
   VALIDATION_FAILED: "VALIDATION_FAILED",
@@ -56,6 +59,19 @@ export function safeAction<TArgs extends unknown[], TResult>(
 ): (...args: TArgs) => Promise<Result<TResult>> {
   return async (...args) => {
     try {
+      if (process.env.NODE_ENV !== "production") {
+        const { cookies } = await import("next/headers");
+        const jar = await cookies();
+        if (jar.get("chaos_monkey")?.value === "1" && Math.random() < CHAOS_MONKEY_CHANCE) {
+          reportError("[Chaos Monkey] Simulated failure", { action: name });
+          return {
+            success: false as const,
+            error: "[Chaos Monkey] Simulated failure in " + name,
+            code: "INTERNAL_ERROR" as const,
+          };
+        }
+      }
+
       return await fn(...args);
     } catch (e) {
       if (isNextError(e)) throw e;

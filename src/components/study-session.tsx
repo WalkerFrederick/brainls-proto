@@ -8,7 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { submitReview } from "@/actions/study";
-import { Trophy, Info, AlertTriangle } from "lucide-react";
+import { retryAction } from "@/lib/result";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Trophy, Info, AlertTriangle, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { HtmlRenderer } from "@/components/html-renderer";
 import { ShortcutDisplay } from "@/components/shortcut-display";
 import {
@@ -98,6 +109,7 @@ export function StudySessionClient({
   backLabel = "Back to Home",
 }: Props) {
   const router = useRouter();
+  const { toast, update } = useToast();
   const [cards] = useState(initialCards);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -106,6 +118,13 @@ export function StudySessionClient({
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [shortcutCorrect, setShortcutCorrect] = useState<boolean | null>(null);
   const [shakeKey, setShakeKey] = useState(0);
+  const [failedReview, setFailedReview] = useState<{
+    rating: Rating;
+    idempotencyKey: string;
+    responseMs: number;
+    userCardStateId: string;
+  } | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   const currentCard = cards[currentIndex];
   const content = currentCard?.contentJson as Record<string, unknown>;
@@ -120,13 +139,62 @@ export function StudySessionClient({
     (rating: Rating) => {
       const responseMs = Date.now() - startTime;
 
-      submitReview({
-        userCardStateId: currentCard.userCardStateId,
-        rating,
-        responseMs,
-        idempotencyKey: uuidv4(),
-        skipSrsUpdate: skipSrsUpdate || undefined,
-      });
+      const idempotencyKey = uuidv4();
+      let toastId: string | undefined;
+      retryAction(
+        () =>
+          submitReview({
+            userCardStateId: currentCard.userCardStateId,
+            rating,
+            responseMs,
+            idempotencyKey,
+            skipSrsUpdate: skipSrsUpdate || undefined,
+          }),
+        {
+          onRetry(attempt, maxRetries) {
+            setRetrying(true);
+            if (!toastId) {
+              toastId = toast(`Saving review failed — retrying (${attempt}/${maxRetries})...`, {
+                variant: "loading",
+                durationMs: null,
+              });
+            } else {
+              update(toastId, `Saving review failed — retrying (${attempt}/${maxRetries})...`);
+            }
+          },
+          onSuccess() {
+            setRetrying(false);
+            if (toastId) {
+              update(toastId, "Review saved successfully", {
+                variant: "success",
+                durationMs: 2000,
+              });
+            }
+          },
+          onFail() {
+            setRetrying(false);
+            if (toastId) {
+              update(toastId, "Failed to save review", { variant: "error", durationMs: 5000 });
+            }
+            setFailedReview({
+              rating,
+              idempotencyKey,
+              responseMs,
+              userCardStateId: currentCard.userCardStateId,
+            });
+          },
+          onOffline() {
+            setRetrying(false);
+            if (toastId) {
+              update(toastId, "You're offline — review will not be saved", {
+                variant: "warning",
+              });
+            } else {
+              toast("You're offline — review will not be saved", { variant: "warning" });
+            }
+          },
+        },
+      );
 
       setReviewed((r) => r + 1);
 
@@ -139,15 +207,47 @@ export function StudySessionClient({
         setFinished(true);
       }
     },
-    [currentCard, currentIndex, cards.length, startTime, skipSrsUpdate],
+    [currentCard, currentIndex, cards.length, startTime, skipSrsUpdate, toast, update],
   );
 
-  const canRate = showAnswer && !finished;
+  async function handleRetryFailedReview() {
+    if (!failedReview) return;
+    const saved = { ...failedReview };
+    setFailedReview(null);
+    setRetrying(true);
+
+    const toastId = toast("Retrying review...", { variant: "loading", durationMs: null });
+    const result = await retryAction(
+      () =>
+        submitReview({
+          userCardStateId: saved.userCardStateId,
+          rating: saved.rating,
+          responseMs: saved.responseMs,
+          idempotencyKey: saved.idempotencyKey,
+          skipSrsUpdate: skipSrsUpdate || undefined,
+        }),
+      {
+        onRetry(attempt, max) {
+          update(toastId, `Still retrying (${attempt}/${max})...`);
+        },
+      },
+    );
+
+    setRetrying(false);
+    if (result.success) {
+      update(toastId, "Review saved successfully", { variant: "success", durationMs: 2000 });
+    } else {
+      update(toastId, "Failed to save review", { variant: "error", durationMs: 5000 });
+      setFailedReview(saved);
+    }
+  }
+
+  const canRate = showAnswer && !finished && !retrying;
   const isMultipleChoice = currentCard?.cardType === "multiple_choice";
   const choiceCount = isMultipleChoice
     ? Math.min(((content?.choices as string[]) ?? []).length, 10)
     : 0;
-  const canPickChoice = isMultipleChoice && !showAnswer && !finished;
+  const canPickChoice = isMultipleChoice && !showAnswer && !finished && !retrying;
 
   const handleSelectChoice = useCallback(
     (index: number) => {
@@ -197,8 +297,39 @@ export function StudySessionClient({
     );
   }
 
+  const failedReviewDialog = (
+    <Dialog open={!!failedReview} onOpenChange={() => {}}>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>Review failed to save</DialogTitle>
+          <DialogDescription>
+            We tried saving your review multiple times but the server didn&apos;t respond. This can
+            happen due to a temporary network issue or server hiccup.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 rounded-lg bg-muted p-3 text-sm">
+          <p className="font-medium">What you can do:</p>
+          <ul className="list-inside list-disc space-y-1 text-muted-foreground">
+            <li>Tap &quot;Retry&quot; to try saving it again</li>
+            <li>
+              Skip it if you&apos;d rather move on — the card will show up in your next session
+            </li>
+            <li>Check your internet connection if this keeps happening</li>
+          </ul>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setFailedReview(null)}>
+            Skip
+          </Button>
+          <Button onClick={handleRetryFailedReview}>Retry</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      {failedReviewDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">{deckTitle}</h1>
@@ -271,6 +402,7 @@ export function StudySessionClient({
           intervalPreviews={intervalPreviews}
           onRate={handleRate}
           srsState={currentCard.srsState}
+          disabled={retrying}
         />
       ) : (
         <div className="rounded-xl border bg-card p-4">
@@ -324,10 +456,12 @@ function RatingPanel({
   intervalPreviews,
   onRate,
   srsState,
+  disabled = false,
 }: {
   intervalPreviews: Record<Rating, string> | null;
   onRate: (r: Rating) => void;
   srsState: string;
+  disabled?: boolean;
 }) {
   const isLearning = srsState === "new" || srsState === "learning";
   const againLabel = isLearning ? "Don't Know" : "Forgot";
@@ -337,7 +471,9 @@ function RatingPanel({
       <div className="mb-3">
         <h3 className="text-sm font-semibold">Self Rating</h3>
         <p className="text-xs text-muted-foreground">
-          This tells the algorithm when this card should come up again.
+          {disabled
+            ? "Saving previous review — please wait..."
+            : "This tells the algorithm when this card should come up again."}
         </p>
       </div>
       <div className="grid grid-cols-4 gap-2">
@@ -346,18 +482,28 @@ function RatingPanel({
             key={rating}
             type="button"
             onClick={() => onRate(rating)}
-            className="group flex flex-col items-center gap-1.5 rounded-lg border bg-muted/50 px-2 py-3 transition-colors hover:bg-muted"
+            disabled={disabled}
+            className={cn(
+              "group flex flex-col items-center gap-1.5 rounded-lg border px-2 py-3 transition-colors",
+              disabled ? "cursor-not-allowed opacity-50" : "bg-muted/50 hover:bg-muted",
+            )}
           >
-            <span className="flex flex-col items-center gap-1 sm:flex-row sm:gap-1.5 text-sm font-medium">
-              <span
-                className={`inline-flex h-5 min-w-5 items-center justify-center rounded border px-1 font-mono text-[11px] font-semibold sm:order-2 mb-1 sm:mb-0 ${badgeClass}`}
-              >
-                {key}
-              </span>
-              <span className="sm:order-1">{rating === "again" ? againLabel : label}</span>
-            </span>
-            {intervalPreviews && (
-              <span className="text-xs text-muted-foreground">{intervalPreviews[rating]}</span>
+            {disabled ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : (
+              <>
+                <span className="flex flex-col items-center gap-1 sm:flex-row sm:gap-1.5 text-sm font-medium">
+                  <span
+                    className={`inline-flex h-5 min-w-5 items-center justify-center rounded border px-1 font-mono text-[11px] font-semibold sm:order-2 mb-1 sm:mb-0 ${badgeClass}`}
+                  >
+                    {key}
+                  </span>
+                  <span className="sm:order-1">{rating === "again" ? againLabel : label}</span>
+                </span>
+                {intervalPreviews && (
+                  <span className="text-xs text-muted-foreground">{intervalPreviews[rating]}</span>
+                )}
+              </>
             )}
           </button>
         ))}

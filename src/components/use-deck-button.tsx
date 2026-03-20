@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Play, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { addDeckToLibrary } from "@/actions/study";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   deckDefinitionId: string;
@@ -14,6 +15,7 @@ export function UseDeckButton({ deckDefinitionId }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   async function handleClick() {
     setLoading(true);
@@ -22,6 +24,8 @@ export function UseDeckButton({ deckDefinitionId }: Props) {
 
     if (result.success) {
       router.push(`/study/${result.data.id}?ref=${encodeURIComponent(pathname)}`);
+    } else {
+      toast(result.error, { variant: "error" });
     }
   }
 

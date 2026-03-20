@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Inter, Libre_Baskerville } from "next/font/google";
 import { ThemeProvider, type Theme, type AccentColor } from "@/components/theme-provider";
+import { ToastProvider } from "@/hooks/use-toast";
 import "./globals.css";
 
 const inter = Inter({
@@ -105,7 +106,7 @@ export default async function RootLayout({
     >
       <body className="antialiased">
         <ThemeProvider initialTheme={theme} initialAccent={accent}>
-          {children}
+          <ToastProvider>{children}</ToastProvider>
         </ThemeProvider>
       </body>
     </html>

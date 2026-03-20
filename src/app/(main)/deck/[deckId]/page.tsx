@@ -5,7 +5,15 @@ import { getDeck, getDeckSummary } from "@/actions/deck";
 import { getPublicDeck, previewPublicCards } from "@/actions/public-deck";
 import { listCards } from "@/actions/card";
 import { getCardStudyStates } from "@/actions/study";
-import { BookOpen, AlertTriangle, ExternalLink, Trash2, LogIn, Lock } from "lucide-react";
+import {
+  BookOpen,
+  AlertTriangle,
+  ExternalLink,
+  Trash2,
+  LogIn,
+  Lock,
+  RefreshCw,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { UseDeckButton } from "@/components/use-deck-button";
@@ -235,7 +243,7 @@ async function GuestDeckView({ deckId }: { deckId: string }) {
 async function AuthenticatedDeckView({
   deckId,
   tagFilter,
-  userId,
+  userId: _userId,
   defaultDeckId,
 }: {
   deckId: string;
@@ -269,9 +277,16 @@ async function AuthenticatedDeckView({
           <>
             <BookOpen className="h-12 w-12 text-muted-foreground" />
             <div className="space-y-1">
-              <h2 className="text-xl font-semibold">Deck Not Available</h2>
+              <h2 className="text-xl font-semibold">Error Retrieving Deck</h2>
               <p className="text-sm text-muted-foreground">{summaryResult.error}</p>
             </div>
+            <Link
+              href={`/deck/${deckId}`}
+              className="mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Link>
           </>
         )}
       </div>
@@ -406,6 +421,27 @@ async function AuthenticatedDeckView({
         </div>
       </div>
 
+      {!studyStatesResult.success && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-red-700 dark:text-red-400">
+              Failed to load study progress
+            </p>
+            <p className="text-xs text-red-600/80 dark:text-red-400/70">
+              {studyStatesResult.error}
+            </p>
+          </div>
+          <Link
+            href={`/deck/${deckId}`}
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-red-500/30 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-500/10 dark:text-red-400"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Link>
+        </div>
+      )}
+
       {summary.stats && (
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg border p-4 text-center">
@@ -431,7 +467,22 @@ async function AuthenticatedDeckView({
 
       {allCardTags.length > 0 && <TagFilter availableTags={allCardTags} />}
 
-      {cards.length === 0 && !tagFilter ? (
+      {!cardsResult.success ? (
+        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
+          <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+          <div className="text-center">
+            <h3 className="text-lg font-semibold">Failed to load cards</h3>
+            <p className="text-sm text-muted-foreground">{cardsResult.error}</p>
+          </div>
+          <Link
+            href={`/deck/${deckId}`}
+            className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry
+          </Link>
+        </div>
+      ) : cards.length === 0 && !tagFilter ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
           <BookOpen className="h-12 w-12 text-muted-foreground" />
           <div className="text-center">

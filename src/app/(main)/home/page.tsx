@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Brain, BookOpen } from "lucide-react";
+import Link from "next/link";
+import { Brain, BookOpen, AlertTriangle, RefreshCw } from "lucide-react";
 import { getSession } from "@/lib/auth-server";
 import { getReviewHeatmapData, listLibraryDecks } from "@/actions/study";
 import { ReviewHeatmap } from "@/components/review-heatmap";
@@ -48,7 +49,24 @@ export default async function Home() {
           <CustomStudyDialog />
         </div>
 
-        {readyDecks.length === 0 ? (
+        {!decksResult?.success ? (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12 text-center">
+            <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">Failed to load decks</h3>
+              <p className="text-sm text-muted-foreground">
+                {decksResult?.error ?? "Something went wrong."}
+              </p>
+            </div>
+            <Link
+              href="/home"
+              className="mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Link>
+          </div>
+        ) : readyDecks.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-12">
             <BookOpen className="h-12 w-12 text-muted-foreground" />
             <div className="text-center">

@@ -4,7 +4,7 @@ import { getStudySession } from "@/actions/study";
 export const metadata: Metadata = { title: "Study" };
 import { StudySessionClient } from "@/components/study-session";
 import { StudyPrepScreen } from "@/components/study-prep-screen";
-import { BookOpen } from "lucide-react";
+import { BookOpen, AlertTriangle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getBackLabel } from "@/lib/back-label";
@@ -22,7 +22,32 @@ export default async function StudyPage({ params, searchParams }: Props) {
   const result = await getStudySession(userDeckId);
 
   if (!result.success) {
-    return <div className="text-destructive">Error: {result.error}</div>;
+    return (
+      <StudyPrepScreen>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+          <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold">Failed to load study session</h2>
+            <p className="text-sm text-muted-foreground">{result.error}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/study/${userDeckId}${ref ? `?ref=${ref}` : ""}`}
+              className="mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Link>
+            <Link
+              href={back.href}
+              className="mt-2 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {back.label}
+            </Link>
+          </div>
+        </div>
+      </StudyPrepScreen>
+    );
   }
 
   const { deckTitle, cards, totalDue } = result.data;

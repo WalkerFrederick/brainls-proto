@@ -19,6 +19,52 @@ import {
 } from "@/actions/chat";
 import { getAiUsage, type AiUsageInfo } from "@/actions/ai";
 
+const LOADING_MESSAGES = [
+  "Doing the math...",
+  "Consulting our oracles...",
+  "Checking with my dog...",
+  "Asking the magic 8-ball...",
+  "Flipping through my notes...",
+  "Crunching the numbers...",
+  "Warming up the neurons...",
+  "Searching the archives...",
+  "Channeling big brain energy...",
+  "Phoning a friend...",
+  "Drawing on the whiteboard...",
+  "Untangling the spaghetti...",
+  "Checking my notes...",
+  "Looking up the answer...",
+];
+
+function pickRandom(exclude: string): string {
+  const pool = LOADING_MESSAGES.filter((m) => m !== exclude);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function LoadingStatus() {
+  const [status, setStatus] = useState(() => pickRandom(""));
+
+  useEffect(() => {
+    const id = setInterval(() => setStatus((prev) => pickRandom(prev)), 3000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.span
+        key={status}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="ml-0.5 text-xs text-muted-foreground"
+      >
+        {status}
+      </motion.span>
+    </AnimatePresence>
+  );
+}
+
 function UsageBanner({ refreshKey }: { refreshKey: number }) {
   const [usage, setUsage] = useState<AiUsageInfo | null>(null);
 
@@ -336,10 +382,11 @@ function PaneContent({ onClose }: { onClose: () => void }) {
           )}
 
           {loading && (
-            <div className="mr-auto flex items-center gap-1.5 rounded-2xl border bg-background px-3.5 py-2.5">
+            <div className="mr-auto flex items-center gap-2 rounded-2xl border bg-background px-3.5 py-2.5">
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
+              <LoadingStatus />
             </div>
           )}
         </div>

@@ -99,10 +99,15 @@ export async function POST(req: Request) {
   const encoder = new TextEncoder();
   const abortSignal = req.signal;
 
-  const { EventEmitter } = await import("node:events");
-  (
-    EventEmitter as unknown as { setMaxListeners(n: number, ...targets: EventTarget[]): void }
-  ).setMaxListeners(30, abortSignal);
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { setMaxListeners } = require("node:events") as {
+      setMaxListeners: (n: number, ...targets: EventTarget[]) => void;
+    };
+    setMaxListeners(30, abortSignal);
+  } catch {
+    // Older Node.js versions may not export setMaxListeners; the warning is harmless
+  }
 
   const readable = new ReadableStream({
     async start(controller) {

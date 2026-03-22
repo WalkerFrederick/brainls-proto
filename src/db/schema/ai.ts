@@ -31,10 +31,9 @@ export const aiConversations = pgTable("ai_conversations", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" })
-    .unique(),
-  messages: jsonb("messages").notNull().default([]),
-  lockedAt: timestamp("locked_at", { withTimezone: true }),
+    .references(() => users.id, { onDelete: "cascade" }),
+  threadId: varchar("thread_id", { length: 64 }).notNull().unique(),
+  title: varchar("title", { length: 255 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

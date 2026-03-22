@@ -1,14 +1,4 @@
-export interface ProviderConfig {
-  name: "anthropic" | "openai";
-  model: string;
-  envKey: string;
-  pricing: { inputPerM: number; outputPerM: number };
-}
-
-export interface ModelConfig {
-  providers: readonly ProviderConfig[];
-  maxOutputTokens: number;
-}
+import type { ModelConfig } from "./types";
 
 export const AI_MODELS: Record<string, ModelConfig> = {
   tagSuggestion: {

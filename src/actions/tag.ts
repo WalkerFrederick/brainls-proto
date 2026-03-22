@@ -193,10 +193,7 @@ export const suggestCardTags = safeAction(
 
     if (!result) return err("INTERNAL_ERROR", "AI features are not configured");
 
-    const excluded = new Set([
-      ...(existingCardTags ?? []).map((t) => t.toLowerCase()),
-      ...deckTagRows.map((r) => r.name.toLowerCase()),
-    ]);
+    const excluded = new Set((existingCardTags ?? []).map((t) => t.toLowerCase()));
     const filtered = result.tags.filter((t) => !excluded.has(t));
 
     const cost = estimateCost(result.provider, result.usage.inputTokens, result.usage.outputTokens);
@@ -211,6 +208,13 @@ export const suggestCardTags = safeAction(
       input: inputSnapshot,
       output: result.tags,
     });
+
+    if (filtered.length === 0) {
+      return err(
+        "NO_SUGGESTIONS",
+        "No new tag suggestions — try adding more card content for better results",
+      );
+    }
 
     return ok(filtered);
   },

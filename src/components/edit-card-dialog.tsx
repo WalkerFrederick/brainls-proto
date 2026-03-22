@@ -111,6 +111,7 @@ export function EditCardDialog({
         setCardTagsList((prev) => [...prev, ...fresh]);
         setAiSuggestedTags((prev) => new Set([...prev, ...fresh]));
       }
+      router.refresh();
     } else {
       toast(result.error, { variant: "error" });
       if (result.code === "LIMIT_EXCEEDED") {

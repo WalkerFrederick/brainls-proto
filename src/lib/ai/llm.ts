@@ -22,6 +22,8 @@ export function createLlm(
         maxTokens,
         temperature,
       });
+    default:
+      throw new Error(`Unknown AI provider: ${(provider as ProviderConfig).name}`);
   }
 }
 

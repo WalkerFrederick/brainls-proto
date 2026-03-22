@@ -22,6 +22,12 @@ export const AI_MODELS: Record<string, ModelConfig> = {
     providers: [
       {
         name: "anthropic",
+        model: "claude-haiku-4-5-20251001",
+        envKey: "ANTHROPIC_API_KEY",
+        pricing: { inputPerM: 1.0, outputPerM: 5.0 },
+      },
+      {
+        name: "anthropic",
         model: "claude-sonnet-4-20250514",
         envKey: "ANTHROPIC_API_KEY",
         pricing: { inputPerM: 3.0, outputPerM: 15.0 },

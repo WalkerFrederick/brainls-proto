@@ -174,6 +174,7 @@ export function CreateCardDialog({
         setAiSuggestedTags((prev) => new Set([...prev, ...fresh]));
       }
       router.refresh();
+      window.dispatchEvent(new Event("ai-usage-changed"));
     } else {
       toast(result.error, { variant: "error" });
       if (result.code === "LIMIT_EXCEEDED") {

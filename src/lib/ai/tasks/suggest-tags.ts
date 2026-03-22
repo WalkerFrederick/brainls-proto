@@ -90,8 +90,11 @@ export async function suggestTags(input: SuggestTagsInput): Promise<SuggestTagsR
     try {
       const { raw, parsed } = await structured.invoke(messages);
 
-      const inputTokens = raw.usage_metadata?.input_tokens ?? 0;
-      const outputTokens = raw.usage_metadata?.output_tokens ?? 0;
+      const usage = (
+        raw as unknown as { usage_metadata?: { input_tokens?: number; output_tokens?: number } }
+      ).usage_metadata;
+      const inputTokens = usage?.input_tokens ?? 0;
+      const outputTokens = usage?.output_tokens ?? 0;
 
       const validTags = parsed.tags
         .map((t: string) => t.toLowerCase().trim().replace(/\s+/g, "-"))

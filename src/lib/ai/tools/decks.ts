@@ -1,7 +1,16 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { db } from "@/db";
-import { deckDefinitions, userDecks, userCardStates, folders, tags, deckTags } from "@/db/schema";
+import {
+  deckDefinitions,
+  cardDefinitions,
+  userDecks,
+  userCardStates,
+  folders,
+  tags,
+  deckTags,
+  users,
+} from "@/db/schema";
 import { eq, and, isNull, sql, inArray } from "drizzle-orm";
 import { canViewDeck, canEditDeck, requireFolderRole } from "@/lib/permissions";
 import { truncate, getUserFolderIds } from "./helpers";
@@ -48,25 +57,41 @@ export function createDeckTools(userId: string): ToolDefinition[] {
       const sourceDeckIds = deckRows.map((d) => d.linkedDeckDefinitionId ?? d.id);
       const allDeckIds = [...new Set([...deckIds, ...sourceDeckIds])];
 
-      const statRows = await db
-        .select({
-          deckDefinitionId: userDecks.deckDefinitionId,
-          totalCards: sql<number>`count(${userCardStates.id})::int`,
-          dueCount: sql<number>`count(*) filter (where ${userCardStates.dueAt} is not null and ${userCardStates.dueAt} <= now())::int`,
-          newCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'new')::int`,
-        })
-        .from(userDecks)
-        .leftJoin(userCardStates, eq(userCardStates.userDeckId, userDecks.id))
-        .where(
-          and(
-            eq(userDecks.userId, userId),
-            inArray(userDecks.deckDefinitionId, allDeckIds),
-            isNull(userDecks.archivedAt),
-          ),
-        )
-        .groupBy(userDecks.deckDefinitionId);
+      const [cardCountRows, srsRows] = await Promise.all([
+        db
+          .select({
+            deckDefinitionId: cardDefinitions.deckDefinitionId,
+            totalCards: sql<number>`count(*)::int`,
+          })
+          .from(cardDefinitions)
+          .where(
+            and(
+              inArray(cardDefinitions.deckDefinitionId, allDeckIds),
+              isNull(cardDefinitions.archivedAt),
+              isNull(cardDefinitions.parentCardId),
+            ),
+          )
+          .groupBy(cardDefinitions.deckDefinitionId),
+        db
+          .select({
+            deckDefinitionId: userDecks.deckDefinitionId,
+            dueCount: sql<number>`count(*) filter (where ${userCardStates.dueAt} is not null and ${userCardStates.dueAt} <= now())::int`,
+            newCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'new')::int`,
+          })
+          .from(userDecks)
+          .leftJoin(userCardStates, eq(userCardStates.userDeckId, userDecks.id))
+          .where(
+            and(
+              eq(userDecks.userId, userId),
+              inArray(userDecks.deckDefinitionId, allDeckIds),
+              isNull(userDecks.archivedAt),
+            ),
+          )
+          .groupBy(userDecks.deckDefinitionId),
+      ]);
 
-      const statsMap = new Map(statRows.map((s) => [s.deckDefinitionId, s]));
+      const cardCountMap = new Map(cardCountRows.map((c) => [c.deckDefinitionId, c.totalCards]));
+      const srsMap = new Map(srsRows.map((s) => [s.deckDefinitionId, s]));
 
       const tagRows = await db
         .select({
@@ -87,16 +112,16 @@ export function createDeckTools(userId: string): ToolDefinition[] {
       const decks = deckRows.map((d) => {
         const isLinked = !!d.linkedDeckDefinitionId;
         const statsKey = d.linkedDeckDefinitionId ?? d.id;
-        const s = statsMap.get(statsKey);
+        const srs = srsMap.get(statsKey);
         return {
           id: d.id,
           title: d.title,
           folderId: d.folderId,
           folderName: d.folderName,
           ...(isLinked && { isLinked: true }),
-          cardCount: s?.totalCards ?? 0,
-          dueCount: s?.dueCount ?? 0,
-          newCount: s?.newCount ?? 0,
+          cardCount: cardCountMap.get(statsKey) ?? 0,
+          dueCount: srs?.dueCount ?? 0,
+          newCount: srs?.newCount ?? 0,
           tags: tagsMap.get(d.id) ?? [],
         };
       });
@@ -148,15 +173,24 @@ export function createDeckTools(userId: string): ToolDefinition[] {
       const isLinked = !!deck.linkedDeckDefinitionId;
       const statsDeckId = deck.linkedDeckDefinitionId ?? deckId;
 
-      const [tagRows, [stats]] = await Promise.all([
+      const [tagRows, [cardCount], [srsStats]] = await Promise.all([
         db
           .select({ name: tags.name })
           .from(deckTags)
           .innerJoin(tags, eq(deckTags.tagId, tags.id))
           .where(eq(deckTags.deckDefinitionId, deckId)),
         db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(cardDefinitions)
+          .where(
+            and(
+              eq(cardDefinitions.deckDefinitionId, statsDeckId),
+              isNull(cardDefinitions.archivedAt),
+              isNull(cardDefinitions.parentCardId),
+            ),
+          ),
+        db
           .select({
-            total: sql<number>`count(${userCardStates.id})::int`,
             newCount: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'new')::int`,
             learning: sql<number>`count(*) filter (where ${userCardStates.srsState} = 'learning')::int`,
             due: sql<number>`count(*) filter (where ${userCardStates.dueAt} is not null and ${userCardStates.dueAt} <= now())::int`,
@@ -182,12 +216,12 @@ export function createDeckTools(userId: string): ToolDefinition[] {
         ...(isLinked && { isLinked: true }),
         tags: tagRows.map((r) => r.name),
         stats: {
-          total: stats?.total ?? 0,
-          new: stats?.newCount ?? 0,
-          learning: stats?.learning ?? 0,
-          due: stats?.due ?? 0,
+          total: cardCount?.count ?? 0,
+          new: srsStats?.newCount ?? 0,
+          learning: srsStats?.learning ?? 0,
+          due: srsStats?.due ?? 0,
         },
-        lastStudiedAt: stats?.lastStudiedAt ?? null,
+        lastStudiedAt: srsStats?.lastStudiedAt ?? null,
         createdAt: deck.createdAt,
       });
     },
@@ -345,6 +379,15 @@ export function createDeckTools(userId: string): ToolDefinition[] {
 
   const archiveDeck = tool(
     async ({ deckId }: { deckId: string }) => {
+      const [user] = await db
+        .select({ defaultDeckId: users.defaultDeckId })
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (user?.defaultDeckId === deckId) {
+        return JSON.stringify({ error: "Cannot archive the user's scratch deck." });
+      }
+
       const [deck] = await db
         .select({
           id: deckDefinitions.id,

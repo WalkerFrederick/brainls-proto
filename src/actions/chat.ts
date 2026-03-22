@@ -18,7 +18,6 @@ export const getConversation = safeAction(
     Result<{
       messages: ChatMessage[];
       hasMore: boolean;
-      nearLimit: boolean;
       threadId: string | null;
     }>
   > => {
@@ -32,7 +31,7 @@ export const getConversation = safeAction(
       .limit(1);
 
     if (!thread) {
-      return ok({ messages: [], hasMore: false, nearLimit: false, threadId: null });
+      return ok({ messages: [], hasMore: false, threadId: null });
     }
 
     const checkpointer = await getCheckpointer();
@@ -71,7 +70,6 @@ export const getConversation = safeAction(
     return ok({
       messages: recent,
       hasMore: messages.length > 50,
-      nearLimit: false,
       threadId: thread.threadId,
     });
   },
@@ -81,6 +79,17 @@ export const clearConversation = safeAction(
   "clearConversation",
   async (): Promise<Result<void>> => {
     const session = await requireSession();
+
+    const threads = await db
+      .select({ threadId: aiConversations.threadId })
+      .from(aiConversations)
+      .where(eq(aiConversations.userId, session.user.id));
+
+    if (threads.length > 0) {
+      const checkpointer = await getCheckpointer();
+      await Promise.all(threads.map((t) => checkpointer.deleteThread(t.threadId)));
+    }
+
     await db.delete(aiConversations).where(eq(aiConversations.userId, session.user.id));
     return ok(undefined);
   },

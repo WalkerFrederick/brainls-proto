@@ -1,5 +1,6 @@
 import type { PromptContext } from "../types";
 import { identity } from "./segments/identity";
+import { productContext } from "./segments/product-context";
 import { style } from "./segments/style";
 import { flashcardGuidance } from "./segments/flashcard-guidance";
 import { toolRules } from "./segments/tool-rules";
@@ -10,6 +11,7 @@ type SegmentFn = (ctx: PromptContext) => string | null;
 
 const SEGMENT_ORDER: SegmentFn[] = [
   identity,
+  productContext,
   style,
   flashcardGuidance,
   toolRules,

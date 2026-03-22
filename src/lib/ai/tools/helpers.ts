@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { folderMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
-const MAX_PREVIEW_LENGTH = 200;
+const MAX_PREVIEW_LENGTH = 400;
 const MAX_CARD_CONTENT_LENGTH = 4000;
 
 export function truncate(text: string, max: number): string {

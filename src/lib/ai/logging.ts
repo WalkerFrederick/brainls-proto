@@ -13,7 +13,7 @@ export async function checkAiLimit(userId: string): Promise<Result<void> | null>
     return err("LIMIT_EXCEEDED", `You've reached your ${periodWord} AI usage limit`);
   }
 
-  const withinErrorBudget = await checkAiErrorBudget(userId);
+  const withinErrorBudget = await checkAiErrorBudget(userId, limitInfo.tierName);
   if (!withinErrorBudget) {
     return err("LIMIT_EXCEEDED", "AI is temporarily unavailable — please try again later");
   }
@@ -21,16 +21,16 @@ export async function checkAiLimit(userId: string): Promise<Result<void> | null>
   return null;
 }
 
-export function handleAiError(
+export async function handleAiError(
   e: unknown,
   ctx: { userId: string; action: string; startMs: number; inputSnapshot: Record<string, unknown> },
-): Result<never> {
+): Promise<Result<never>> {
   const durationMs = Date.now() - ctx.startMs;
   const status = (e as { status?: number }).status;
   const errorType = (e as { error?: { type?: string } }).error?.type;
 
   reportError(e, { action: ctx.action, status, errorType });
-  logAiCall({
+  await logAiCall({
     userId: ctx.userId,
     action: ctx.action,
     model: "unknown",

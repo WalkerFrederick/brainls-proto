@@ -2,7 +2,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { db } from "@/db";
 import { users, userDecks, userCardStates, cardDefinitions } from "@/db/schema";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, sql, inArray } from "drizzle-orm";
 import { getAiLimitInfo, getAiUsageCount } from "@/lib/tiers";
 import type { ToolDefinition } from "../types";
 
@@ -14,22 +14,34 @@ export function createUserTools(userId: string): ToolDefinition[] {
         .from(users)
         .where(eq(users.id, userId));
 
-      const [stats] = await db
-        .select({
-          deckCount: sql<number>`count(distinct ${userDecks.id})::int`,
-          totalCards: sql<number>`count(${userCardStates.id})::int`,
-          dueCards: sql<number>`count(*) filter (where ${userCardStates.dueAt} is null or ${userCardStates.dueAt} <= now())::int`,
-        })
+      const userDeckRows = await db
+        .select({ deckDefinitionId: userDecks.deckDefinitionId })
         .from(userDecks)
-        .leftJoin(userCardStates, eq(userCardStates.userDeckId, userDecks.id))
-        .leftJoin(cardDefinitions, eq(userCardStates.cardDefinitionId, cardDefinitions.id))
-        .where(
-          and(
-            eq(userDecks.userId, userId),
-            isNull(userDecks.archivedAt),
-            sql`(${cardDefinitions.id} is null or ${cardDefinitions.archivedAt} is null)`,
-          ),
-        );
+        .where(and(eq(userDecks.userId, userId), isNull(userDecks.archivedAt)));
+
+      const deckDefIds = userDeckRows.map((d) => d.deckDefinitionId);
+
+      const [[cardStats], [srsStats]] = await Promise.all([
+        deckDefIds.length > 0
+          ? db
+              .select({ totalCards: sql<number>`count(*)::int` })
+              .from(cardDefinitions)
+              .where(
+                and(
+                  inArray(cardDefinitions.deckDefinitionId, deckDefIds),
+                  isNull(cardDefinitions.archivedAt),
+                  isNull(cardDefinitions.parentCardId),
+                ),
+              )
+          : [{ totalCards: 0 }],
+        db
+          .select({
+            dueCards: sql<number>`count(*) filter (where ${userCardStates.dueAt} is not null and ${userCardStates.dueAt} <= now())::int`,
+          })
+          .from(userDecks)
+          .leftJoin(userCardStates, eq(userCardStates.userDeckId, userDecks.id))
+          .where(and(eq(userDecks.userId, userId), isNull(userDecks.archivedAt))),
+      ]);
 
       const limitInfo = await getAiLimitInfo(userId);
       const usageCount = await getAiUsageCount(userId, limitInfo.periodStart);
@@ -38,9 +50,9 @@ export function createUserTools(userId: string): ToolDefinition[] {
         name: user?.name,
         tier: user?.tier,
         memberSince: user?.createdAt,
-        deckCount: stats?.deckCount ?? 0,
-        totalCards: stats?.totalCards ?? 0,
-        dueCards: stats?.dueCards ?? 0,
+        deckCount: deckDefIds.length,
+        totalCards: cardStats?.totalCards ?? 0,
+        dueCards: srsStats?.dueCards ?? 0,
         aiUsage: { used: usageCount, limit: limitInfo.limit, period: limitInfo.period },
       });
     },
@@ -55,7 +67,7 @@ export function createUserTools(userId: string): ToolDefinition[] {
   return [
     {
       tool: getUserDetails,
-      category: "read",
+      category: "read" as const,
       examples: ['User: "How many cards do I have?" → Call get_user_details to fetch stats'],
     },
   ];

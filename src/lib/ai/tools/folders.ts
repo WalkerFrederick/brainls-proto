@@ -1,7 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { db } from "@/db";
-import { folders, folderMembers, folderSettings } from "@/db/schema";
+import { folders, folderMembers, folderSettings, users } from "@/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { requireFolderRole } from "@/lib/permissions";
 import { getUserFolderIds } from "./helpers";
@@ -165,6 +165,15 @@ export function createFolderTools(userId: string): ToolDefinition[] {
 
   const archiveFolder = tool(
     async ({ folderId }: { folderId: string }) => {
+      const [user] = await db
+        .select({ personalFolderId: users.personalFolderId })
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (user?.personalFolderId === folderId) {
+        return JSON.stringify({ error: "Cannot archive the user's default folder." });
+      }
+
       const [folderRow] = await db
         .select({ id: folders.id, archivedAt: folders.archivedAt })
         .from(folders)

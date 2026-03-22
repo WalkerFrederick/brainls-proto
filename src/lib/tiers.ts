@@ -29,6 +29,7 @@ export interface AiLimitInfo {
   limit: number;
   period: AiPeriod;
   periodStart: Date;
+  tierName: TierName;
 }
 
 export async function getAiLimitInfo(userId: string): Promise<AiLimitInfo> {
@@ -44,7 +45,7 @@ export async function getAiLimitInfo(userId: string): Promise<AiLimitInfo> {
   const period = tierConfig.aiPeriod;
   const periodStart = period === "day" ? startOfDay() : startOfMonth();
 
-  return { limit, period, periodStart };
+  return { limit, period, periodStart, tierName };
 }
 
 export async function getAiUsageCount(userId: string, since: Date): Promise<number> {
@@ -65,11 +66,10 @@ export async function getAiErrorCount(userId: string, since: Date): Promise<numb
   return row?.count ?? 0;
 }
 
-export async function checkAiErrorBudget(userId: string): Promise<boolean> {
-  const [user] = await db.select({ tier: users.tier }).from(users).where(eq(users.id, userId));
-
-  const tierName =
-    user && (user.tier as TierName) in TIERS ? (user.tier as TierName) : DEFAULT_TIER;
+export async function checkAiErrorBudget(
+  userId: string,
+  tierName: TierName = DEFAULT_TIER,
+): Promise<boolean> {
   const tierConfig = TIERS[tierName];
   const periodStart = tierConfig.aiPeriod === "day" ? startOfDay() : startOfMonth();
   const errorCount = await getAiErrorCount(userId, periodStart);

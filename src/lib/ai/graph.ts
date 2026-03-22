@@ -7,6 +7,7 @@ import type { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { AgentState, MAX_ITERATIONS, MAX_INPUT_TOKENS } from "./state";
 import type { ToolDefinition } from "./types";
 import { isWriteTool } from "./tools/helpers";
+import { condenseMessages } from "./condense";
 
 interface GraphConfigurable {
   llm: BaseChatModel;
@@ -25,9 +26,12 @@ async function agentNode(
   const { llm, toolDefs, systemPrompt } = getConfigurable(config);
 
   const tools = toolDefs.map((t) => t.tool);
-  const llmWithTools = llm.bindTools!(tools);
+  if (!llm.bindTools) {
+    throw new Error("Configured model does not support tool calling");
+  }
+  const llmWithTools = llm.bindTools(tools);
 
-  const messages = [new SystemMessage(systemPrompt), ...state.messages];
+  const messages = [new SystemMessage(systemPrompt), ...condenseMessages(state.messages)];
   const response = (await llmWithTools.invoke(messages)) as AIMessageChunk;
 
   return {
@@ -62,36 +66,34 @@ async function toolsNode(
 
   type Pending = { id: string; name: string; promise: Promise<string> };
   const pending: Pending[] = [];
-  const immediateResults: { id: string; content: string; index: number }[] = [];
+  const immediateResults = new Map<number, { id: string; content: string }>();
 
   for (let i = 0; i < allToolCalls.length; i++) {
     const tc = allToolCalls[i];
 
-    if (pending.length + immediateResults.length >= MAX_TOOL_CALLS_PER_ROUND) {
-      immediateResults.push({
+    if (pending.length + immediateResults.size >= MAX_TOOL_CALLS_PER_ROUND) {
+      immediateResults.set(i, {
         id: tc.id ?? "",
-        content: "Tool call limit reached for this round.",
-        index: i,
+        content:
+          "Skipped — too many operations in one go. Tell the user what you've done so far and offer to continue.",
       });
       continue;
     }
 
     if (isWriteTool(tc.name) && state.writeCount + newWriteCount >= MAX_WRITE_OPS) {
-      immediateResults.push({
+      immediateResults.set(i, {
         id: tc.id ?? "",
         content:
-          "Write limit reached for this request. Please ask the user to continue in a new message.",
-        index: i,
+          "Skipped — too many writes in one turn. Summarize what you've done and offer to continue in the next message.",
       });
       continue;
     }
 
     const foundTool = toolsByName.get(tc.name);
     if (!foundTool) {
-      immediateResults.push({
+      immediateResults.set(i, {
         id: tc.id ?? "",
         content: `Error: unknown tool "${tc.name}"`,
-        index: i,
       });
       continue;
     }
@@ -104,7 +106,7 @@ async function toolsNode(
     pending.push({
       id: tc.id ?? "",
       name: tc.name,
-      promise: foundTool.invoke(tc.args).then(
+      promise: foundTool.invoke(tc.args, config).then(
         (r) => (typeof r === "string" ? r : JSON.stringify(r)),
         (e) => `Error executing tool: ${String(e)}`,
       ),
@@ -113,22 +115,19 @@ async function toolsNode(
 
   const settled = await Promise.all(pending.map((p) => p.promise));
 
-  const resultMap = new Map<number, ToolMessage>();
+  const resultMessages: ToolMessage[] = [];
   let pendingIdx = 0;
   for (let i = 0; i < allToolCalls.length; i++) {
-    const imm = immediateResults.find((r) => r.index === i);
+    const imm = immediateResults.get(i);
     if (imm) {
-      resultMap.set(i, new ToolMessage({ tool_call_id: imm.id, content: imm.content }));
+      resultMessages.push(new ToolMessage({ tool_call_id: imm.id, content: imm.content }));
     } else {
-      resultMap.set(
-        i,
+      resultMessages.push(
         new ToolMessage({ tool_call_id: pending[pendingIdx].id, content: settled[pendingIdx] }),
       );
       pendingIdx++;
     }
   }
-
-  const resultMessages = Array.from({ length: allToolCalls.length }, (_, i) => resultMap.get(i)!);
 
   return {
     messages: resultMessages,
@@ -146,9 +145,9 @@ async function summarizeNode(
 
   const messages = [
     new SystemMessage(systemPrompt),
-    ...state.messages,
+    ...condenseMessages(state.messages),
     new HumanMessage(
-      "You have used all your tool-use rounds. Summarize what you accomplished and what remains.",
+      "You cannot use any more tools in this turn. Summarize what you accomplished and, if anything remains, let the user know they can ask you to continue.",
     ),
   ];
 

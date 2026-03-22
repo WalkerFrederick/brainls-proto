@@ -14,12 +14,23 @@ import { createLlm, getAvailableProviders, isFallbackWorthy } from "@/lib/ai/llm
 import { AI_MODELS } from "@/lib/ai/models";
 import { checkAiLimit, logAiCall, estimateCost } from "@/lib/ai/logging";
 import { MAX_ITERATIONS } from "@/lib/ai/state";
-import { reportError } from "@/lib/errors";
+import { reportError, CHAOS_MONKEY_CHANCE } from "@/lib/errors";
 
 const ChatRequestSchema = z.object({
   message: z.string().min(1).max(10_000),
   threadId: z.string().nullish(),
 });
+
+type ChaosMode = "pre_stream" | "mid_stream" | "tool_fail" | null;
+
+async function pickChaosMode(req: Request): Promise<ChaosMode> {
+  if (process.env.NODE_ENV === "production") return null;
+  const cookie = req.headers.get("cookie") ?? "";
+  if (!cookie.includes("chaos_monkey=1")) return null;
+  if (Math.random() >= CHAOS_MONKEY_CHANCE) return null;
+  const modes: ChaosMode[] = ["pre_stream", "mid_stream", "tool_fail"];
+  return modes[Math.floor(Math.random() * modes.length)];
+}
 
 const compiledGraphPromise = (async () => {
   const checkpointer = await getCheckpointer();
@@ -39,11 +50,14 @@ export async function POST(req: Request) {
   }
 
   const limitResult = await checkAiLimit(session.user.id);
-  if (limitResult) {
-    return Response.json(
-      { error: limitResult.success ? null : limitResult.error, code: "LIMIT_EXCEEDED" },
-      { status: 429 },
-    );
+  if (limitResult && !limitResult.success) {
+    return Response.json({ error: limitResult.error, code: "LIMIT_EXCEEDED" }, { status: 429 });
+  }
+
+  const chaosMode = await pickChaosMode(req);
+  if (chaosMode === "pre_stream") {
+    reportError("[Chaos Monkey] pre_stream: returning 500 before SSE", { action: "chat" });
+    return Response.json({ error: "[Chaos Monkey] Simulated pre-stream failure" }, { status: 500 });
   }
 
   const sanitizedMessage = stripHtml(parsed.data.message).slice(0, 10_000);
@@ -83,10 +97,17 @@ export async function POST(req: Request) {
 
   const startMs = Date.now();
   const encoder = new TextEncoder();
+  const abortSignal = req.signal;
+
+  const { EventEmitter } = await import("node:events");
+  (
+    EventEmitter as unknown as { setMaxListeners(n: number, ...targets: EventTarget[]): void }
+  ).setMaxListeners(30, abortSignal);
 
   const readable = new ReadableStream({
     async start(controller) {
       const send = (data: Record<string, unknown>) => {
+        if (abortSignal.aborted) return;
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
       };
 
@@ -107,6 +128,7 @@ export async function POST(req: Request) {
               { messages: [new HumanMessage(sanitizedMessage)] },
               {
                 version: "v2",
+                signal: abortSignal,
                 configurable: {
                   thread_id: threadId,
                   llm,
@@ -116,8 +138,18 @@ export async function POST(req: Request) {
               },
             );
 
+            let hasEmittedText = false;
+            let afterToolExec = false;
+            let tokenCount = 0;
+            const chaosTokenThreshold =
+              chaosMode === "mid_stream" ? Math.floor(Math.random() * 15) + 5 : Infinity;
+
             for await (const event of stream) {
-              if (event.event === "on_chat_model_stream") {
+              if (abortSignal.aborted) break;
+
+              if (event.event === "on_chat_model_start" && hasEmittedText) {
+                afterToolExec = true;
+              } else if (event.event === "on_chat_model_stream") {
                 const chunk = event.data?.chunk;
                 const content =
                   typeof chunk?.content === "string"
@@ -129,12 +161,40 @@ export async function POST(req: Request) {
                           .join("")
                       : "";
                 if (content) {
+                  if (afterToolExec) {
+                    send({ type: "message_break" });
+                    afterToolExec = false;
+                  }
+                  hasEmittedText = true;
+                  tokenCount++;
                   send({ type: "token", content });
+
+                  if (tokenCount >= chaosTokenThreshold) {
+                    reportError("[Chaos Monkey] mid_stream: killing stream", {
+                      action: "chat",
+                      tokenCount,
+                    });
+                    send({ type: "error", message: "[Chaos Monkey] Simulated mid-stream failure" });
+                    throw new Error("[Chaos Monkey] mid_stream");
+                  }
                 }
               } else if (event.event === "on_tool_start") {
                 send({ type: "tool_start", name: event.name });
+                if (chaosMode === "tool_fail" && Math.random() < 0.5) {
+                  reportError("[Chaos Monkey] tool_fail: simulating tool error", {
+                    action: "chat",
+                    tool: event.name,
+                  });
+                  send({ type: "tool_end", name: event.name });
+                  send({
+                    type: "error",
+                    message: `[Chaos Monkey] Simulated failure in ${event.name}`,
+                  });
+                  throw new Error("[Chaos Monkey] tool_fail");
+                }
               } else if (event.event === "on_tool_end") {
                 send({ type: "tool_end", name: event.name });
+                afterToolExec = true;
               }
             }
 
@@ -154,6 +214,8 @@ export async function POST(req: Request) {
                 provider: provider.name,
                 fallback: true,
               });
+              const checkpointer = await getCheckpointer();
+              await checkpointer.deleteThread(threadId!).catch(() => {});
               continue;
             }
             throw e;
@@ -171,8 +233,11 @@ export async function POST(req: Request) {
           });
         }
       } catch (e) {
-        reportError(e, { context: "chat-sse" });
-        send({ type: "error", message: "Something went wrong" });
+        const isChaos = e instanceof Error && e.message.startsWith("[Chaos Monkey]");
+        if (!isChaos) {
+          reportError(e, { context: "chat-sse" });
+          send({ type: "error", message: "Something went wrong" });
+        }
       } finally {
         controller.close();
 

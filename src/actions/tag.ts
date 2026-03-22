@@ -42,9 +42,10 @@ export const searchTags = safeAction(
       })
       .from(tags);
 
-    const rows = query
+    const escapedQuery = query?.replace(/[%_\\]/g, "\\$&");
+    const rows = escapedQuery
       ? await baseQuery
-          .where(ilike(tags.name, `%${query}%`))
+          .where(ilike(tags.name, `%${escapedQuery}%`))
           .orderBy(sql`(${cardCount} + ${deckCount}) DESC`)
           .limit(20)
       : await baseQuery.orderBy(sql`(${cardCount} + ${deckCount}) DESC`).limit(20);
@@ -197,7 +198,7 @@ export const suggestCardTags = safeAction(
     const filtered = result.tags.filter((t) => !excluded.has(t));
 
     const cost = estimateCost(result.provider, result.usage.inputTokens, result.usage.outputTokens);
-    logAiCall({
+    await logAiCall({
       userId: session.user.id,
       action: "suggestTags",
       model: result.provider.model,
@@ -211,7 +212,7 @@ export const suggestCardTags = safeAction(
 
     if (filtered.length === 0) {
       return err(
-        "NO_SUGGESTIONS",
+        "NOT_FOUND",
         "No new tag suggestions — try adding more card content for better results",
       );
     }

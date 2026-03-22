@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Send, Trash2, Loader2, AlertTriangle, X, Square } from "lucide-react";
+import { Sparkles, Send, Trash2, Loader2, X, Square } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -13,6 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { UpgradeDialog } from "@/components/upgrade-dialog";
 import { getConversation, clearConversation, type ChatMessage } from "@/actions/chat";
 import { getAiUsage, type AiUsageInfo } from "@/actions/ai";
+
+const MIN_CHARS_PER_FRAME = 3;
+const MAX_CHARS_PER_FRAME = 40;
 
 const LOADING_MESSAGES = [
   "Doing the math...",
@@ -65,12 +68,19 @@ function LoadingStatus({ toolName }: { toolName: string | null }) {
 
 function UsageBanner({ refreshKey }: { refreshKey: number }) {
   const [usage, setUsage] = useState<AiUsageInfo | null>(null);
+  const [externalBump, setExternalBump] = useState(0);
+
+  useEffect(() => {
+    const handler = () => setExternalBump((n) => n + 1);
+    window.addEventListener("ai-usage-changed", handler);
+    return () => window.removeEventListener("ai-usage-changed", handler);
+  }, []);
 
   useEffect(() => {
     getAiUsage().then((r) => {
       if (r.success) setUsage(r.data);
     });
-  }, [refreshKey]);
+  }, [refreshKey, externalBump]);
 
   if (!usage) return null;
 
@@ -164,6 +174,8 @@ function PaneContent({ onClose }: { onClose: () => void }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const toolStartTimeRef = useRef(0);
+  const toolClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -181,21 +193,23 @@ function PaneContent({ onClose }: { onClose: () => void }) {
     }
   }, []);
 
-  const CHARS_PER_FRAME = 4;
-
   const startTypewriter = useCallback(() => {
     if (rafIdRef.current) return;
     const tick = () => {
       const full = fullContentRef.current;
       const revealed = revealedLenRef.current;
       if (revealed < full.length) {
-        revealedLenRef.current = Math.min(revealed + CHARS_PER_FRAME, full.length);
+        const gap = full.length - revealed;
+        const speed = Math.min(
+          MAX_CHARS_PER_FRAME,
+          Math.max(MIN_CHARS_PER_FRAME, Math.ceil(gap / 8)),
+        );
+        const newLen = Math.min(revealed + speed, full.length);
+        revealedLenRef.current = newLen;
+        const snapshot = full.slice(0, newLen);
         setMessages((prev) => {
           const updated = [...prev];
-          updated[updated.length - 1] = {
-            role: "assistant",
-            content: full.slice(0, revealedLenRef.current),
-          };
+          updated[updated.length - 1] = { role: "assistant", content: snapshot };
           return updated;
         });
         rafIdRef.current = requestAnimationFrame(tick);
@@ -211,13 +225,14 @@ function PaneContent({ onClose }: { onClose: () => void }) {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = 0;
     }
-    if (revealedLenRef.current < fullContentRef.current.length) {
-      revealedLenRef.current = fullContentRef.current.length;
+    const snapshot = fullContentRef.current;
+    if (revealedLenRef.current < snapshot.length) {
+      revealedLenRef.current = snapshot.length;
       setMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: "assistant",
-          content: fullContentRef.current,
+          content: snapshot,
         };
         return updated;
       });
@@ -248,14 +263,22 @@ function PaneContent({ onClose }: { onClose: () => void }) {
     shouldAutoScroll.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
   }, []);
 
+  const clearToolTimer = useCallback(() => {
+    if (toolClearTimerRef.current) {
+      clearTimeout(toolClearTimerRef.current);
+      toolClearTimerRef.current = null;
+    }
+    setActiveTool(null);
+  }, []);
+
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     flushTypewriter();
     setLoading(false);
     setStreaming(false);
-    setActiveTool(null);
-  }, [flushTypewriter]);
+    clearToolTimer();
+  }, [flushTypewriter, clearToolTimer]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -298,7 +321,16 @@ function PaneContent({ onClose }: { onClose: () => void }) {
         return;
       }
 
-      const reader = response.body!.getReader();
+      if (!response.body) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Something went wrong. Please try again." },
+        ]);
+        setLoading(false);
+        return;
+      }
+
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
 
@@ -307,66 +339,97 @@ function PaneContent({ onClose }: { onClose: () => void }) {
       setStreaming(true);
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
+      type SSEEvent = {
+        type: string;
+        content?: string;
+        name?: string;
+        message?: string;
+        threadId?: string;
+        mutatedEntities?: string[];
+      };
+
+      const processEvent = (event: SSEEvent) => {
+        switch (event.type) {
+          case "message_break":
+            flushTypewriter();
+            fullContentRef.current = "";
+            revealedLenRef.current = 0;
+            setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+            break;
+          case "token":
+            fullContentRef.current += event.content ?? "";
+            startTypewriter();
+            break;
+          case "tool_start":
+            if (toolClearTimerRef.current) {
+              clearTimeout(toolClearTimerRef.current);
+              toolClearTimerRef.current = null;
+            }
+            toolStartTimeRef.current = Date.now();
+            setActiveTool(event.name ?? null);
+            break;
+          case "tool_end": {
+            const MIN_DISPLAY_MS = 800;
+            const elapsed = Date.now() - toolStartTimeRef.current;
+            const remaining = MIN_DISPLAY_MS - elapsed;
+            if (remaining <= 0) {
+              setActiveTool(null);
+            } else {
+              toolClearTimerRef.current = setTimeout(() => {
+                setActiveTool(null);
+                toolClearTimerRef.current = null;
+              }, remaining);
+            }
+            break;
+          }
+          case "done":
+            flushTypewriter();
+            if (event.threadId) setThreadId(event.threadId);
+            if (event.mutatedEntities && event.mutatedEntities.length > 0) {
+              router.refresh();
+            }
+            setRefreshKey((k) => k + 1);
+            break;
+          case "error":
+            flushTypewriter();
+            if (!fullContentRef.current) {
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  role: "assistant",
+                  content: event.message ?? "Something went wrong",
+                };
+                return updated;
+              });
+            }
+            toast(event.message ?? "Something went wrong", { variant: "error" });
+            break;
+        }
+      };
+
+      const parseParts = (raw: string) => {
+        const parts = raw.split("\n\n");
+        raw = parts.pop()!;
+        for (const part of parts) {
+          if (!part.startsWith("data: ")) continue;
+          try {
+            processEvent(JSON.parse(part.slice(6)));
+          } catch {
+            // skip malformed events
+          }
+        }
+        return raw;
+      };
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop()!;
-
-        for (const part of parts) {
-          if (!part.startsWith("data: ")) continue;
-          let event: {
-            type: string;
-            content?: string;
-            name?: string;
-            message?: string;
-            threadId?: string;
-            mutatedEntities?: string[];
-          };
-          try {
-            event = JSON.parse(part.slice(6));
-          } catch {
-            continue;
-          }
-
-          switch (event.type) {
-            case "token":
-              fullContentRef.current += event.content ?? "";
-              startTypewriter();
-              break;
-            case "tool_start":
-              setActiveTool(event.name ?? null);
-              break;
-            case "tool_end":
-              setActiveTool(null);
-              break;
-            case "done":
-              flushTypewriter();
-              if (event.threadId) setThreadId(event.threadId);
-              if (event.mutatedEntities && event.mutatedEntities.length > 0) {
-                router.refresh();
-              }
-              setRefreshKey((k) => k + 1);
-              break;
-            case "error":
-              flushTypewriter();
-              if (!fullContentRef.current) {
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  updated[updated.length - 1] = {
-                    role: "assistant",
-                    content: event.message ?? "Something went wrong",
-                  };
-                  return updated;
-                });
-              }
-              toast(event.message ?? "Something went wrong", { variant: "error" });
-              break;
-          }
-        }
+        buffer = parseParts(buffer);
       }
+
+      buffer += decoder.decode();
+      if (buffer.trim()) parseParts(buffer + "\n\n");
     } catch (e) {
       if ((e as Error).name === "AbortError") {
         // User cancelled
@@ -379,12 +442,13 @@ function PaneContent({ onClose }: { onClose: () => void }) {
     } finally {
       abortRef.current = null;
       flushTypewriter();
+      setMessages((prev) => prev.filter((m) => m.content !== ""));
       setLoading(false);
       setStreaming(false);
-      setActiveTool(null);
+      clearToolTimer();
       inputRef.current?.focus();
     }
-  }, [input, loading, threadId, toast, router, startTypewriter, flushTypewriter]);
+  }, [input, loading, threadId, toast, router, startTypewriter, flushTypewriter, clearToolTimer]);
 
   const handleClear = useCallback(async () => {
     handleCancel();

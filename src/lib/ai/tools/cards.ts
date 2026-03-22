@@ -6,11 +6,9 @@ import { eq, and, isNull, sql, inArray } from "drizzle-orm";
 import { canViewDeck, canEditDeck } from "@/lib/permissions";
 import { insertCard, updateCardContent } from "@/lib/card-helpers";
 import { upsertTags } from "@/lib/tag-helpers";
-import { summarizeCardContent, stripContentFields, truncate } from "./helpers";
+import { summarizeCardContent, stripContentFields } from "./helpers";
 import type { ToolDefinition } from "../types";
 import { cleanupRemovedAssets } from "@/lib/asset-cleanup";
-
-const MAX_CARD_CONTENT_LENGTH = 4000;
 
 export function createCardTools(userId: string): ToolDefinition[] {
   const listCards = tool(
@@ -145,16 +143,11 @@ export function createCardTools(userId: string): ToolDefinition[] {
         .where(eq(cardTags.cardDefinitionId, cardId));
 
       const cleanedContent = stripContentFields(card.contentJson);
-      const contentStr = JSON.stringify(cleanedContent);
-      const finalContent =
-        contentStr.length > MAX_CARD_CONTENT_LENGTH
-          ? JSON.parse(truncate(contentStr, MAX_CARD_CONTENT_LENGTH))
-          : cleanedContent;
 
       return JSON.stringify({
         id: card.id,
         cardType: card.cardType,
-        content: finalContent,
+        content: cleanedContent,
         tags: tagRows.map((r) => r.name),
         createdAt: card.createdAt,
         updatedAt: card.updatedAt,

@@ -1,14 +1,4 @@
-export interface ProviderConfig {
-  name: "anthropic" | "openai";
-  model: string;
-  envKey: string;
-  pricing: { inputPerM: number; outputPerM: number };
-}
-
-export interface ModelConfig {
-  providers: readonly ProviderConfig[];
-  maxOutputTokens: number;
-}
+import type { ModelConfig } from "./types";
 
 export const AI_MODELS: Record<string, ModelConfig> = {
   tagSuggestion: {
@@ -30,6 +20,12 @@ export const AI_MODELS: Record<string, ModelConfig> = {
   },
   chat: {
     providers: [
+      {
+        name: "anthropic",
+        model: "claude-haiku-4-5-20251001",
+        envKey: "ANTHROPIC_API_KEY",
+        pricing: { inputPerM: 1.0, outputPerM: 5.0 },
+      },
       {
         name: "anthropic",
         model: "claude-sonnet-4-20250514",

@@ -1,10 +1,11 @@
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
-import { cardDefinitions } from "@/db/schema";
+import { cardDefinitions, deckDefinitions, userDecks, userCardStates } from "@/db/schema";
 import { ok, err, type Result } from "@/lib/result";
 import { validateCardContent, type CardType } from "@/lib/schemas/card-content";
 import { cleanupRemovedAssets } from "@/lib/asset-cleanup";
 import { getUniqueClozeIndices } from "@/lib/cloze";
+import { getDefaultCardState } from "@brainls/fsrs";
 
 export async function insertCard(params: {
   deckDefinitionId: string;
@@ -41,15 +42,23 @@ export async function insertCard(params: {
       })
       .returning({ id: cardDefinitions.id });
 
-    await db.insert(cardDefinitions).values(
-      indices.map((clozeIndex) => ({
-        deckDefinitionId,
-        cardType: "cloze",
-        contentJson: { text, clozeIndex },
-        parentCardId: parent.id,
-        createdByUserId: userId,
-        updatedByUserId: userId,
-      })),
+    const children = await db
+      .insert(cardDefinitions)
+      .values(
+        indices.map((clozeIndex) => ({
+          deckDefinitionId,
+          cardType: "cloze",
+          contentJson: { text, clozeIndex },
+          parentCardId: parent.id,
+          createdByUserId: userId,
+          updatedByUserId: userId,
+        })),
+      )
+      .returning({ id: cardDefinitions.id });
+
+    await createCardStatesForSubscribers(
+      deckDefinitionId,
+      children.map((c) => c.id),
     );
 
     return ok({ id: parent.id });
@@ -66,18 +75,69 @@ export async function insertCard(params: {
     })
     .returning({ id: cardDefinitions.id });
 
+  const studyableIds = [card.id];
+
   if (createReverse && cardType === "front_back") {
     const reverseContent = { front: validatedContent.back, back: validatedContent.front };
-    await db.insert(cardDefinitions).values({
-      deckDefinitionId,
-      cardType: "front_back",
-      contentJson: reverseContent,
-      createdByUserId: userId,
-      updatedByUserId: userId,
-    });
+    const [reverseCard] = await db
+      .insert(cardDefinitions)
+      .values({
+        deckDefinitionId,
+        cardType: "front_back",
+        contentJson: reverseContent,
+        createdByUserId: userId,
+        updatedByUserId: userId,
+      })
+      .returning({ id: cardDefinitions.id });
+    studyableIds.push(reverseCard.id);
   }
 
+  await createCardStatesForSubscribers(deckDefinitionId, studyableIds);
+
   return ok({ id: card.id });
+}
+
+async function createCardStatesForSubscribers(deckDefinitionId: string, cardIds: string[]) {
+  if (cardIds.length === 0) return;
+
+  const linkedDeckIds = await db
+    .select({ id: deckDefinitions.id })
+    .from(deckDefinitions)
+    .where(
+      and(
+        eq(deckDefinitions.linkedDeckDefinitionId, deckDefinitionId),
+        isNull(deckDefinitions.archivedAt),
+      ),
+    );
+
+  const allDeckDefIds = [deckDefinitionId, ...linkedDeckIds.map((d) => d.id)];
+
+  const subscribedDecks = await db
+    .select({ id: userDecks.id })
+    .from(userDecks)
+    .where(
+      and(
+        or(...allDeckDefIds.map((id) => eq(userDecks.deckDefinitionId, id))),
+        isNull(userDecks.archivedAt),
+      ),
+    );
+
+  if (subscribedDecks.length === 0) return;
+
+  const defaultState = getDefaultCardState();
+  const rows = subscribedDecks.flatMap((ud) =>
+    cardIds.map((cardDefinitionId) => ({
+      userDeckId: ud.id,
+      cardDefinitionId,
+      srsState: defaultState.srsState,
+      stability: String(defaultState.stability),
+      difficulty: String(defaultState.difficulty),
+      reps: 0,
+      lapses: 0,
+    })),
+  );
+
+  await db.insert(userCardStates).values(rows);
 }
 
 export async function updateCardContent(params: {
@@ -159,15 +219,23 @@ export async function updateCardContent(params: {
     }
 
     if (toAdd.length > 0) {
-      await db.insert(cardDefinitions).values(
-        toAdd.map((clozeIndex) => ({
-          deckDefinitionId: card.deckDefinitionId,
-          cardType: "cloze",
-          contentJson: { text, clozeIndex },
-          parentCardId: cardId,
-          createdByUserId: userId,
-          updatedByUserId: userId,
-        })),
+      const added = await db
+        .insert(cardDefinitions)
+        .values(
+          toAdd.map((clozeIndex) => ({
+            deckDefinitionId: card.deckDefinitionId,
+            cardType: "cloze",
+            contentJson: { text, clozeIndex },
+            parentCardId: cardId,
+            createdByUserId: userId,
+            updatedByUserId: userId,
+          })),
+        )
+        .returning({ id: cardDefinitions.id });
+
+      await createCardStatesForSubscribers(
+        card.deckDefinitionId,
+        added.map((c) => c.id),
       );
     }
 

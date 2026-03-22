@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Send, Trash2, Loader2, AlertTriangle, X } from "lucide-react";
+import { Sparkles, Send, Trash2, Loader2, X, Square } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -11,13 +11,11 @@ import { Separator } from "@/components/ui/separator";
 import { useLayoutPrefs } from "@/components/layout-provider";
 import { useToast } from "@/hooks/use-toast";
 import { UpgradeDialog } from "@/components/upgrade-dialog";
-import {
-  sendChatMessage,
-  getConversation,
-  clearConversation,
-  type ChatMessage,
-} from "@/actions/chat";
+import { getConversation, clearConversation, type ChatMessage } from "@/actions/chat";
 import { getAiUsage, type AiUsageInfo } from "@/actions/ai";
+
+const MIN_CHARS_PER_FRAME = 3;
+const MAX_CHARS_PER_FRAME = 40;
 
 const LOADING_MESSAGES = [
   "Doing the math...",
@@ -41,25 +39,28 @@ function pickRandom(exclude: string): string {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function LoadingStatus() {
+function LoadingStatus({ toolName }: { toolName: string | null }) {
   const [status, setStatus] = useState(() => pickRandom(""));
 
   useEffect(() => {
+    if (toolName) return;
     const id = setInterval(() => setStatus((prev) => pickRandom(prev)), 3000);
     return () => clearInterval(id);
-  }, []);
+  }, [toolName]);
+
+  const display = toolName ? `Running ${toolName.replace(/_/g, " ")}...` : status;
 
   return (
     <AnimatePresence mode="wait">
       <motion.span
-        key={status}
+        key={display}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         className="ml-0.5 text-xs text-muted-foreground"
       >
-        {status}
+        {display}
       </motion.span>
     </AnimatePresence>
   );
@@ -67,12 +68,19 @@ function LoadingStatus() {
 
 function UsageBanner({ refreshKey }: { refreshKey: number }) {
   const [usage, setUsage] = useState<AiUsageInfo | null>(null);
+  const [externalBump, setExternalBump] = useState(0);
+
+  useEffect(() => {
+    const handler = () => setExternalBump((n) => n + 1);
+    window.addEventListener("ai-usage-changed", handler);
+    return () => window.removeEventListener("ai-usage-changed", handler);
+  }, []);
 
   useEffect(() => {
     getAiUsage().then((r) => {
       if (r.success) setUsage(r.data);
     });
-  }, [refreshKey]);
+  }, [refreshKey, externalBump]);
 
   if (!usage) return null;
 
@@ -100,17 +108,6 @@ function UsageBanner({ refreshKey }: { refreshKey: number }) {
       </p>
     </div>
   );
-}
-
-function stripToolContext(content: string): string {
-  if (!content.startsWith("[Tool context:")) return content;
-  const end = content.indexOf("]\n");
-  if (end === -1) {
-    const lastBracket = content.lastIndexOf("]");
-    if (lastBracket === -1) return content;
-    return content.slice(lastBracket + 1).replace(/^\n+/, "");
-  }
-  return content.slice(end + 1).replace(/^\n+/, "");
 }
 
 const ChatMarkdown = memo(function ChatMarkdown({ content }: { content: string }) {
@@ -171,20 +168,74 @@ function PaneContent({ onClose }: { onClose: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [nearLimit, setNearLimit] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [activeTool, setActiveTool] = useState<string | null>(null);
+  const toolStartTimeRef = useRef(0);
+  const toolClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const shouldAutoScroll = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fullContentRef = useRef("");
+  const revealedLenRef = useRef(0);
+  const rafIdRef = useRef<number>(0);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current && shouldAutoScroll.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, []);
+
+  const startTypewriter = useCallback(() => {
+    if (rafIdRef.current) return;
+    const tick = () => {
+      const full = fullContentRef.current;
+      const revealed = revealedLenRef.current;
+      if (revealed < full.length) {
+        const gap = full.length - revealed;
+        const speed = Math.min(
+          MAX_CHARS_PER_FRAME,
+          Math.max(MIN_CHARS_PER_FRAME, Math.ceil(gap / 8)),
+        );
+        const newLen = Math.min(revealed + speed, full.length);
+        revealedLenRef.current = newLen;
+        const snapshot = full.slice(0, newLen);
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { role: "assistant", content: snapshot };
+          return updated;
+        });
+        rafIdRef.current = requestAnimationFrame(tick);
+      } else {
+        rafIdRef.current = 0;
+      }
+    };
+    rafIdRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const flushTypewriter = useCallback(() => {
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = 0;
+    }
+    const snapshot = fullContentRef.current;
+    if (revealedLenRef.current < snapshot.length) {
+      revealedLenRef.current = snapshot.length;
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          role: "assistant",
+          content: snapshot,
+        };
+        return updated;
+      });
     }
   }, []);
 
@@ -193,10 +244,13 @@ function PaneContent({ onClose }: { onClose: () => void }) {
       if (r.success) {
         setMessages(r.data.messages);
         setHasMore(r.data.hasMore);
-        setNearLimit(r.data.nearLimit);
+        setThreadId(r.data.threadId);
       }
       setInitialLoading(false);
     });
+    return () => {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -209,23 +263,22 @@ function PaneContent({ onClose }: { onClose: () => void }) {
     shouldAutoScroll.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
   }, []);
 
-  const loadOlder = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    const el = scrollRef.current;
-    const prevHeight = el?.scrollHeight ?? 0;
-
-    const r = await getConversation(messages.length);
-    if (r.success) {
-      setMessages((prev) => [...r.data.messages, ...prev]);
-      setHasMore(r.data.hasMore);
-      setNearLimit(r.data.nearLimit);
-      requestAnimationFrame(() => {
-        if (el) el.scrollTop = el.scrollHeight - prevHeight;
-      });
+  const clearToolTimer = useCallback(() => {
+    if (toolClearTimerRef.current) {
+      clearTimeout(toolClearTimerRef.current);
+      toolClearTimerRef.current = null;
     }
-    setLoadingMore(false);
-  }, [loadingMore, hasMore, messages.length]);
+    setActiveTool(null);
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    flushTypewriter();
+    setLoading(false);
+    setStreaming(false);
+    clearToolTimer();
+  }, [flushTypewriter, clearToolTimer]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -237,53 +290,174 @@ function PaneContent({ onClose }: { onClose: () => void }) {
     const optimisticMsg: ChatMessage = { role: "user", content: text };
     setMessages((prev) => [...prev, optimisticMsg]);
     setLoading(true);
+    setStreaming(false);
 
-    const r = await sendChatMessage({ message: text });
+    const abortController = new AbortController();
+    abortRef.current = abortController;
 
-    if (r.success) {
-      if (hasMore) {
-        setMessages((prev) => {
-          const olderCount = prev.length - 1;
-          const older = prev.slice(0, olderCount);
-          return [
-            ...older,
-            ...r.data.messages.filter(
-              (m) => !older.some((o) => o.role === m.role && o.content === m.content),
-            ),
-          ];
-        });
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, threadId }),
+        signal: abortController.signal,
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        if (response.status === 429) {
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: data?.error ?? "AI usage limit reached" },
+          ]);
+          setUpgradeOpen(true);
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: data?.error ?? "Something went wrong" },
+          ]);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (!response.body) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Something went wrong. Please try again." },
+        ]);
+        setLoading(false);
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      fullContentRef.current = "";
+      revealedLenRef.current = 0;
+      setStreaming(true);
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+      type SSEEvent = {
+        type: string;
+        content?: string;
+        name?: string;
+        message?: string;
+        threadId?: string;
+        mutatedEntities?: string[];
+      };
+
+      const processEvent = (event: SSEEvent) => {
+        switch (event.type) {
+          case "message_break":
+            flushTypewriter();
+            fullContentRef.current = "";
+            revealedLenRef.current = 0;
+            setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+            break;
+          case "token":
+            fullContentRef.current += event.content ?? "";
+            startTypewriter();
+            break;
+          case "tool_start":
+            if (toolClearTimerRef.current) {
+              clearTimeout(toolClearTimerRef.current);
+              toolClearTimerRef.current = null;
+            }
+            toolStartTimeRef.current = Date.now();
+            setActiveTool(event.name ?? null);
+            break;
+          case "tool_end": {
+            const MIN_DISPLAY_MS = 800;
+            const elapsed = Date.now() - toolStartTimeRef.current;
+            const remaining = MIN_DISPLAY_MS - elapsed;
+            if (remaining <= 0) {
+              setActiveTool(null);
+            } else {
+              toolClearTimerRef.current = setTimeout(() => {
+                setActiveTool(null);
+                toolClearTimerRef.current = null;
+              }, remaining);
+            }
+            break;
+          }
+          case "done":
+            flushTypewriter();
+            if (event.threadId) setThreadId(event.threadId);
+            if (event.mutatedEntities && event.mutatedEntities.length > 0) {
+              router.refresh();
+            }
+            setRefreshKey((k) => k + 1);
+            break;
+          case "error":
+            flushTypewriter();
+            if (!fullContentRef.current) {
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  role: "assistant",
+                  content: event.message ?? "Something went wrong",
+                };
+                return updated;
+              });
+            }
+            toast(event.message ?? "Something went wrong", { variant: "error" });
+            break;
+        }
+      };
+
+      const parseParts = (raw: string) => {
+        const parts = raw.split("\n\n");
+        raw = parts.pop()!;
+        for (const part of parts) {
+          if (!part.startsWith("data: ")) continue;
+          try {
+            processEvent(JSON.parse(part.slice(6)));
+          } catch {
+            // skip malformed events
+          }
+        }
+        return raw;
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        buffer = parseParts(buffer);
+      }
+
+      buffer += decoder.decode();
+      if (buffer.trim()) parseParts(buffer + "\n\n");
+    } catch (e) {
+      if ((e as Error).name === "AbortError") {
+        // User cancelled
       } else {
-        setMessages(r.data.messages);
+        setMessages((prev) => [
+          ...prev.filter((m) => m.content !== ""),
+          { role: "assistant", content: "Something went wrong. Please try again." },
+        ]);
       }
-      setHasMore(r.data.hasMore);
-      setNearLimit(r.data.nearLimit);
-      setRefreshKey((k) => k + 1);
-      if (r.data.mutatedEntities?.length > 0) {
-        router.refresh();
-      }
-    } else {
-      if (r.code === "CONFLICT") {
-        setMessages((prev) => prev.filter((m) => m !== optimisticMsg));
-        toast(r.error, { variant: "warning" });
-      } else if (r.code === "LIMIT_EXCEEDED") {
-        setMessages((prev) => [...prev, { role: "assistant", content: r.error }]);
-        setUpgradeOpen(true);
-      } else {
-        setMessages((prev) => [...prev, { role: "assistant", content: r.error }]);
-      }
+    } finally {
+      abortRef.current = null;
+      flushTypewriter();
+      setMessages((prev) => prev.filter((m) => m.content !== ""));
+      setLoading(false);
+      setStreaming(false);
+      clearToolTimer();
+      inputRef.current?.focus();
     }
-
-    setLoading(false);
-    inputRef.current?.focus();
-  }, [input, loading, hasMore, toast, router]);
+  }, [input, loading, threadId, toast, router, startTypewriter, flushTypewriter, clearToolTimer]);
 
   const handleClear = useCallback(async () => {
+    handleCancel();
     await clearConversation();
     setMessages([]);
     setHasMore(false);
-    setNearLimit(false);
+    setThreadId(null);
     setRefreshKey((k) => k + 1);
-  }, []);
+  }, [handleCancel]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -336,17 +510,6 @@ function PaneContent({ onClose }: { onClose: () => void }) {
           onScroll={handleScroll}
           className="flex h-full flex-col gap-3 overflow-y-auto px-4 py-4"
         >
-          {hasMore && (
-            <button
-              type="button"
-              onClick={loadOlder}
-              disabled={loadingMore}
-              className="mx-auto mb-2 text-xs text-muted-foreground hover:text-foreground"
-            >
-              {loadingMore ? "Loading..." : "Load older messages"}
-            </button>
-          )}
-
           {initialLoading ? (
             <div className="flex flex-1 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -373,7 +536,15 @@ function PaneContent({ onClose }: { onClose: () => void }) {
                 )}
               >
                 {msg.role === "assistant" ? (
-                  <ChatMarkdown content={stripToolContext(msg.content)} />
+                  <>
+                    {msg.content ? <ChatMarkdown content={msg.content} /> : null}
+                    {streaming && activeTool && i === messages.length - 1 && (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        {activeTool.replace(/_/g, " ")}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   msg.content
                 )}
@@ -381,31 +552,23 @@ function PaneContent({ onClose }: { onClose: () => void }) {
             ))
           )}
 
-          {loading && (
+          {loading && !streaming && (
             <div className="mr-auto flex items-center gap-2 rounded-2xl border bg-background px-3.5 py-2.5">
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
-              <LoadingStatus />
+              <LoadingStatus toolName={activeTool} />
+            </div>
+          )}
+
+          {streaming && activeTool && messages.length === 0 && (
+            <div className="mr-auto flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {activeTool.replace(/_/g, " ")}
             </div>
           )}
         </div>
       </div>
-
-      {/* Near-limit banner */}
-      {nearLimit && (
-        <div className="flex items-center gap-2 border-t bg-warning/10 px-4 py-2 text-xs text-warning">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1">Conversation is getting long. Older messages will be lost.</span>
-          <button
-            type="button"
-            onClick={handleClear}
-            className="shrink-0 font-medium underline underline-offset-2 hover:text-warning/80"
-          >
-            New Chat
-          </button>
-        </div>
-      )}
 
       {/* Input */}
       <Separator />
@@ -424,14 +587,25 @@ function PaneContent({ onClose }: { onClose: () => void }) {
             className="max-h-32 min-h-[36px] flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-base sm:text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary"
             disabled={loading}
           />
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground transition-colors hover:brightness-110 disabled:pointer-events-none disabled:opacity-50"
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-          >
-            <Send className="h-4 w-4" />
-          </button>
+          {loading ? (
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-destructive text-destructive-foreground transition-colors hover:brightness-110"
+              onClick={handleCancel}
+              aria-label="Cancel"
+            >
+              <Square className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground transition-colors hover:brightness-110 disabled:pointer-events-none disabled:opacity-50"
+              onClick={handleSend}
+              disabled={!input.trim()}
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>
